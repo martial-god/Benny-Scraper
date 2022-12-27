@@ -3,15 +3,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
-    <RootNamespace>Benny_Scraper</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Selenium.WebDriver" Version="4.7.0" />
-    <PackageReference Include="Selenium.WebDriver.IEDriver" Version="4.7.0" />
-    <PackageReference Include="WebDriverManager" Version="2.16.2" />
+    <PackageReference Include="Google.Apis.Drive.v3" Version="1.58.0.2859" />
   </ItemGroup>
 
 </Project>

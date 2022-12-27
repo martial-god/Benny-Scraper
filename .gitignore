@@ -16,6 +16,9 @@
 # Mono auto generated files
 mono_crash.*
 
+# added by -hf
+GoogleDriveClient/client_access/client_secret.json
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

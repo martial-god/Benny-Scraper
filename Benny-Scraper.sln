@@ -5,6 +5,8 @@ VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benny-Scraper", "Benny-Scraper\Benny-Scraper.csproj", "{5A986A1A-950C-4309-9A2C-6321BE773EDD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoogleDriveClient", "GoogleDriveClient\GoogleDriveClient.csproj", "{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{5A986A1A-950C-4309-9A2C-6321BE773EDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A986A1A-950C-4309-9A2C-6321BE773EDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5A986A1A-950C-4309-9A2C-6321BE773EDD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
