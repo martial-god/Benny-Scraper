@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benny-Scraper", "Benny-Scraper\Benny-Scraper.csproj", "{5A986A1A-950C-4309-9A2C-6321BE773EDD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benny-Scraper", "Benny-Scraper\Benny-Scraper.csproj", "{5A986A1A-950C-4309-9A2C-6321BE773EDD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoogleDriveClient", "GoogleDriveClient\GoogleDriveClient.csproj", "{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GoogleDriveClient", "GoogleDriveClient\GoogleDriveClient.csproj", "{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

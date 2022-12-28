@@ -14,7 +14,8 @@ namespace GoogleDriveClient
     {
         private static readonly string[] Scopes = { DriveService.Scope.Drive };
         private static readonly string ApplicationName = "My Project";
-        private static readonly string ClientSecretPath = @"H:\Projects\C-Sharp\Benny-Scraper\GoogleDriveClient\client_access\client_secret.json";
+        // CurrentDirectory is the directory where the .exe is located, which is why we step back
+        private static readonly string ClientSecretPath = Path.Combine(Environment.CurrentDirectory, @"..\..\..\client_access\client_secret.json");
 
         internal DriveService _service;
 
