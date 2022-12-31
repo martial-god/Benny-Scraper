@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Folder Include="client_access\" />
+    <Folder Include="client_access\" />
   </ItemGroup>
 
 </Project>

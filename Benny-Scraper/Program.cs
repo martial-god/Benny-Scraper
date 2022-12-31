@@ -1,4 +1,6 @@
-﻿using OpenQA.Selenium;
+﻿using Benny_Scraper.DataAccess.Data;
+using Microsoft.EntityFrameworkCore;
+using OpenQA.Selenium;
 
 namespace Benny_Scraper
 {
@@ -7,6 +9,13 @@ namespace Benny_Scraper
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
+            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+            optionsBuilder.UseSqlServer("DefaultConnection");
+            using (var context = new ApplicationDbContext(optionsBuilder.Options))
+            {
+                // Your code here...
+                context.Database.EnsureCreated();
+            }
             Console.WriteLine("Hello, World!");
             IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
             Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
