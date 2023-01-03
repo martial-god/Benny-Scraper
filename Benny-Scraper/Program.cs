@@ -13,8 +13,6 @@ namespace Benny_Scraper
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
-            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-            optionsBuilder.UseSqlServer(GetConnectionString());
             // Create a service collection and configure the services
             var services = new ServiceCollection();
             //Configure service
