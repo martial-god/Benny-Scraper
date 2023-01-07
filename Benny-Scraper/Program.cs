@@ -1,8 +1,10 @@
 ﻿using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using OpenQA.Selenium;
 
 namespace Benny_Scraper
@@ -14,12 +16,18 @@ namespace Benny_Scraper
         static async Task Main(string[] args)
         {
             // Create a service collection and configure the services
+            
             var services = new ServiceCollection();
+            Console.WriteLine($"Connection String: {GetConnectionString()}");
+
             //Configure service
             ConfigureServices(services);
+
             var serviceProvider = services.BuildServiceProvider();
-            //using (var context = serviceProvider.GetService<ApplicationDbContext>())
+            Console.WriteLine($"Service Provider built");
+            // Unable to add any parameters to this. This is what will actually call the Construct the applicationdbcontext from Package Manager Console
             var context = serviceProvider.GetService<ApplicationDbContext>();
+            Console.WriteLine("Done with dbcontext");
 
             // Create the database if it doesn't exist
             context.Database.EnsureCreated();
@@ -29,25 +37,24 @@ namespace Benny_Scraper
                 Title = "Test Novel",
                 Author = "Test Author",
                 Description = "Test Description",
+                SiteName = "Test Site",
                 ChapterName = "Test Chapter",
                 ChapterNumber = 1,
-                DateCreated = DateTime.Now,                
+                DateCreated = DateTime.Now,
                 Genre = "Test Genre",
                 Url = "Test Url",
             };
             context.Novels.Add(novel);
             // Save the changes
             await context.SaveChangesAsync();
-            Console.WriteLine("Hello, World!");
-            IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-            Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
-            Task<IWebDriver> driver2 = driverFactory.CreateDriverAsync(1, false, "https://www.google.com");
-            Task<IWebDriver> driver3 = driverFactory.CreateDriverAsync(1, false, "https://www.novelfull.com");
-            Task<IWebDriver> driver4 = driverFactory.CreateDriverAsync(1, false, "https://www.novelupdates.com");
+            //Console.WriteLine("Hello, World!");
+            //IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
+            //Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
+            //Task<IWebDriver> driver2 = driverFactory.CreateDriverAsync(1, false, "https://www.google.com");
+            //Task<IWebDriver> driver3 = driverFactory.CreateDriverAsync(1, false, "https://www.novelfull.com");
+            //Task<IWebDriver> driver4 = driverFactory.CreateDriverAsync(1, false, "https://www.novelupdates.com");
             
-            await Task.WhenAll(driver, driver2, driver3, driver4);
-            driverFactory.DisposeAllDrivers();
-
+            //await Task.WhenAll(driver, driver2, driver3, driver4);
             //driverFactory.DisposeAllDrivers();
         }
 
@@ -69,6 +76,7 @@ namespace Benny_Scraper
         /// <param name="services"></param>
         private static void ConfigureServices(IServiceCollection services)
         {
+            // https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/
             // Add Entity Framework services to the service collection
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(GetConnectionString()));
