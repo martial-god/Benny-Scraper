@@ -37,7 +37,7 @@ namespace Benny_Scraper.DataAccess.Data
 
         // Creates maps to the database
         public DbSet<Novel> Novels { get; set; }
-        public DbSet<NovelList> NovelsList { get; set; }
+        public DbSet<NovelList> NovelLists { get; set; }
     }
 
     public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
