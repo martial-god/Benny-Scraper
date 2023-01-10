@@ -18,7 +18,6 @@ namespace Benny_Scraper.DataAccess.Repository
             _db = db;
             // make it so we don't have to keep using _db.Set.Add() or other methods
             this._dbSet = _db.Set<GenericDbObject>(); // set the dbset to the db set of the generic object. This is how we can use the generic repository
-
         }
 
         public void Add(GenericDbObject entity)
@@ -101,6 +100,14 @@ namespace Benny_Scraper.DataAccess.Repository
             return query.ToList();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
+        /// <param name="orderBy"></param>
+        /// <param name="includeProperties"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public async Task<IEnumerable<GenericDbObject>> GetAllAsync(Expression<Func<GenericDbObject, bool>>? filter = null,
             Func<IQueryable<GenericDbObject>, IOrderedQueryable<GenericDbObject>>? orderBy = null,
             string? includeProperties = null,
@@ -130,6 +137,12 @@ namespace Benny_Scraper.DataAccess.Repository
             return await query.ToListAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
+        /// <param name="includeProperties"></param>
+        /// <returns></returns>
         public GenericDbObject GetFirstOrDefault(Expression<Func<GenericDbObject, bool>> filter, string? includeProperties = null)
         {
             IQueryable<GenericDbObject> query = _dbSet;
@@ -145,6 +158,13 @@ namespace Benny_Scraper.DataAccess.Repository
             return query.FirstOrDefault(); // might return null
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
+        /// <param name="includeProperties"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public Task<GenericDbObject> GetFirstOrDefaultAsync(Expression<Func<GenericDbObject, bool>> filter,
             string? includeProperties = null,
             CancellationToken cancellationToken = default)

@@ -1,7 +1,7 @@
-﻿
-using Benny_Scraper.DataAccess.Data;
+﻿using Benny_Scraper.DataAccess.Data;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 
-namespace Benny_Scraper.DataAccess.Repository.IRepository
+namespace Benny_Scraper.DataAccess.Repository
 {
     internal class UnitOfWork : IUnitOfWork
     {
@@ -21,6 +21,6 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
         {
             return _db.SaveChangesAsync();
         }
-        
+
     }
 }
