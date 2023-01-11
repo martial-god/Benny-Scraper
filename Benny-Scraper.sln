@@ -3,9 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benny-Scraper", "Benny-Scraper\Benny-Scraper.csproj", "{5A986A1A-950C-4309-9A2C-6321BE773EDD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benny-Scraper", "Benny-Scraper\Benny-Scraper.csproj", "{5A986A1A-950C-4309-9A2C-6321BE773EDD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoogleDriveClient", "GoogleDriveClient\GoogleDriveClient.csproj", "{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GoogleDriveClient", "GoogleDriveClient\GoogleDriveClient.csproj", "{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benny-Scraper.Models", "Benny-Scraper.Models\Benny-Scraper.Models.csproj", "{AB95D056-20ED-4F57-9734-D6AC4BAB0545}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benny-Scraper.DataAccess", "Benny-Scraper.DataAccess\Benny-Scraper.DataAccess.csproj", "{9612A507-A28A-4811-A662-3109259CA649}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +25,14 @@ Global
 		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB95D056-20ED-4F57-9734-D6AC4BAB0545}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB95D056-20ED-4F57-9734-D6AC4BAB0545}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB95D056-20ED-4F57-9734-D6AC4BAB0545}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB95D056-20ED-4F57-9734-D6AC4BAB0545}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9612A507-A28A-4811-A662-3109259CA649}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9612A507-A28A-4811-A662-3109259CA649}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9612A507-A28A-4811-A662-3109259CA649}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9612A507-A28A-4811-A662-3109259CA649}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

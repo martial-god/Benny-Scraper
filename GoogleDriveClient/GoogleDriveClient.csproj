@@ -11,4 +11,9 @@
     <PackageReference Include="Google.Apis.Drive.v3" Version="1.58.0.2859" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="client_access\" />
+    <Folder Include="client_access\" />
+  </ItemGroup>
+
 </Project>
