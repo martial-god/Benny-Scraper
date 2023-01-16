@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
+using System.Text.RegularExpressions;
 using static System.Net.Mime.MediaTypeNames;
 
 //[assembly: log4net.Config.XmlConfigurator(ConfigFile = "log4net.config", Watch = true)]
@@ -69,6 +70,11 @@ namespace Benny_Scraper
             var title = novelPage.GetTitle(".title");
             var latestChapter = novelPage.GetLatestChapter(".l-chapters a span.chapter-text");
             List<string> chaptersUrl = novelPage.GetChapterUrls("list-chapter");
+            string lastChapterUrl = novelPage.GetLastTableOfContentPageUrl("last");
+            int lastChapterNumber = Regex.Match(lastChapterUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastChapterUrl, @"\d+").Value) : 0;
+            novelPage.GoToContentPageUrl(lastChapterNumber);
+            
+
             //Task<IWebDriver> driver4 = driverFactory.CreateDriverAsync(1, false, "https://www.novelupdates.com");
 
             //await Task.WhenAll(driver, driver2, driver3, driver4);
