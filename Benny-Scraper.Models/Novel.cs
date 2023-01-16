@@ -14,7 +14,6 @@ namespace Benny_Scraper.Models
 
         [StringLength(50)]
         public string? Author { get; set; }
-        public string? Summary { get; set; }
 
         [Required]
         [StringLength(50)]
