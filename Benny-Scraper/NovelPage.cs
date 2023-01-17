@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -47,19 +48,46 @@ namespace Benny_Scraper
             return null;
         }
         
-        public void GoToContentPageUrl(int lastChapterNumber)
+        /// <summary>
+        /// Goes to the table of contents and gets chapters listed by pagiation, url should be something that can be incremented
+        /// </summary>
+        /// <param name="startPagitation"></param>
+        /// <param name="lastPagitation"></param>
+        /// <returns></returns>
+        public IEnumerable<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation)
         {
             string baseTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html?page={0}";
+            List<string> chapters = new List<string>();
 
-            for (int i = 2; i <= lastChapterNumber; i++)
+            for (int i = startPagitation; i <= lastPagitation; i++)
             {
                 string tableOfContentUrl = string.Format(baseTableOfContentUrl, i);
-                _driver.Navigate().GoToUrl(tableOfContentUrl);
-                new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(tableOfContentUrl));
-                List<string> chapters = GetChapterUrls("list-chapter");
+                try
+                {                    
+                    _driver.Navigate().GoToUrl(tableOfContentUrl);
+                    new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(tableOfContentUrl));
+                    var chapterUrls = GetChapterUrls("list-chapter");
+                    if (chapterUrls != null)
+                        chapters.AddRange(chapterUrls);
+                }
+                catch (WebDriverException e)
+                {
+                    Logger.Log.Error($"Error occured while navigating to {tableOfContentUrl}. Error: {e}");
+                }
+
+            }
+            return chapters;
+        }        
+
+        public static void AddRange<T>(this ConcurrentBag<T> @this, IEnumerable<T> toAdd)
+        {
+            foreach (var element in toAdd)
+            {
+                @this.Add(element);
             }
         }
-        
+
+
         public string GetLastTableOfContentPageUrl(string selector)
         {
             try

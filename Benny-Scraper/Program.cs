@@ -72,7 +72,7 @@ namespace Benny_Scraper
             List<string> chaptersUrl = novelPage.GetChapterUrls("list-chapter");
             string lastChapterUrl = novelPage.GetLastTableOfContentPageUrl("last");
             int lastChapterNumber = Regex.Match(lastChapterUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastChapterUrl, @"\d+").Value) : 0;
-            novelPage.GoToContentPageUrl(lastChapterNumber);
+            novelPage.GetChaptersUsingPagitation(1, lastChapterNumber);
             
 
             //Task<IWebDriver> driver4 = driverFactory.CreateDriverAsync(1, false, "https://www.novelupdates.com");
