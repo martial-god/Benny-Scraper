@@ -45,7 +45,7 @@ namespace Benny_Scraper
             }
             catch (StaleElementReferenceException) { }
 
-            return null;
+            return new List<string>();
         }
         
         /// <summary>
@@ -54,7 +54,7 @@ namespace Benny_Scraper
         /// <param name="startPagitation"></param>
         /// <param name="lastPagitation"></param>
         /// <returns></returns>
-        public IEnumerable<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation)
+        public List<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation)
         {
             string baseTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html?page={0}";
             List<string> chapters = new List<string>();
@@ -77,14 +77,6 @@ namespace Benny_Scraper
 
             }
             return chapters;
-        }        
-
-        public static void AddRange<T>(this ConcurrentBag<T> @this, IEnumerable<T> toAdd)
-        {
-            foreach (var element in toAdd)
-            {
-                @this.Add(element);
-            }
         }
 
 
@@ -101,7 +93,7 @@ namespace Benny_Scraper
                 Logger.Log.Error($"No such element exception in GetChapterUrls. \n Selector: {selector}\n Url: {_driver.Url}");
             }
             catch (StaleElementReferenceException) { }
-            return null;
+            return string.Empty;
         }
 
 

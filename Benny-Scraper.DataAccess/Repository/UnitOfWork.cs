@@ -3,7 +3,7 @@ using Benny_Scraper.DataAccess.Repository.IRepository;
 
 namespace Benny_Scraper.DataAccess.Repository
 {
-    internal class UnitOfWork : IUnitOfWork
+    public class UnitOfWork : IUnitOfWork
     {
         private readonly ApplicationDbContext _db;
 

@@ -1,4 +1,7 @@
 ﻿using Benny_Scraper.DataAccess.Data;
+using Benny_Scraper.DataAccess.DbInitializer;
+using Benny_Scraper.DataAccess.Repository;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
 using log4net;
 using log4net.Config;
@@ -24,23 +27,68 @@ namespace Benny_Scraper
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
-            ConfigureLogger();
-            BasicConfigurator.Configure();
-            Logger.Setup();
-            Logger.Log.Info("Hello World");
-            Logger.Log.Debug("Here is a debug log.");
+            //ConfigureLogger();
+            //BasicConfigurator.Configure();
+            //Logger.Setup();
+            //Logger.Log.Info("Hello World");
+            //Logger.Log.Debug("Here is a debug log.");
             // Create a service collection and configure the services
 
-            var services = new ServiceCollection();
+
+            // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
+            using IHost host = Host.CreateDefaultBuilder(args)
+               .ConfigureServices(services =>
+               {
+                   //services.AddTransient<Program>();
+                   // https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/
+                   // Add Entity Framework services to the service collection
+                   services.AddDbContext<ApplicationDbContext>(options =>
+                       options.UseSqlServer(GetConnectionString()));
+
+                   // Add other services to the service collection as needed
+
+                   services.AddSingleton(GetConnectionString());
+                   services.AddScoped<IUnitOfWork, UnitOfWork>();
+                   services.AddScoped<IDbInitializer, DbInitializer>();
+               }).Build();
+
+            ExemplifyServiceLifetime(host.Services, "Lifetime 1");
+            ExemplifyServiceLifetime(host.Services, "Lifetime 2");
+
+            await host.RunAsync();
+
+            static void ExemplifyServiceLifetime(IServiceProvider hostProvider, string lifetime)
+            {
+                using IServiceScope serviceScope = hostProvider.CreateScope();
+                IServiceProvider provider = serviceScope.ServiceProvider;
+                IUnitOfWork unitOfWork = provider.GetRequiredService<IUnitOfWork>();
+                IDbInitializer dbInitializer = provider.GetRequiredService<IDbInitializer>();
+
+                //startUp.ReportServiceLifetimeDetails(
+                //    $"{lifetime}: Call 1 to provider.GetRequiredService<ServiceLifetimeLogger>()");
+
+                Console.WriteLine("...");
+                var novel = new Novel
+                {
+                    Title = "Test",
+                    Url = @"https://novelfull.com",
+                    DateCreated = DateTime.Now,
+                };
+
+                IStartUp startUp = new StartUp(unitOfWork);
+                startUp.CreateNovel(novel);
+            }
+
+            //var services = new ServiceCollection();
             Console.WriteLine($"Connection String: {GetConnectionString()}");
 
             //Configure service
-            ConfigureServices(services);
+            //ConfigureServices(services);
 
-            var serviceProvider = services.BuildServiceProvider();
+            //var serviceProvider = services.BuildServiceProvider();
             Console.WriteLine($"Service Provider built");
             // Unable to add any parameters to this. This is what will actually call the Construct the applicationdbcontext from Package Manager Console
-            var context = serviceProvider.GetService<ApplicationDbContext>();
+            //var context = serviceProvider.GetService<ApplicationDbContext>();
             Console.WriteLine("Done with dbcontext");
 
             // Create the database if it doesn't exist
@@ -59,8 +107,7 @@ namespace Benny_Scraper
             //    Url = "Test Url",
             //};
             //context.Novels.Add(novel);
-            // Save the changes
-            await context.SaveChangesAsync();
+            // Save the changes            
             //Console.WriteLine("Hello, World!");
             IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
             //Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
@@ -72,7 +119,17 @@ namespace Benny_Scraper
             List<string> chaptersUrl = novelPage.GetChapterUrls("list-chapter");
             string lastChapterUrl = novelPage.GetLastTableOfContentPageUrl("last");
             int lastChapterNumber = Regex.Match(lastChapterUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastChapterUrl, @"\d+").Value) : 0;
-            novelPage.GetChaptersUsingPagitation(1, lastChapterNumber);
+            List<string> chapters = novelPage.GetChaptersUsingPagitation(20, lastChapterNumber);
+            var first = chapters.First();
+
+            
+
+            
+
+            
+            
+            
+
             
 
             //Task<IWebDriver> driver4 = driverFactory.CreateDriverAsync(1, false, "https://www.novelupdates.com");
@@ -121,7 +178,10 @@ namespace Benny_Scraper
                 options.UseSqlServer(GetConnectionString()));
 
             // Add other services to the service collection as needed
+            
             services.AddSingleton(GetConnectionString());
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IDbInitializer, DbInitializer>();
         }
     }
 }

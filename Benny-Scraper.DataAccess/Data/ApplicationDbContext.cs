@@ -11,7 +11,7 @@ namespace Benny_Scraper.DataAccess.Data
         // https://social.msdn.microsoft.com/Forums/en-US/07c93e8b-5092-4211-80e6-3932d87664c3/always-got-this-error-when-scaffolding-suddenly-8220there-was-an-error-running-the-selected-code?forum=aspdotnetcore
         // Setup for this https://learn.microsoft.com/en-us/ef/ef6/modeling/code-first/workflows/new-database?source=recommendations
         private readonly string? _connectionString;
-        public static string connectionString = "Server=localhost;Database=Test;TrustServerCertificate=True;Trusted_Connection=True;";
+        public static string connectionString = "Server=localhost;Database=BennyScraper;TrustServerCertificate=True;Trusted_Connection=True;";
 
         // if this error appears it means that the connection string is not correct
         //Unable to create an object of type 'ApplicationDbContext'. For the different patterns supported at design time, see https://go.microsoft.com/fwlink/?linkid=851728
@@ -40,6 +40,9 @@ namespace Benny_Scraper.DataAccess.Data
         public DbSet<NovelList> NovelLists { get; set; }
     }
 
+    /// <summary>
+    /// Comment this out for the add-migration to work
+    /// </summary>
     public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
     {
         public ApplicationDbContext CreateDbContext(string[] args)
