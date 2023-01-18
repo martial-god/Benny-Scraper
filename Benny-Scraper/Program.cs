@@ -26,6 +26,13 @@ namespace Benny_Scraper
         //private const string _connectionString = "Server=localhost;Database=Test;TrustServerCertificate=True;Trusted_Connection=True;";
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         private readonly IStartUpService _startUpService;
+
+        // Constructor Injection
+        public Program(IStartUpService startUpService)
+        {
+            _startUpService = startUpService;
+        }
+
         static async Task Main(string[] args)
         {
             // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
@@ -36,11 +43,23 @@ namespace Benny_Scraper
                    new Startup().ConfigureServices(services);
                }).Build();
 
-            ExemplifyServiceLifetime(host.Services, "Lifetime 1");
-            ExemplifyServiceLifetime(host.Services, "Lifetime 2");
+            //ExemplifyServiceLifetime(host.Services, "Lifetime 1");
+            //ExemplifyServiceLifetime(host.Services, "Lifetime 2");
 
-            await host.RunAsync();
+            //await host.RunAsync();
 
+            var novel = new Novel
+            {
+                Title = "Test2",
+                Url = @"https://novelfull.com",
+                DateCreated = DateTime.Now,
+                SiteName = "novelfull",
+                ChapterName = "Test2",
+                ChapterNumber = 1
+            };
+
+            IStartUpService startUpService = host.Services.GetRequiredService<IStartUpService>();
+            await startUpService.CreateNovel(novel);
 
             static void ExemplifyServiceLifetime(IServiceProvider hostProvider, string lifetime)
             {
@@ -58,11 +77,11 @@ namespace Benny_Scraper
                 Console.WriteLine("...");
                 var novel = new Novel
                 {
-                    Title = "Test",
+                    Title = "Test2",
                     Url = @"https://novelfull.com",
                     DateCreated = DateTime.Now,
                     SiteName = "novelfull",
-                    ChapterName = "Test",
+                    ChapterName = "Test2",
                     ChapterNumber = 1
                 };
 
