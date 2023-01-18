@@ -12,18 +12,13 @@ namespace Benny_Scraper.Models
         [StringLength(255)]
         public string Title { get; set; }
 
-        [StringLength(50)]
-        public string? Author { get; set; }
-
-        [Required]
-        [StringLength(50)]
-        public string? SiteName { get; set; }
+        [StringLength(50)] public string? Author { get; set; }
+        
+        [StringLength(50)] public string? SiteName { get; set; }
         public string? Genre { get; set; }
         public string? Description { get; set; }
-
-        [Required]
-        [StringLength(144)]
-        public string? ChapterName { get; set;}
+        
+        [StringLength(144)] public string? ChapterName { get; set;}
         public int? ChapterNumber { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get { return DateTime.Now; } }

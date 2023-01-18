@@ -1,29 +1,41 @@
-﻿using Benny_Scraper.DataAccess.Repository.IRepository;
+﻿using Benny_Scraper.DataAccess.Data;
+using Benny_Scraper.DataAccess.DbInitializer;
+using Benny_Scraper.DataAccess.Repository;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace Benny_Scraper
 {
-    internal class StartUp : IStartUp
+    public class Startup
     {
-        private readonly IUnitOfWork _unitOfWork;
-
-        public StartUp(IUnitOfWork unitOfWork)
+        public void ConfigureServices(IServiceCollection services)
         {
-            _unitOfWork = unitOfWork;
+            // Add services here for dependency injection
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(GetConnectionString()));
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IDbInitializer, DbInitializer>();
+            services.AddScoped<IStartUpService, StartUpService>();
+            // another way to use a server is
+            //IStartUpService startUpService = serviceProvider.GetService<IStartUpService>();
+            //startUpService.CreateNovel(novel);
+
         }
 
-        // Create new novel with a passed in novel
-        public void CreateNovel(Novel novel)
+        private static string GetConnectionString()
         {
-            _unitOfWork.Novel.Add(novel);
-            _unitOfWork.SaveAsync();
-        }
+            // to resolve issue with the methods not being part of the ConfigurationBuilder() 
+            //https://stackoverflow.com/questions/57158388/configurationbuilder-does-not-contain-a-definition-for-addjsonfile
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 
-        public void ReportServiceLifetimeDetails(string lifetimeDetails)
-        {
-            Console.WriteLine(lifetimeDetails);
-            Console.WriteLine("Changes only with lifetime");
+            string connectionString = builder.Build().GetConnectionString("DefaultConnection");
+            return connectionString;
         }
-        
     }
 }
