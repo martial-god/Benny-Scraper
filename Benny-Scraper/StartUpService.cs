@@ -13,11 +13,14 @@ namespace Benny_Scraper
         }
 
         // Create new novel with a passed in novel
-        public async Task CreateNovel(Novel novel)
+        public async Task CreateNovelAsync(Novel novel)
         {
+            var foo =  _unitOfWork.Novel.GetAll();
             await _unitOfWork.Novel.AddAsync(novel);
             await _unitOfWork.SaveAsync();
         }
+
+        
 
         public void ReportServiceLifetimeDetails(string lifetimeDetails)
         {

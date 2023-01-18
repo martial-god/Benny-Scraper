@@ -4,6 +4,6 @@ namespace Benny_Scraper
 {
     public interface IStartUpService
     {
-        public Task CreateNovel(Novel novel);
+        public Task CreateNovelAsync(Novel novel);
     }
 }

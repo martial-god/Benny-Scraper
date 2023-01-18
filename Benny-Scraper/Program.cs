@@ -59,7 +59,7 @@ namespace Benny_Scraper
             };
 
             IStartUpService startUpService = host.Services.GetRequiredService<IStartUpService>();
-            await startUpService.CreateNovel(novel);
+            await startUpService.CreateNovelAsync(novel);
 
             static void ExemplifyServiceLifetime(IServiceProvider hostProvider, string lifetime)
             {
@@ -86,7 +86,7 @@ namespace Benny_Scraper
                 };
 
                 //IStartUp startUp = new StartUp(unitOfWork);
-                startUp1.CreateNovel(novel);
+                startUp1.CreateNovelAsync(novel);
             }
 
             IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
