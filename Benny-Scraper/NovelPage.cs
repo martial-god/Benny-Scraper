@@ -40,6 +40,7 @@ namespace Benny_Scraper
                 var latestChapter = GetLatestChapter(".l-chapters a span.chapter-text");
                 string lastPageUrl = GetLastTableOfContentPageUrl("last");
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
+                // use List<string, string> and have the GetChapters... return the content as well.
                 List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage);
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
@@ -48,6 +49,7 @@ namespace Benny_Scraper
                 {
                     Url = url,
                     DateCreated = DateTime.UtcNow,
+                    Content = 
                 }).ToList();
 
                 Novel novel = new Novel
