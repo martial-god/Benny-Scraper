@@ -19,7 +19,7 @@ namespace Benny_Scraper
                 options.UseSqlServer(GetConnectionString()));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IDbInitializer, DbInitializer>();
-            services.AddScoped<IStartUpService, StartUpService>();
+            services.AddScoped<INovelService, NovelService>();
             // another way to use a server is
             //IStartUpService startUpService = serviceProvider.GetService<IStartUpService>();
             //startUpService.CreateNovel(novel);

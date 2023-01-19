@@ -7,6 +7,7 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
     /// </summary>
     public interface IUnitOfWork
     {
+        IChapterRepository Chapter { get; }
         INovelRepository Novel { get; }
         INovelListRepository NovelList { get; }
         Task<int> SaveAsync();

@@ -3,7 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Benny_Scraper.Models;
 using Microsoft.IdentityModel.Tokens;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
@@ -20,6 +22,54 @@ namespace Benny_Scraper
         {
             _driver = driver;
             Logger.Setup();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="url">url that contains the table of contents</param>
+        /// <returns></returns>
+        public Novel BuildNovel(string url)
+        {
+            try
+            {
+                _driver.Navigate().GoToUrl(url);
+                new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(url));
+
+                var title = GetTitle(".title");
+                var latestChapter = GetLatestChapter(".l-chapters a span.chapter-text");
+                string lastPageUrl = GetLastTableOfContentPageUrl("last");
+                int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
+                List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage);
+                var firstChapterUrl = chapterUrls.First();
+                var lastChapterUrl = chapterUrls.Last();
+                
+                List<Chapter> chapters = chapterUrls.Select(url => new Chapter
+                {
+                    Url = url,
+                    DateCreated = DateTime.UtcNow,
+                }).ToList();
+
+                Novel novel = new Novel
+                {
+                    Title = title,
+                    SiteName = "Novelfull",
+                    Url = url,
+                    FirstChapter = firstChapterUrl,
+                    CurrentChapter = latestChapter,
+                    TotalChapters = chapterUrls.Count,
+                    Chapters = chapters,
+                    DateCreated = DateTime.UtcNow,
+                    Status = "ONGOING",
+                };
+                return novel;
+            }
+            catch (Exception e)
+            {
+                Logger.Log.Error(e);
+                throw;
+            }
+            return new Novel();
         }
 
         /// <summary>

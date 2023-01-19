@@ -3,6 +3,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Benny_Scraper.Models
 {
+    /// <summary>
+    /// One to One relationship between NovelList and Novel. Each novel list has one novel, and each novel belongs to one novel list.
+    /// </summary>
     public class NovelList
     {
         public Guid Id { get; set; }

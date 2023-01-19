@@ -2,7 +2,7 @@
 
 namespace Benny_Scraper
 {
-    public interface IStartUpService
+    public interface INovelService
     {
         public Task CreateNovelAsync(Novel novel);
     }
