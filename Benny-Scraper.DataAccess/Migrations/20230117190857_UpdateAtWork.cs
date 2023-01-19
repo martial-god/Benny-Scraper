@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BennyScraper.DataAccess.Migrations
 {
     /// <inheritdoc />
-    public partial class FirstDatabaseInitialization : Migration
+    public partial class UpdateAtWork : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -18,7 +18,6 @@ namespace BennyScraper.DataAccess.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Title = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
                     Author = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    Summary = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     SiteName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Genre = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -34,7 +33,7 @@ namespace BennyScraper.DataAccess.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "NovelsList",
+                name: "NovelLists",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -46,9 +45,9 @@ namespace BennyScraper.DataAccess.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_NovelsList", x => x.Id);
+                    table.PrimaryKey("PK_NovelLists", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_NovelsList_Novels_NovelId",
+                        name: "FK_NovelLists_Novels_NovelId",
                         column: x => x.NovelId,
                         principalTable: "Novels",
                         principalColumn: "Id",
@@ -56,8 +55,8 @@ namespace BennyScraper.DataAccess.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_NovelsList_NovelId",
-                table: "NovelsList",
+                name: "IX_NovelLists_NovelId",
+                table: "NovelLists",
                 column: "NovelId");
         }
 
@@ -65,7 +64,7 @@ namespace BennyScraper.DataAccess.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "NovelsList");
+                name: "NovelLists");
 
             migrationBuilder.DropTable(
                 name: "Novels");

@@ -1,4 +1,7 @@
 ﻿using Benny_Scraper.DataAccess.Data;
+using Benny_Scraper.DataAccess.DbInitializer;
+using Benny_Scraper.DataAccess.Repository;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
 using log4net;
 using log4net.Config;
@@ -22,76 +25,43 @@ namespace Benny_Scraper
         //private static readonly ILog logger = LogManager.GetLogger(typeof(Program));
         //private const string _connectionString = "Server=localhost;Database=Test;TrustServerCertificate=True;Trusted_Connection=True;";
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
+        private readonly INovelService _startUpService;
+
+        // Constructor Injection
+        public Program(INovelService startUpService)
+        {
+            _startUpService = startUpService;
+        }
+
         static async Task Main(string[] args)
         {
-            ConfigureLogger();
-            BasicConfigurator.Configure();
-            Logger.Setup();
-            Logger.Log.Info("Hello World");
-            Logger.Log.Debug("Here is a debug log.");
-            // Create a service collection and configure the services
+            // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
+            using IHost host = Host.CreateDefaultBuilder(args)
+               .ConfigureServices(services =>
+               {
+                   // Services here
+                   new Startup().ConfigureServices(services);
+               }).Build();
 
-            var services = new ServiceCollection();
-            Console.WriteLine($"Connection String: {GetConnectionString()}");
+            //ExemplifyServiceLifetime(host.Services, "Lifetime 1");
 
-            //Configure service
-            ConfigureServices(services);
+            
 
-            var serviceProvider = services.BuildServiceProvider();
-            Console.WriteLine($"Service Provider built");
-            // Unable to add any parameters to this. This is what will actually call the Construct the applicationdbcontext from Package Manager Console
-            var context = serviceProvider.GetService<ApplicationDbContext>();
-            Console.WriteLine("Done with dbcontext");
+            INovelService startUpService = host.Services.GetRequiredService<INovelService>();
+            //await startUpService.CreateNovelAsync(novel);
 
-            // Create the database if it doesn't exist
-            //context.Database.EnsureCreated();
-            // Add a new novel to the database
-            //var novel = new Novel
-            //{
-            //    Title = "Test Novel",
-            //    Author = "Test Author",
-            //    Description = "Test Description",
-            //    SiteName = "Test Site",
-            //    ChapterName = "Test Chapter",
-            //    ChapterNumber = 1,
-            //    DateCreated = DateTime.Now,
-            //    Genre = "Test Genre",
-            //    Url = "Test Url",
-            //};
-            //context.Novels.Add(novel);
-            // Save the changes
-            await context.SaveChangesAsync();
-            //Console.WriteLine("Hello, World!");
+            
+
             IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
             //Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
             //Task<IWebDriver> driver2 = driverFactory.CreateDriverAsync(1, false, "https://www.google.com");
             Task<IWebDriver> driver3 = driverFactory.CreateDriverAsync(1, false, "https://novelfull.com/paragon-of-sin.html");
             NovelPage novelPage = new NovelPage(driver3.Result);
-            var title = novelPage.GetTitle(".title");
-            var latestChapter = novelPage.GetLatestChapter(".l-chapters a span.chapter-text");
-            List<string> chaptersUrl = novelPage.GetChapterUrls("list-chapter");
-            string lastChapterUrl = novelPage.GetLastTableOfContentPageUrl("last");
-            int lastChapterNumber = Regex.Match(lastChapterUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastChapterUrl, @"\d+").Value) : 0;
-            novelPage.GoToContentPageUrl(lastChapterNumber);
-            
+            Novel novel = novelPage.BuildNovel("https://novelfull.com/paragon-of-sin.html");
+            await startUpService.CreateNovelAsync(novel);
 
-            //Task<IWebDriver> driver4 = driverFactory.CreateDriverAsync(1, false, "https://www.novelupdates.com");
-
-            //await Task.WhenAll(driver, driver2, driver3, driver4);
             driverFactory.DisposeAllDrivers();
-        }
-
-        private static string GetConnectionString()
-        {
-            // to resolve issue with the methods not being part of the ConfigurationBuilder() 
-            //https://stackoverflow.com/questions/57158388/configurationbuilder-does-not-contain-a-definition-for-addjsonfile
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-            
-            string connectionString = builder.Build().GetConnectionString("DefaultConnection");
-            return connectionString;
-        }
+        }        
         
         private static void ConfigureLogger() {
             var builder = new HostBuilder()
@@ -106,22 +76,32 @@ namespace Benny_Scraper
                     logBuilder.AddLog4Net("log4net.config");
 
                 }).UseConsoleLifetime();
-
         }
 
-        /// <summary>
-        /// Manages servers we can add. This is the same as the MVC builder.Services, as we have the actual service
-        /// </summary>
-        /// <param name="services"></param>
-        private static void ConfigureServices(IServiceCollection services)
+        static void ExemplifyServiceLifetime(IServiceProvider hostProvider, string lifetime)
         {
-            // https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/
-            // Add Entity Framework services to the service collection
-            services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(GetConnectionString()));
+            using IServiceScope serviceScope = hostProvider.CreateScope();
 
-            // Add other services to the service collection as needed
-            services.AddSingleton(GetConnectionString());
+            IServiceProvider provider = serviceScope.ServiceProvider;
+            IUnitOfWork unitOfWork = provider.GetRequiredService<IUnitOfWork>();
+            IDbInitializer dbInitializer = provider.GetRequiredService<IDbInitializer>();
+            dbInitializer.Initialize();
+            INovelService startUp1 = provider.GetRequiredService<INovelService>();
+
+            //startUp.ReportServiceLifetimeDetails(
+            //    $"{lifetime}: Call 1 to provider.GetRequiredService<ServiceLifetimeLogger>()");
+
+            Console.WriteLine("...");
+            var novel = new Novel
+            {
+                Title = "Test2",
+                Url = @"https://novelfull.com",
+                DateCreated = DateTime.Now,
+                SiteName = "novelfull",
+            };
+
+            INovelService startUp = new NovelService(unitOfWork);
+            startUp1.CreateNovelAsync(novel);
         }
     }
 }

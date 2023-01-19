@@ -2,7 +2,7 @@
 
 namespace Benny_Scraper.DataAccess.Repository.IRepository
 {
-    internal interface INovelRepository : IRepository<Novel>
+    public interface INovelRepository : IRepository<Novel>
     {
         void Update(Novel obj);
     }

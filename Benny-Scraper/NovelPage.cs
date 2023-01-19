@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Benny_Scraper.Models;
 using Microsoft.IdentityModel.Tokens;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
@@ -19,6 +22,54 @@ namespace Benny_Scraper
         {
             _driver = driver;
             Logger.Setup();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="url">url that contains the table of contents</param>
+        /// <returns></returns>
+        public Novel BuildNovel(string url)
+        {
+            try
+            {
+                _driver.Navigate().GoToUrl(url);
+                new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(url));
+
+                var title = GetTitle(".title");
+                var latestChapter = GetLatestChapter(".l-chapters a span.chapter-text");
+                string lastPageUrl = GetLastTableOfContentPageUrl("last");
+                int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
+                List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage);
+                var firstChapterUrl = chapterUrls.First();
+                var lastChapterUrl = chapterUrls.Last();
+                
+                List<Chapter> chapters = chapterUrls.Select(url => new Chapter
+                {
+                    Url = url,
+                    DateCreated = DateTime.UtcNow,
+                }).ToList();
+
+                Novel novel = new Novel
+                {
+                    Title = title,
+                    SiteName = "Novelfull",
+                    Url = url,
+                    FirstChapter = firstChapterUrl,
+                    CurrentChapter = latestChapter,
+                    TotalChapters = chapterUrls.Count,
+                    Chapters = chapters,
+                    DateCreated = DateTime.UtcNow,
+                    Status = "ONGOING",
+                };
+                return novel;
+            }
+            catch (Exception e)
+            {
+                Logger.Log.Error(e);
+                throw;
+            }
+            return new Novel();
         }
 
         /// <summary>
@@ -44,22 +95,41 @@ namespace Benny_Scraper
             }
             catch (StaleElementReferenceException) { }
 
-            return null;
+            return new List<string>();
         }
         
-        public void GoToContentPageUrl(int lastChapterNumber)
+        /// <summary>
+        /// Goes to the table of contents and gets chapters listed by pagiation, url should be something that can be incremented
+        /// </summary>
+        /// <param name="startPagitation"></param>
+        /// <param name="lastPagitation"></param>
+        /// <returns></returns>
+        public List<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation)
         {
             string baseTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html?page={0}";
+            List<string> chapters = new List<string>();
 
-            for (int i = 2; i <= lastChapterNumber; i++)
+            for (int i = startPagitation; i <= lastPagitation; i++)
             {
                 string tableOfContentUrl = string.Format(baseTableOfContentUrl, i);
-                _driver.Navigate().GoToUrl(tableOfContentUrl);
-                new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(tableOfContentUrl));
-                List<string> chapters = GetChapterUrls("list-chapter");
+                try
+                {                    
+                    _driver.Navigate().GoToUrl(tableOfContentUrl);
+                    new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(tableOfContentUrl));
+                    var chapterUrls = GetChapterUrls("list-chapter");
+                    if (chapterUrls != null)
+                        chapters.AddRange(chapterUrls);
+                }
+                catch (WebDriverException e)
+                {
+                    Logger.Log.Error($"Error occured while navigating to {tableOfContentUrl}. Error: {e}");
+                }
+
             }
+            return chapters;
         }
-        
+
+
         public string GetLastTableOfContentPageUrl(string selector)
         {
             try
@@ -73,7 +143,7 @@ namespace Benny_Scraper
                 Logger.Log.Error($"No such element exception in GetChapterUrls. \n Selector: {selector}\n Url: {_driver.Url}");
             }
             catch (StaleElementReferenceException) { }
-            return null;
+            return string.Empty;
         }
 
 

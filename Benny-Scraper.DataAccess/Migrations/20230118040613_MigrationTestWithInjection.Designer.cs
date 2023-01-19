@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20230107125231_FirstDatabaseInitialization")]
-    partial class FirstDatabaseInitialization
+    [Migration("20230118040613_MigrationTestWithInjection")]
+    partial class MigrationTestWithInjection
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -36,7 +36,6 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("ChapterName")
-                        .IsRequired()
                         .HasMaxLength(144)
                         .HasColumnType("nvarchar(144)");
 
@@ -57,12 +56,8 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("SiteName")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Summary")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -105,7 +100,7 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.HasIndex("NovelId");
 
-                    b.ToTable("NovelsList");
+                    b.ToTable("NovelLists");
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.NovelList", b =>

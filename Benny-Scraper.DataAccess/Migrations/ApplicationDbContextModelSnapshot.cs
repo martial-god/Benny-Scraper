@@ -22,6 +22,39 @@ namespace BennyScraper.DataAccess.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("NovelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NovelId");
+
+                    b.ToTable("Chapters");
+                });
+
             modelBuilder.Entity("Benny_Scraper.Models.Novel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -32,19 +65,21 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("ChapterName")
+                    b.Property<string>("CurrentChapter")
                         .IsRequired()
                         .HasMaxLength(144)
                         .HasColumnType("nvarchar(144)");
-
-                    b.Property<int?>("ChapterNumber")
-                        .HasColumnType("int");
 
                     b.Property<DateTime>("DateCreated")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FirstChapter")
+                        .IsRequired()
+                        .HasMaxLength(144)
+                        .HasColumnType("nvarchar(144)");
 
                     b.Property<string>("Genre")
                         .HasColumnType("nvarchar(max)");
@@ -58,13 +93,17 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Summary")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<string>("Status")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
+
+                    b.Property<int?>("TotalChapters")
+                        .HasColumnType("int");
 
                     b.Property<string>("Url")
                         .IsRequired()
@@ -105,6 +144,13 @@ namespace BennyScraper.DataAccess.Migrations
                     b.ToTable("NovelLists");
                 });
 
+            modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>
+                {
+                    b.HasOne("Benny_Scraper.Models.Novel", null)
+                        .WithMany("Chapters")
+                        .HasForeignKey("NovelId");
+                });
+
             modelBuilder.Entity("Benny_Scraper.Models.NovelList", b =>
                 {
                     b.HasOne("Benny_Scraper.Models.Novel", "Novel")
@@ -114,6 +160,11 @@ namespace BennyScraper.DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Novel");
+                });
+
+            modelBuilder.Entity("Benny_Scraper.Models.Novel", b =>
+                {
+                    b.Navigation("Chapters");
                 });
 #pragma warning restore 612, 618
         }

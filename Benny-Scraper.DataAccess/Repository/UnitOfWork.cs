@@ -3,17 +3,20 @@ using Benny_Scraper.DataAccess.Repository.IRepository;
 
 namespace Benny_Scraper.DataAccess.Repository
 {
-    internal class UnitOfWork : IUnitOfWork
+    public class UnitOfWork : IUnitOfWork
     {
         private readonly ApplicationDbContext _db;
 
         public UnitOfWork(ApplicationDbContext db)
         {
             _db = db;
+            Chapter = new ChapterRespository(_db);
             Novel = new NovelRepository(_db);
             NovelList = new NovelListRepository(_db);
+
         }
 
+        public IChapterRepository Chapter { get; private set; }
         public INovelRepository Novel { get; private set; }
         public INovelListRepository NovelList { get; private set; }
 
