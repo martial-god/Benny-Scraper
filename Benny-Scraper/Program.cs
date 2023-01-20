@@ -57,7 +57,7 @@ namespace Benny_Scraper
             //Task<IWebDriver> driver2 = driverFactory.CreateDriverAsync(1, false, "https://www.google.com");
             Task<IWebDriver> driver3 = driverFactory.CreateDriverAsync(1, false, "https://novelfull.com/paragon-of-sin.html");
             NovelPage novelPage = new NovelPage(driver3.Result);
-            Novel novel = novelPage.BuildNovel("https://novelfull.com/paragon-of-sin.html");
+            Novel novel = await novelPage.BuildNovelAsync("https://novelfull.com/paragon-of-sin.html");
             await startUpService.CreateNovelAsync(novel);
 
             driverFactory.DisposeAllDrivers();

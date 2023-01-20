@@ -17,7 +17,10 @@ namespace Benny_Scraper
     internal class NovelPage
     {
         private readonly IWebDriver _driver;
-        
+        public class List<T1, T2>
+        {
+        }
+
         public NovelPage(IWebDriver driver)
         {
             _driver = driver;
@@ -29,7 +32,7 @@ namespace Benny_Scraper
         /// </summary>
         /// <param name="url">url that contains the table of contents</param>
         /// <returns></returns>
-        public Novel BuildNovel(string url)
+        public  async Task<Novel> BuildNovelAsync(string url)
         {
             try
             {
@@ -42,14 +45,17 @@ namespace Benny_Scraper
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
                 // use List<string, string> and have the GetChapters... return the content as well.
                 List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage);
+                IEnumerable<ChapterData> chapterData = await GetChapterDatasAsync(chapterUrls, "chapter-text");
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
                 
-                List<Chapter> chapters = chapterUrls.Select(url => new Chapter
+                List<Chapter> chapters = chapterData.Select(data => new Chapter
                 {
-                    Url = url,
-                    DateCreated = DateTime.UtcNow,
-                    Content = 
+                    Url = data.Url ?? "",
+                    Content = data.Content ?? "",
+                    Title = data.Title ?? "",
+                    DateCreated = DateTime.UtcNow                    
+
                 }).ToList();
 
                 Novel novel = new Novel
@@ -74,8 +80,40 @@ namespace Benny_Scraper
             return new Novel();
         }
 
+        public async Task<List<ChapterData>> GetChapterDatasAsync(List<string> chapterUrls, string titleSelector)
+        {
+            try
+            {
+                List<ChapterData> chapterData = new List<ChapterData>();
+                foreach (var url in chapterUrls)
+                {
+                    await Task.Run(() => {
+                        _driver.Navigate().GoToUrl(url);
+                        new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(url));
+                        
+                        var title = _driver.FindElement(By.ClassName(titleSelector)).Text ?? string.Empty;
+                        var content = _driver.FindElements(By.TagName("p")).Select(x => x.Text).ToString() ?? string.Empty;
+                        chapterData.Add(new ChapterData
+                        {
+                            Title = title,
+                            Content = content,
+                            Url = url
+                        });
+                    });
+                }
+                return chapterData;
+            }
+            catch (Exception e)
+            {
+                Logger.Log.Error(e);
+                throw;
+            }
+        }
+
+
+
         /// <summary>
-        /// Gets the urls of the chapters, will include the https://
+        /// Gets the urls of the chapters from the table of contents, will include https://
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
@@ -101,7 +139,7 @@ namespace Benny_Scraper
         }
         
         /// <summary>
-        /// Goes to the table of contents and gets chapters listed by pagiation, url should be something that can be incremented
+        /// Goes to the table of contents and gets chapters urls listed by pagiation, url should be something that can be incremented
         /// </summary>
         /// <param name="startPagitation"></param>
         /// <param name="lastPagitation"></param>
@@ -109,7 +147,7 @@ namespace Benny_Scraper
         public List<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation)
         {
             string baseTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html?page={0}";
-            List<string> chapters = new List<string>();
+            List<string> chapterUrls = new List<string>();
 
             for (int i = startPagitation; i <= lastPagitation; i++)
             {
@@ -118,9 +156,9 @@ namespace Benny_Scraper
                 {                    
                     _driver.Navigate().GoToUrl(tableOfContentUrl);
                     new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(tableOfContentUrl));
-                    var chapterUrls = GetChapterUrls("list-chapter");
-                    if (chapterUrls != null)
-                        chapters.AddRange(chapterUrls);
+                    var chapterUrlsOnContentPage = GetChapterUrls("list-chapter");
+                    if (chapterUrlsOnContentPage != null)
+                        chapterUrls.AddRange(chapterUrlsOnContentPage);
                 }
                 catch (WebDriverException e)
                 {
@@ -128,7 +166,7 @@ namespace Benny_Scraper
                 }
 
             }
-            return chapters;
+            return chapterUrls;
         }
 
 
@@ -190,4 +228,6 @@ namespace Benny_Scraper
 
         // Gets the total chapters of a novel
     }
+
+    
 }
