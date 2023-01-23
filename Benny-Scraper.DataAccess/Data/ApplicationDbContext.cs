@@ -19,6 +19,14 @@ namespace Benny_Scraper.DataAccess.Data
         {            
         }
 
+        #region Required
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Novel>().ToTable("novel");
+            modelBuilder.Entity<Chapter>().ToTable("chapter");
+        }
+        #endregion
+
         // Creates maps to the database
         public DbSet<Novel> Novels { get; set; }
         public DbSet<NovelList> NovelLists { get; set; }
