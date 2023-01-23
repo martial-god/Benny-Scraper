@@ -4,6 +4,7 @@ using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230122193455_RemoveDefaultValueFromNovel")]
+    partial class RemoveDefaultValueFromNovel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -83,9 +86,6 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.Property<string>("Genre")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("LastChapter")
-                        .HasColumnType("bit");
 
                     b.Property<string>("SaveLocation")
                         .HasMaxLength(255)
