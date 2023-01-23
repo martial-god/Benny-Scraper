@@ -47,20 +47,36 @@ namespace Benny_Scraper
 
             
 
-            INovelService startUpService = host.Services.GetRequiredService<INovelService>();
+            INovelService novelService = host.Services.GetRequiredService<INovelService>();
+            var novelTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html";
+            var isNovelInDb = await novelService.IsNovelInDatabaseAsync(novelTableOfContentUrl);
+            if (isNovelInDb)
+            {
+                // Get latest chapters to add to database
+            }
+            else
+            {
+                IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
+                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://google.com");                
+                NovelPage novelPage = new NovelPage(driver.Result);
+                Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
+                await novelService.CreateNovelAsync(novel);
+                driverFactory.DisposeAllDrivers();
+            }
+
+            //await startUpService.CreateNovelAsync(novel);
+
+
+
+            
+            //Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
+            //Task<IWebDriver> driver2 = driverFactory.CreateDriverAsync(1, false, "https://www.google.com");
+            
+            
+            
             //await startUpService.CreateNovelAsync(novel);
 
             
-
-            IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-            //Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
-            //Task<IWebDriver> driver2 = driverFactory.CreateDriverAsync(1, false, "https://www.google.com");
-            Task<IWebDriver> driver3 = driverFactory.CreateDriverAsync(1, false, "https://novelfull.com/paragon-of-sin.html");
-            NovelPage novelPage = new NovelPage(driver3.Result);
-            Novel novel = await novelPage.BuildNovelAsync("https://novelfull.com/paragon-of-sin.html");
-            await startUpService.CreateNovelAsync(novel);
-
-            driverFactory.DisposeAllDrivers();
         }        
         
         private static void ConfigureLogger() {

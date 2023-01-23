@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -17,6 +19,9 @@ namespace Benny_Scraper
     internal class NovelPage
     {
         private readonly IWebDriver _driver;
+        private string _fileSavePath = @"H:\Projects\Novels\{0}\{1}.html";
+        private string _pdfFileSavePath = @"H:\Projects\Novels\{0}\{1}.pdf";
+        private string _fileSaveFolder = @"H:\Projects\Novels\{0}\";
         public class List<T1, T2>
         {
         }
@@ -41,15 +46,34 @@ namespace Benny_Scraper
 
                 var title = GetTitle(".title");
                 var latestChapter = GetLatestChapter(".l-chapters a span.chapter-text");
+                List<string> info = new List<string>();
+                string author = string.Empty;
+                string genre = string.Empty;
+                string status = string.Empty;
+                bool lastChapter = false;
+                string siteName = string.Empty;
+                string saveFolder = string.Empty;
+                if (url.Contains("novelfull", StringComparison.OrdinalIgnoreCase))
+                {
+                    info = GetNovelFullNovelInfo();
+                    author = info.First();
+                    genre = string.Join(",", info.Skip(1).Take(info.Count() - 2)); // get the middle values skipping the first then stepping back 2 to skip the last
+                    status = info.Last().ToUpper();
+                    lastChapter = (status.ToLower() == "completed") ? true : false;
+                    siteName = "Novelfull";
+                    saveFolder = string.Format(_fileSaveFolder, title);
+                }
+                
                 string lastPageUrl = GetLastTableOfContentPageUrl("last");
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
                 // use List<string, string> and have the GetChapters... return the content as well.
                 List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage);
-                IEnumerable<ChapterData> chapterData = await GetChapterDatasAsync(chapterUrls, "chapter-text");
+                IEnumerable<ChapterData> chapterData = await GetChapterDatasAsync(chapterUrls, "chapter-text", title);
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
                 
-                List<Chapter> chapters = chapterData.Select(data => new Chapter
+                List<Chapter> chapters = chapterData.Select(data =>
+                new Chapter
                 {
                     Url = data.Url ?? "",
                     Content = data.Content ?? "",
@@ -61,14 +85,18 @@ namespace Benny_Scraper
                 Novel novel = new Novel
                 {
                     Title = title,
-                    SiteName = "Novelfull",
+                    SiteName = siteName,
                     Url = url,
+                    Author = author,
+                    Genre = genre,
                     FirstChapter = firstChapterUrl,
                     CurrentChapter = latestChapter,
                     TotalChapters = chapterUrls.Count,
+                    SaveLocation = saveFolder,
                     Chapters = chapters,
+                    LastChapter = lastChapter,
                     DateCreated = DateTime.UtcNow,
-                    Status = "ONGOING",
+                    Status = status,
                 };
                 return novel;
             }
@@ -80,32 +108,70 @@ namespace Benny_Scraper
             return new Novel();
         }
 
-        public async Task<List<ChapterData>> GetChapterDatasAsync(List<string> chapterUrls, string titleSelector)
+        /// <summary>
+        /// Assumes that we are already on the table of contents page of a Novelfull novel
+        /// </summary>
+        /// <returns></returns>
+        public List<string> GetNovelFullNovelInfo()
+        {
+            try
+            {
+                new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.ElementToBeClickable(By.ClassName("info")));
+                var info = _driver.FindElements(By.CssSelector(".info a"));
+                List<string> novelInfo = info.Select(u => u.Text).ToList(); //first is Author, Genre, and the last will be the status
+                return novelInfo;
+            }
+            catch (Exception e)
+            {
+                Logger.Log.Debug(e);
+                throw;
+            }
+        } 
+
+        public async Task<List<ChapterData>> GetChapterDatasAsync(List<string> chapterUrls, string titleSelector, string novelTitle)
         {
             try
             {
                 List<ChapterData> chapterData = new List<ChapterData>();
                 foreach (var url in chapterUrls)
-                {
-                    await Task.Run(() => {
-                        _driver.Navigate().GoToUrl(url);
-                        new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(url));
+                {                    
+                    _driver.Navigate().GoToUrl(url);
+                    new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(url));
+
+                    string fileRegex = @"[^a-zA-Z0-9-\s]";
+                    var title = _driver.FindElement(By.ClassName(titleSelector)).Text ?? string.Empty;
+                    var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
+                    //var contents = _driver.FindElements(By.TagName("p")).Select(x => x.Text).ToList();
+                    var contentHtml = _driver.FindElement(By.CssSelector("#chapter-content")).GetAttribute("outerHTML");
+
+                    string filePath = string.Format(_fileSavePath, novelTitle, fileSafeTitle);
+                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitle, fileSafeTitle);
+                    string directory = Path.GetDirectoryName(filePath);
                         
-                        var title = _driver.FindElement(By.ClassName(titleSelector)).Text ?? string.Empty;
-                        var content = _driver.FindElements(By.TagName("p")).Select(x => x.Text).ToString() ?? string.Empty;
-                        chapterData.Add(new ChapterData
-                        {
-                            Title = title,
-                            Content = content,
-                            Url = url
-                        });
+                    directory = Regex.Replace(directory, fileRegex, " ");
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    
+                    var renderer = new IronPdf.HtmlToPdf();
+                    var pdf = await renderer.RenderHtmlAsPdfAsync(contentHtml);
+                    pdf.SaveAs(pdfFilePath);
+                    File.WriteAllText(filePath, contentHtml);
+
+                    chapterData.Add(new ChapterData
+                    {
+                        Title = title,
+                        Content = contentHtml,
+                        Url = url
                     });
+                    
                 }
                 return chapterData;
             }
             catch (Exception e)
             {
-                Logger.Log.Error(e);
+                Logger.Log.Debug(e);
                 throw;
             }
         }
