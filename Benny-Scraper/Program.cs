@@ -48,7 +48,7 @@ namespace Benny_Scraper
             
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            var novelTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html";
+            var novelTableOfContentUrl = "https://novelfull.com/cultivation-online.html";
             var isNovelInDb = await novelService.IsNovelInDatabaseAsync(novelTableOfContentUrl);
             if (isNovelInDb)
             {
@@ -57,26 +57,12 @@ namespace Benny_Scraper
             else
             {
                 IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://google.com");                
+                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");                
                 NovelPage novelPage = new NovelPage(driver.Result);
                 Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
                 await novelService.CreateNovelAsync(novel);
                 driverFactory.DisposeAllDrivers();
             }
-
-            //await startUpService.CreateNovelAsync(novel);
-
-
-
-            
-            //Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://www.deviantart.com/blix-kreeg");
-            //Task<IWebDriver> driver2 = driverFactory.CreateDriverAsync(1, false, "https://www.google.com");
-            
-            
-            
-            //await startUpService.CreateNovelAsync(novel);
-
-            
         }        
         
         private static void ConfigureLogger() {

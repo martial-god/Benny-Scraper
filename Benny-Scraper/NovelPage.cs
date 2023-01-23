@@ -67,7 +67,7 @@ namespace Benny_Scraper
                 string lastPageUrl = GetLastTableOfContentPageUrl("last");
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
                 // use List<string, string> and have the GetChapters... return the content as well.
-                List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage);
+                List<string> chapterUrls = GetChaptersUsingPagitation(9, lastPage, url);
                 IEnumerable<ChapterData> chapterData = await GetChapterDatasAsync(chapterUrls, "chapter-text", title);
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
@@ -141,18 +141,19 @@ namespace Benny_Scraper
                     string fileRegex = @"[^a-zA-Z0-9-\s]";
                     var title = _driver.FindElement(By.ClassName(titleSelector)).Text ?? string.Empty;
                     var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
+                    var novelTitleFileSafe = Regex.Replace(novelTitle, fileRegex, " ");
                     //var contents = _driver.FindElements(By.TagName("p")).Select(x => x.Text).ToList();
                     var contentHtml = _driver.FindElement(By.CssSelector("#chapter-content")).GetAttribute("outerHTML");
 
-                    string filePath = string.Format(_fileSavePath, novelTitle, fileSafeTitle);
-                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitle, fileSafeTitle);
+                    string filePath = string.Format(_fileSavePath, novelTitleFileSafe, fileSafeTitle);
+                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitleFileSafe, fileSafeTitle);
                     string directory = Path.GetDirectoryName(filePath);
-                        
-                    directory = Regex.Replace(directory, fileRegex, " ");
+
                     if (!Directory.Exists(directory))
                     {
                         Directory.CreateDirectory(directory);
                     }
+                    
                     
                     var renderer = new IronPdf.HtmlToPdf();
                     var pdf = await renderer.RenderHtmlAsPdfAsync(contentHtml);
@@ -210,9 +211,9 @@ namespace Benny_Scraper
         /// <param name="startPagitation"></param>
         /// <param name="lastPagitation"></param>
         /// <returns></returns>
-        public List<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation)
+        public List<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation, string siteUrl)
         {
-            string baseTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html?page={0}";
+            string baseTableOfContentUrl = siteUrl+"?page={0}";
             List<string> chapterUrls = new List<string>();
 
             for (int i = startPagitation; i <= lastPagitation; i++)
