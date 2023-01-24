@@ -9,6 +9,8 @@ namespace Benny_Scraper.Models
     public class Chapter
     {
         public Guid Id { get; set; }
+        public Guid NovelId { get; set; }
+        public Novel Novel { get; set; }
         [StringLength(255)]
         public string? Title { get; set; }
         public string Url { get; set; }

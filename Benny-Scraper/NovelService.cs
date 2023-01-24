@@ -26,8 +26,19 @@ namespace Benny_Scraper
             await _unitOfWork.SaveAsync();
         }
 
+        public async Task<Novel> GetNovelByUrlAsync(string url)
+        {
+            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == url);
+            if (context != null)
+            {
+                var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
+                context.Chapters = chapterContext.ToList();
+            }
+            return context;
+        }
+
         /// <summary>
-        /// Check for novel in database
+        /// Check for novel in database by url
         /// </summary>
         /// <param name="tableOfContentsUrl">url of the table of contents page of the novel</param>
         /// <returns></returns>

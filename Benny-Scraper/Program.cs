@@ -48,20 +48,22 @@ namespace Benny_Scraper
             
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            var novelTableOfContentUrl = "https://novelfull.com/cultivation-online.html";
-            var isNovelInDb = await novelService.IsNovelInDatabaseAsync(novelTableOfContentUrl);
-            if (isNovelInDb)
-            {
-                // Get latest chapters to add to database
-            }
-            else
+            var novelTableOfContentUrl = "https://novelfull.com/ze-tian-ji.html";
+            var novelContext = await novelService.GetNovelByUrlAsync(novelTableOfContentUrl);
+
+            if (novelContext == null) // Novel is not in database so add it
             {
                 IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");                
+                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
                 NovelPage novelPage = new NovelPage(driver.Result);
                 Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
                 await novelService.CreateNovelAsync(novel);
                 driverFactory.DisposeAllDrivers();
+            }
+            else // make changes or update novel and chapters
+            {
+                var currentChapter = novelContext?.CurrentChapter;
+                var chapterContext = novelContext?.Chapters;
             }
         }        
         

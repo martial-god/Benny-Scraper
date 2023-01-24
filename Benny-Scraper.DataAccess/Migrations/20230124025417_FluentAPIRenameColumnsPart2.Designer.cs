@@ -4,6 +4,7 @@ using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230124025417_FluentAPIRenameColumnsPart2")]
+    partial class FluentAPIRenameColumnsPart2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -37,9 +40,8 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("date_created");
 
-                    b.Property<Guid>("NovelId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("novel_id");
+                    b.Property<Guid?>("NovelId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("Number")
                         .HasColumnType("int")
@@ -170,13 +172,9 @@ namespace BennyScraper.DataAccess.Migrations
 
             modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>
                 {
-                    b.HasOne("Benny_Scraper.Models.Novel", "Novel")
+                    b.HasOne("Benny_Scraper.Models.Novel", null)
                         .WithMany("Chapters")
-                        .HasForeignKey("NovelId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Novel");
+                        .HasForeignKey("NovelId");
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.NovelList", b =>

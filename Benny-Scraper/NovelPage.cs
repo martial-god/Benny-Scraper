@@ -19,12 +19,9 @@ namespace Benny_Scraper
     internal class NovelPage
     {
         private readonly IWebDriver _driver;
-        private string _fileSavePath = @"H:\Projects\Novels\{0}\{1}.html";
-        private string _pdfFileSavePath = @"H:\Projects\Novels\{0}\{1}.pdf";
+        private string _fileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.html";
+        private string _pdfFileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.pdf";
         private string _fileSaveFolder = @"H:\Projects\Novels\{0}\";
-        public class List<T1, T2>
-        {
-        }
 
         public NovelPage(IWebDriver driver)
         {
@@ -67,7 +64,7 @@ namespace Benny_Scraper
                 string lastPageUrl = GetLastTableOfContentPageUrl("last");
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
                 // use List<string, string> and have the GetChapters... return the content as well.
-                List<string> chapterUrls = GetChaptersUsingPagitation(9, lastPage, url);
+                List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage, url);
                 IEnumerable<ChapterData> chapterData = await GetChapterDatasAsync(chapterUrls, "chapter-text", title);
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
@@ -143,10 +140,10 @@ namespace Benny_Scraper
                     var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
                     var novelTitleFileSafe = Regex.Replace(novelTitle, fileRegex, " ");
                     //var contents = _driver.FindElements(By.TagName("p")).Select(x => x.Text).ToList();
-                    var contentHtml = _driver.FindElement(By.CssSelector("#chapter-content")).GetAttribute("outerHTML");
+                    var contentHtml = _driver.FindElement(By.CssSelector("#chapter")).GetAttribute("outerHTML");
 
-                    string filePath = string.Format(_fileSavePath, novelTitleFileSafe, fileSafeTitle);
-                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitleFileSafe, fileSafeTitle);
+                    string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
+                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
                     string directory = Path.GetDirectoryName(filePath);
 
                     if (!Directory.Exists(directory))

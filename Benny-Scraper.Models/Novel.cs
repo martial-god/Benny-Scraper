@@ -7,7 +7,9 @@ namespace Benny_Scraper.Models
     {
         [Key]
         public Guid Id { get; set; }
-
+        [Column("novel_id")]
+        public ICollection<Chapter>? Chapters { get; set; }
+        
         [Required]
         [StringLength(255)]
         public string Title { get; set; }
@@ -21,8 +23,7 @@ namespace Benny_Scraper.Models
         
         [StringLength(144)] public string FirstChapter { get; set;}
         [StringLength(144)] public string CurrentChapter { get; set; }
-        public int? TotalChapters { get; set; }
-        public ICollection<Chapter>? Chapters { get; set; }
+        public int? TotalChapters { get; set; }        
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get { return DateTime.UtcNow; } }
 
