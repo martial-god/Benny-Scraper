@@ -64,7 +64,7 @@ namespace Benny_Scraper
                 string lastPageUrl = GetLastTableOfContentPageUrl("last");
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
                 // use List<string, string> and have the GetChapters... return the content as well.
-                List<string> chapterUrls = GetChaptersUsingPagitation(23, lastPage, url);
+                List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage, url);
                 IEnumerable<ChapterData> chapterData = await GetChapterDatasAsync(chapterUrls, "chapter-text", title);
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
@@ -142,8 +142,8 @@ namespace Benny_Scraper
                     //var contents = _driver.FindElements(By.TagName("p")).Select(x => x.Text).ToList();
                     var contentHtml = _driver.FindElement(By.CssSelector("#chapter")).GetAttribute("outerHTML");
 
-                    string filePath = string.Format(_fileSavePath, novelTitleFileSafe, title, fileSafeTitle);
-                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitleFileSafe, title, fileSafeTitle);
+                    string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
+                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
                     string directory = Path.GetDirectoryName(filePath);
 
                     if (!Directory.Exists(directory))

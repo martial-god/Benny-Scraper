@@ -46,6 +46,8 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Novel>().Property(x => x.LastChapter).HasColumnName("last_chapter");
             modelBuilder.Entity<Novel>().Property(x => x.FirstChapter).HasColumnName("first_chapter");
             modelBuilder.Entity<Novel>().Property(x => x.CurrentChapter).HasColumnName("current_chapter");
+            modelBuilder.Entity<Chapter>().Property(x => x.NovelId).HasColumnName("novel_id");
+
         }
         #endregion
 
