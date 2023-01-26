@@ -8,7 +8,7 @@ namespace Benny_Scraper.Models
         [Key]
         public Guid Id { get; set; }
         [Column("novel_id")]
-        public ICollection<Chapter>? Chapters { get; set; }
+        public ICollection<Chapter> Chapters { get; set; }
         
         [Required]
         [StringLength(255)]
