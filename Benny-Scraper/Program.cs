@@ -3,6 +3,7 @@ using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
+using HtmlAgilityPack;
 using log4net;
 using log4net.Config;
 using Microsoft.EntityFrameworkCore;
@@ -48,22 +49,42 @@ namespace Benny_Scraper
             
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            var novelTableOfContentUrl = "https://novelfull.com/ze-tian-ji.html";
-            var novelContext = await novelService.GetNovelByUrlAsync(novelTableOfContentUrl);
+            var novelTableOfContentUrl = "https://novelfull.com/throne-of-magical-arcana.html";
+            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUrl);
 
             if (novelContext == null) // Novel is not in database so add it
             {
                 IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
+                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://google.com");
                 NovelPage novelPage = new NovelPage(driver.Result);
                 Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
-                await novelService.CreateNovelAsync(novel);
+                await novelService.CreateAsync(novel);
                 driverFactory.DisposeAllDrivers();
             }
             else // make changes or update novel and chapters
             {
                 var currentChapter = novelContext?.CurrentChapter;
                 var chapterContext = novelContext?.Chapters;
+
+                if (currentChapter == null || chapterContext == null)
+                    return;
+
+                using (var client = new HttpClient())
+                {
+                    var response = await client.GetAsync(novelTableOfContentUrl);
+                    response.EnsureSuccessStatusCode();
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    var htmlDocument = new HtmlDocument();
+                    htmlDocument.LoadHtml(responseBody);
+
+                    var titleElement = htmlDocument.DocumentNode.SelectSingleNode("//h3[@class='title']");
+                    var title = titleElement.InnerText;
+                    var chapterList = htmlDocument.DocumentNode.Descendants("div")
+                        .Where(node => node.GetAttributeValue("class", "list-chapter")
+                        .Equals("row")).ToList();
+                }
+                
+
             }
         }        
         
@@ -105,7 +126,7 @@ namespace Benny_Scraper
             };
 
             INovelService startUp = new NovelService(unitOfWork);
-            startUp1.CreateNovelAsync(novel);
+            startUp1.CreateAsync(novel);
         }
     }
 }

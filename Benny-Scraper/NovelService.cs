@@ -13,20 +13,16 @@ namespace Benny_Scraper
             _unitOfWork = unitOfWork;
         }
         #endregion
+        
         // Create new novel with a passed in novel
-        public async Task CreateNovelAsync(Novel novel)
+        public async Task CreateAsync(Novel novel)
         {
-            var foo =  _unitOfWork.Novel.GetAll();
-            if (novel.Chapters == null)
-            {
-                throw new ArgumentNullException(nameof(novel));
-            }
             await _unitOfWork.Novel.AddAsync(novel);
             await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task<Novel> GetNovelByUrlAsync(string url)
+        public async Task<Novel> GetByUrlAsync(string url)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == url);
             if (context != null)
