@@ -46,9 +46,13 @@ namespace Benny_Scraper
 
             //ExemplifyServiceLifetime(host.Services, "Lifetime 1");
 
-            
+            // run database initializer
+            IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();
+            dbInitializer.Initialize();
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
+            
+
             var novelTableOfContentUrl = "https://novelfull.com/the-sage-who-transcended-samsara.html";
             var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUrl);
 
