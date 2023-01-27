@@ -48,7 +48,7 @@ namespace Benny_Scraper
             
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            var novelTableOfContentUrl = "https://novelfull.com/ze-tian-ji.html";
+            var novelTableOfContentUrl = "https://novelfull.com/strongest-abandoned-son.html";
             var novelContext = await novelService.GetNovelByUrlAsync(novelTableOfContentUrl);
 
             if (novelContext == null) // Novel is not in database so add it
@@ -64,6 +64,10 @@ namespace Benny_Scraper
             {
                 var currentChapter = novelContext?.CurrentChapter;
                 var chapterContext = novelContext?.Chapters;
+
+                if (currentChapter == null || chapterContext == null)
+                    return;
+
             }
         }        
         

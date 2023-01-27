@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -65,7 +66,7 @@ namespace Benny_Scraper
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
                 // use List<string, string> and have the GetChapters... return the content as well.
                 List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage, url);
-                IEnumerable<ChapterData> chapterData = await GetChapterDatasAsync(chapterUrls, "chapter-text", title);
+                IEnumerable<ChapterData> chapterData = await GetChaptersDataAsync(chapterUrls, "chapter-text", title);
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
                 
@@ -102,9 +103,9 @@ namespace Benny_Scraper
                 Logger.Log.Error(e);
                 throw;
             }
-            return new Novel();
-        }
+        }        
 
+        #region Get Novel Info
         /// <summary>
         /// Assumes that we are already on the table of contents page of a Novelfull novel
         /// </summary>
@@ -125,7 +126,7 @@ namespace Benny_Scraper
             }
         } 
 
-        public async Task<List<ChapterData>> GetChapterDatasAsync(List<string> chapterUrls, string titleSelector, string novelTitle)
+        public async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, string titleSelector, string novelTitle)
         {
             try
             {
@@ -289,9 +290,8 @@ namespace Benny_Scraper
             else
                 return titleElements[0].Text;
         }
-
-        // Gets the total chapters of a novel
+        #endregion
     }
 
-    
+
 }
