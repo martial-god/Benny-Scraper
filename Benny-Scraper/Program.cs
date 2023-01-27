@@ -49,7 +49,7 @@ namespace Benny_Scraper
             
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            var novelTableOfContentUrl = "https://novelfull.com/throne-of-magical-arcana.html";
+            var novelTableOfContentUrl = "https://novelfull.com/the-sage-who-transcended-samsara.html";
             var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUrl);
 
             if (novelContext == null) // Novel is not in database so add it

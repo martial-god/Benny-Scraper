@@ -78,7 +78,8 @@ namespace Benny_Scraper
                     Url = data.Url ?? "",
                     Content = data.Content ?? "",
                     Title = data.Title ?? "",
-                    DateCreated = DateTime.UtcNow                    
+                    DateCreated = DateTime.UtcNow,
+                    Number = data.Number,
 
                 }).ToList();
 
@@ -128,14 +129,22 @@ namespace Benny_Scraper
             }
         }
 
-        public async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, string titleSelector, string contentSelector, string novelTitle)
+        /// <summary>
+        /// Gets chapter from the collection of chapters
+        /// </summary>
+        /// <param name="chapterUrls"></param>
+        /// <param name="titleXPathSelector">selector in the form of an XPath</param>
+        /// <param name="contentXPathSelector">selector in the form of an XPath</param>
+        /// <param name="novelTitle"></param>
+        /// <returns>Task that contains a collection of all chapters of type ChapterData</returns>
+        public async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, string titleXPathSelector, string contentXPathSelector, string novelTitle)
         {
             try
             {
                 List<Task<ChapterData>> tasks = new List<Task<ChapterData>>();
                 foreach (var url in chapterUrls)
                 {
-                    tasks.Add(GetChapterDataAsync(url, titleSelector, contentSelector, novelTitle));
+                    tasks.Add(GetChapterDataAsync(url, titleXPathSelector, contentXPathSelector, novelTitle));
                 }
 
                 var chapterData = await Task.WhenAll(tasks);
@@ -148,6 +157,14 @@ namespace Benny_Scraper
             }
         }
 
+        /// <summary>
+        /// Gets chapter data and creates html files
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="titleSelector"></param>
+        /// <param name="contentSelector"></param>
+        /// <param name="novelTitle"></param>
+        /// <returns></returns>
         private async Task<ChapterData> GetChapterDataAsync(string url, string titleSelector, string contentSelector, string novelTitle)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
@@ -186,7 +203,7 @@ namespace Benny_Scraper
                     {
                         Title = title,
                         Content = contentHtml,
-                        Url = url
+                        Url = url,
                     };
                 }
                 catch (Exception e)
@@ -198,7 +215,7 @@ namespace Benny_Scraper
                     {
                         Title = string.Empty,
                         Content = string.Empty,
-                        Url = url
+                        Url = url,
                     };
                 }
 
