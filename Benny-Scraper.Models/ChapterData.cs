@@ -18,5 +18,6 @@ namespace Benny_Scraper.Models
                 return (digitMatch.Success ? digitMatch.Groups[0].Value : "0");
             } 
         }
+        public DateTime DateLastModified { get; set; }
     }
 }

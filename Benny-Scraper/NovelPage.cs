@@ -79,6 +79,7 @@ namespace Benny_Scraper
                     Content = data.Content ?? "",
                     Title = data.Title ?? "",
                     DateCreated = DateTime.UtcNow,
+                    DateLastModified = DateTime.UtcNow,
                     Number = data.Number,
 
                 }).ToList();

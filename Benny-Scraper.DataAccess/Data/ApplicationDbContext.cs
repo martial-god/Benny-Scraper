@@ -32,6 +32,7 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Chapter>().Property(x => x.Content).HasColumnName("content");
             modelBuilder.Entity<Chapter>().Property(x => x.Number).HasColumnName("number");
             modelBuilder.Entity<Chapter>().Property(x => x.DateCreated).HasColumnName("date_created");
+            modelBuilder.Entity<Chapter>().Property(x => x.DateLastModified).HasColumnName("date_last_modified");
             modelBuilder.Entity<Novel>().Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Novel>().Property(x => x.Title).HasColumnName("title");
             modelBuilder.Entity<Novel>().Property(x => x.Url).HasColumnName("url");
