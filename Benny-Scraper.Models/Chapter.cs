@@ -15,7 +15,7 @@ namespace Benny_Scraper.Models
         public string? Title { get; set; }
         public string Url { get; set; }
         public string? Content { get; set; }
-        public int? Number { get; set; }
+        public string Number { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get { return DateTime.UtcNow; } }
     }
