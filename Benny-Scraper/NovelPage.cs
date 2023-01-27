@@ -4,11 +4,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Net;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Benny_Scraper.Models;
+using HtmlAgilityPack;
 using Microsoft.IdentityModel.Tokens;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
@@ -66,7 +68,7 @@ namespace Benny_Scraper
                 int lastPage = Regex.Match(lastPageUrl, @"\d+").Success ? Convert.ToInt32(Regex.Match(lastPageUrl, @"\d+").Value) : 0;
                 // use List<string, string> and have the GetChapters... return the content as well.
                 List<string> chapterUrls = GetChaptersUsingPagitation(1, lastPage, url);
-                IEnumerable<ChapterData> chapterData = await GetChaptersDataAsync(chapterUrls, "chapter-text", title);
+                IEnumerable<ChapterData> chapterData = await GetChaptersDataAsync(chapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", title);
                 var firstChapterUrl = chapterUrls.First();
                 var lastChapterUrl = chapterUrls.Last();
                 
@@ -124,9 +126,87 @@ namespace Benny_Scraper
                 Logger.Log.Debug(e);
                 throw;
             }
-        } 
+        }
 
-        public async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, string titleSelector, string novelTitle)
+        public async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, string titleSelector, string contentSelector, string novelTitle)
+        {
+            try
+            {
+                List<Task<ChapterData>> tasks = new List<Task<ChapterData>>();
+                foreach (var url in chapterUrls)
+                {
+                    tasks.Add(GetChapterDataAsync(url, titleSelector, contentSelector, novelTitle));
+                }
+
+                var chapterData = await Task.WhenAll(tasks);
+                return chapterData.ToList();
+            }
+            catch (Exception e)
+            {
+                Logger.Log.Debug(e);
+                throw;
+            }
+        }
+
+        private async Task<ChapterData> GetChapterDataAsync(string url, string titleSelector, string contentSelector, string novelTitle)
+        {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+            using (var client = new HttpClient())
+            {
+                try
+                {
+                    var response = await client.GetAsync(url);
+                    response.EnsureSuccessStatusCode();
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    var htmlDocument = new HtmlDocument();
+                    htmlDocument.LoadHtml(responseBody);
+
+                    var title = htmlDocument.DocumentNode.SelectSingleNode(titleSelector)?.InnerText ?? string.Empty;
+                    var contentHtml = htmlDocument.DocumentNode.SelectSingleNode(contentSelector)?.OuterHtml;
+                    var content = htmlDocument.DocumentNode.SelectNodes("//p").Select(x => x.InnerText).ToList();
+
+                    // save content to file
+                    string fileRegex = @"[^a-zA-Z0-9-\s]";
+                    var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
+                    var novelTitleFileSafe = Regex.Replace(novelTitle, fileRegex, " ");
+                    string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
+                    string pdfFilePath = string.Format(_pdfFileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
+                    string directory = Path.GetDirectoryName(filePath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    // save pdf
+                    //var renderer = new IronPdf.HtmlToPdf();
+                    //var pdf = await renderer.RenderHtmlAsPdfAsync(contentHtml);
+                    //pdf.SaveAs(pdfFilePath);
+                    File.WriteAllText(filePath, contentHtml);
+
+                    return new ChapterData
+                    {
+                        Title = title,
+                        Content = contentHtml,
+                        Url = url
+                    };
+                }
+                catch (Exception e)
+                {
+                    Logger.Log.Debug(e);
+
+                    // return what we have so far
+                    return new ChapterData
+                    {
+                        Title = string.Empty,
+                        Content = string.Empty,
+                        Url = url
+                    };
+                }
+
+            }
+        }
+
+
+        public async Task<List<ChapterData>> GetChaptersDataUsingSeleniumAsync(List<string> chapterUrls, string titleSelector, string novelTitle)
         {
             try
             {

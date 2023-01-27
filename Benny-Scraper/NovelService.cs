@@ -17,10 +17,6 @@ namespace Benny_Scraper
         // Create new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
-            if (novel.Chapters == null)
-            {
-                throw new ArgumentNullException(nameof(novel));
-            }
             await _unitOfWork.Novel.AddAsync(novel);
             await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
