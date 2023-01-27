@@ -48,8 +48,8 @@ namespace Benny_Scraper
             
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            var novelTableOfContentUrl = "https://novelfull.com/strongest-abandoned-son.html";
-            var novelContext = await novelService.GetNovelByUrlAsync(novelTableOfContentUrl);
+            var novelTableOfContentUrl = "https://novelfull.com/ze-tian-ji.html";
+            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUrl);
 
             if (novelContext == null) // Novel is not in database so add it
             {
@@ -57,7 +57,7 @@ namespace Benny_Scraper
                 Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
                 NovelPage novelPage = new NovelPage(driver.Result);
                 Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
-                await novelService.CreateNovelAsync(novel);
+                await novelService.CreateAsync(novel);
                 driverFactory.DisposeAllDrivers();
             }
             else // make changes or update novel and chapters
@@ -109,7 +109,7 @@ namespace Benny_Scraper
             };
 
             INovelService startUp = new NovelService(unitOfWork);
-            startUp1.CreateNovelAsync(novel);
+            startUp1.CreateAsync(novel);
         }
     }
 }
