@@ -45,7 +45,7 @@ namespace Benny_Scraper
                 new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(url));
 
                 var title = GetTitle(".title");
-                var latestChapter = GetLatestChapter(".l-chapters a span.chapter-text");
+                var latestChapter = GetLatestChapterUsingSelenium(".l-chapters a span.chapter-text");
                 List<string> info = new List<string>();
                 string author = string.Empty;
                 string genre = string.Empty;
@@ -355,7 +355,7 @@ namespace Benny_Scraper
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public string GetLatestChapter(string selector)
+        public string GetLatestChapterUsingSelenium(string selector)
         {
             try
             {

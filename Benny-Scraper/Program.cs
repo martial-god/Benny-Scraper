@@ -44,8 +44,6 @@ namespace Benny_Scraper
                    new Startup().ConfigureServices(services);
                }).Build();
 
-            //ExemplifyServiceLifetime(host.Services, "Lifetime 1");
-
             // run database initializer
             IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();
             dbInitializer.Initialize();
@@ -53,13 +51,13 @@ namespace Benny_Scraper
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
             
 
-            var novelTableOfContentUrl = "https://novelfull.com/the-sage-who-transcended-samsara.html";
+            var novelTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html";
             var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUrl);
 
             if (novelContext == null) // Novel is not in database so add it
             {
                 IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://google.com");
+                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
                 NovelPage novelPage = new NovelPage(driver.Result);
                 Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
                 await novelService.CreateAsync(novel);
