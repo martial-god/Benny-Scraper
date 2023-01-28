@@ -81,8 +81,7 @@ namespace Benny_Scraper
                     var htmlDocument = new HtmlDocument();
                     htmlDocument.LoadHtml(responseBody);
 
-                    var titleElement = htmlDocument.DocumentNode.SelectSingleNode("//h3[@class='title']");
-                    var title = titleElement.InnerText;
+                    var latestChapterElements = htmlDocument.DocumentNode.SelectNodes("//ul[@class='l-chapters']span");
                     var chapterList = htmlDocument.DocumentNode.Descendants("div")
                         .Where(node => node.GetAttributeValue("class", "list-chapter")
                         .Equals("row")).ToList();
