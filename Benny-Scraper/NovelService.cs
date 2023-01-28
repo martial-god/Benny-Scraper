@@ -17,14 +17,22 @@ namespace Benny_Scraper
         // Create new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
+            novel.DateLastModified = DateTime.UtcNow;
             await _unitOfWork.Novel.AddAsync(novel);
             await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task<Novel> GetByUrlAsync(string url)
+        public async Task UpdateAsync(Novel novel)
         {
-            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == url);
+            novel.DateLastModified = DateTime.UtcNow;            
+            _unitOfWork.Novel.Update(novel);
+            _unitOfWork.Chapter.Update(novel.Chapters.FirstOrDefault());
+            await _unitOfWork.SaveAsync();
+        }
+        public async Task<Novel> GetByUrlAsync(Uri uri)
+        {
+            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString);
             if (context != null)
             {
                 var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);

@@ -25,10 +25,11 @@ namespace Benny_Scraper.Models
         [StringLength(144)] public string CurrentChapter { get; set; }
         public int? TotalChapters { get; set; }        
         public DateTime DateCreated { get; set; }
-        public DateTime DateLastModified { get { return DateTime.UtcNow; } }
+        public DateTime DateLastModified { get; set; }
 
         //[DatabaseGenerated(DatabaseGeneratedOption.Computed)] // will need to create a constraint to default the value to 0
         public bool LastChapter { get; set; }
+        public string LastTableOfContentsUrl { get; set; }
         [StringLength(50)] public string? Status { get; set; }
         
 

@@ -25,15 +25,8 @@ namespace Benny_Scraper
     {
         //private static readonly ILog logger = LogManager.GetLogger(typeof(Program));
         //private const string _connectionString = "Server=localhost;Database=Test;TrustServerCertificate=True;Trusted_Connection=True;";
+        
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
-        private readonly INovelService _startUpService;
-
-        // Constructor Injection
-        public Program(INovelService startUpService)
-        {
-            _startUpService = startUpService;
-        }
-
         static async Task Main(string[] args)
         {
             // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
@@ -49,17 +42,17 @@ namespace Benny_Scraper
             dbInitializer.Initialize();
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            
 
-            var novelTableOfContentUrl = "https://novelfull.com/paragon-of-sin.html";
-            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUrl);
+            // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
+            Uri novelTableOfContentUri = new Uri("https://novelfull.com/martial-arts-master.html");
+            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);
 
             if (novelContext == null) // Novel is not in database so add it
             {
                 IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
                 Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
                 NovelPage novelPage = new NovelPage(driver.Result);
-                Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
+                Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUri);
                 await novelService.CreateAsync(novel);
                 driverFactory.DisposeAllDrivers();
             }
@@ -71,20 +64,20 @@ namespace Benny_Scraper
                 if (currentChapter == null || chapterContext == null)
                     return;
 
-                using (var client = new HttpClient())
-                {
-                    var response = await client.GetAsync(novelTableOfContentUrl);
-                    response.EnsureSuccessStatusCode();
-                    var responseBody = await response.Content.ReadAsStringAsync();
-                    var htmlDocument = new HtmlDocument();
-                    htmlDocument.LoadHtml(responseBody);
 
-                    var latestChapterElements = htmlDocument.DocumentNode.SelectNodes("//ul[@class='l-chapters']span");
-                    var chapterList = htmlDocument.DocumentNode.Descendants("div")
-                        .Where(node => node.GetAttributeValue("class", "list-chapter")
-                        .Equals("row")).ToList();
-                }
+                INovelPageScraper novelPageScraper = new NovelPageScraper();
+                var latestChapter = await novelPageScraper.GetLatestChapterAsync("//ul[@class='l-chapters']//a", novelTableOfContentUri);
+                bool isCurrentChapterNewest = string.Equals(currentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
                 
+                if (!isCurrentChapterNewest)
+                {
+                    // get all chapters after the current chapter up to the latest
+                    novelContext.Description = "Hello World";
+                    await novelService.UpdateAsync(novelContext);
+                    
+                    
+                }
+                    
 
             }
         }        
