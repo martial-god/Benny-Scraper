@@ -4,6 +4,7 @@ using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230128084744_addNovelDateLastModified")]
+    partial class addNovelDateLastModified
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -27,46 +30,38 @@ namespace BennyScraper.DataAccess.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier")
-                        .HasColumnName("id")
-                        .HasColumnOrder(0);
+                        .HasColumnName("id");
 
                     b.Property<string>("Content")
                         .HasColumnType("nvarchar(max)")
-                        .HasColumnName("content")
-                        .HasColumnOrder(7);
+                        .HasColumnName("content");
 
                     b.Property<DateTime>("DateCreated")
                         .HasColumnType("datetime2")
-                        .HasColumnName("date_created")
-                        .HasColumnOrder(4);
+                        .HasColumnName("date_created");
 
                     b.Property<DateTime>("DateLastModified")
                         .HasColumnType("datetime2")
-                        .HasColumnName("date_last_modified")
-                        .HasColumnOrder(5);
+                        .HasColumnName("date_last_modified");
 
                     b.Property<Guid>("NovelId")
                         .HasColumnType("uniqueidentifier")
-                        .HasColumnName("novel_id")
-                        .HasColumnOrder(1);
+                        .HasColumnName("novel_id");
 
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
-                        .HasColumnName("number")
-                        .HasColumnOrder(6);
+                        .HasColumnName("number");
 
                     b.Property<string>("Title")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)")
-                        .HasColumnName("title")
-                        .HasColumnOrder(2);
+                        .HasColumnName("title");
 
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
-                        .HasColumnName("url")
-                        .HasColumnOrder(3);
+                        .HasColumnName("url");
 
                     b.HasKey("Id");
 
@@ -118,10 +113,6 @@ namespace BennyScraper.DataAccess.Migrations
                     b.Property<bool>("LastChapter")
                         .HasColumnType("bit")
                         .HasColumnName("last_chapter");
-
-                    b.Property<string>("LastTableOfContentsUrl")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("last_table_of_contents_url");
 
                     b.Property<string>("SaveLocation")
                         .HasMaxLength(255)

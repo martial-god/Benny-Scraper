@@ -17,14 +17,31 @@ namespace Benny_Scraper
         // Create new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
+            novel.DateLastModified = DateTime.UtcNow;
             await _unitOfWork.Novel.AddAsync(novel);
-            await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
+            //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task<Novel> GetByUrlAsync(string url)
+        /// <summary>
+        /// Updates existing novel and adds collection of chapters
+        /// </summary>
+        /// <param name="novel"></param>
+        /// <param name="newChapters"></param>
+        /// <returns></returns>
+        public async Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> newChapters)
+        {            
+            novel.DateLastModified = DateTime.UtcNow;
+            novel.TotalChapters = novel.Chapters.Count;
+            novel.CurrentChapter = novel.Chapters.LastOrDefault().Title;
+            _unitOfWork.Novel.Update(novel); //update existing
+
+            _unitOfWork.Chapter.AddRange(newChapters);
+            await _unitOfWork.SaveAsync();
+        }
+        public async Task<Novel> GetByUrlAsync(Uri uri)
         {
-            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == url);
+            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString);
             if (context != null)
             {
                 var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);

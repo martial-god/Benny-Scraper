@@ -25,10 +25,21 @@ namespace Benny_Scraper.DataAccess.Repository
             _dbSet.Add(entity);
         }
 
+        public void AddRange(IEnumerable<GenericDbObject> entities)
+        {
+            _dbSet.AddRange(entities);
+        }
+
         public async Task AddAsync(GenericDbObject entity, CancellationToken cancellation = default)
         {
             cancellation.ThrowIfCancellationRequested();
             await _dbSet.AddAsync(entity);
+        }
+
+        public async Task AddRangeAsync(IEnumerable<GenericDbObject> entities, CancellationToken cancellation = default)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            await _dbSet.AddRangeAsync(entities);
         }
 
         /// <summary>
@@ -196,6 +207,12 @@ namespace Benny_Scraper.DataAccess.Repository
             _dbSet.RemoveRange(entity);
         }
 
+        public void UpdateRange(IEnumerable<GenericDbObject> entities)
+        {
+            _dbSet.UpdateRange(entities);
+        }
+
+
         public void RemoveById(Guid id)
         {
             throw new NotImplementedException();
@@ -205,5 +222,7 @@ namespace Benny_Scraper.DataAccess.Repository
         {
             throw new NotImplementedException();
         }
+
+        
     }
 }

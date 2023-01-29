@@ -26,17 +26,20 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Chapter>().ToTable("chapter");
 
             // Rename column            
-            modelBuilder.Entity<Chapter>().Property(x => x.Id).HasColumnName("id");
-            modelBuilder.Entity<Chapter>().Property(x => x.Title).HasColumnName("title");
-            modelBuilder.Entity<Chapter>().Property(x => x.Url).HasColumnName("url");
-            modelBuilder.Entity<Chapter>().Property(x => x.Content).HasColumnName("content");
-            modelBuilder.Entity<Chapter>().Property(x => x.Number).HasColumnName("number");
-            modelBuilder.Entity<Chapter>().Property(x => x.DateCreated).HasColumnName("date_created");
-            modelBuilder.Entity<Chapter>().Property(x => x.DateLastModified).HasColumnName("date_last_modified");
+            modelBuilder.Entity<Chapter>().Property(x => x.Id).HasColumnName("id").HasColumnOrder(0);
+            modelBuilder.Entity<Chapter>().Property(x => x.NovelId).HasColumnName("novel_id").HasColumnOrder(1);
+            modelBuilder.Entity<Chapter>().Property(x => x.Title).HasColumnName("title").HasColumnOrder(2);
+            modelBuilder.Entity<Chapter>().Property(x => x.Url).HasColumnName("url").HasColumnOrder(3);
+            modelBuilder.Entity<Chapter>().Property(x => x.DateCreated).HasColumnName("date_created").HasColumnOrder(4);
+            modelBuilder.Entity<Chapter>().Property(x => x.DateLastModified).HasColumnName("date_last_modified").HasColumnOrder(5);
+            modelBuilder.Entity<Chapter>().Property(x => x.Number).HasColumnName("number").HasColumnOrder(6);
+            modelBuilder.Entity<Chapter>().Property(x => x.Content).HasColumnName("content").HasColumnOrder(7);
+            
             modelBuilder.Entity<Novel>().Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Novel>().Property(x => x.Title).HasColumnName("title");
             modelBuilder.Entity<Novel>().Property(x => x.Url).HasColumnName("url");
             modelBuilder.Entity<Novel>().Property(x => x.DateCreated).HasColumnName("date_created");
+            modelBuilder.Entity<Novel>().Property(x => x.DateLastModified).HasColumnName("date_last_modified");
             modelBuilder.Entity<Novel>().Property(x => x.Author).HasColumnName("author");
             modelBuilder.Entity<Novel>().Property(x => x.Description).HasColumnName("description");
             modelBuilder.Entity<Novel>().Property(x => x.Genre).HasColumnName("genre");
@@ -47,7 +50,8 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Novel>().Property(x => x.LastChapter).HasColumnName("last_chapter");
             modelBuilder.Entity<Novel>().Property(x => x.FirstChapter).HasColumnName("first_chapter");
             modelBuilder.Entity<Novel>().Property(x => x.CurrentChapter).HasColumnName("current_chapter");
-            modelBuilder.Entity<Chapter>().Property(x => x.NovelId).HasColumnName("novel_id");
+            modelBuilder.Entity<Novel>().Property(x => x.LastTableOfContentsUrl).HasColumnName("last_table_of_contents_url");
+
 
         }
         #endregion

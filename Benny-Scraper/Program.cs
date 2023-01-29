@@ -25,15 +25,8 @@ namespace Benny_Scraper
     {
         //private static readonly ILog logger = LogManager.GetLogger(typeof(Program));
         //private const string _connectionString = "Server=localhost;Database=Test;TrustServerCertificate=True;Trusted_Connection=True;";
+        
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
-        private readonly INovelService _startUpService;
-
-        // Constructor Injection
-        public Program(INovelService startUpService)
-        {
-            _startUpService = startUpService;
-        }
-
         static async Task Main(string[] args)
         {
             // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
@@ -44,28 +37,26 @@ namespace Benny_Scraper
                    new Startup().ConfigureServices(services);
                }).Build();
 
-            //ExemplifyServiceLifetime(host.Services, "Lifetime 1");
-
             // run database initializer
             IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();
             dbInitializer.Initialize();
 
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
-            
 
-            var novelTableOfContentUrl = "https://novelfull.com/the-sage-who-transcended-samsara.html";
-            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUrl);
+            // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
+            Uri novelTableOfContentUri = new Uri("https://novelfull.com/demons-diary.html");
+            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);
 
             if (novelContext == null) // Novel is not in database so add it
             {
                 IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, false, "https://google.com");
+                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
                 NovelPage novelPage = new NovelPage(driver.Result);
-                Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUrl);
+                Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUri);
                 await novelService.CreateAsync(novel);
                 driverFactory.DisposeAllDrivers();
             }
-            else // make changes or update novel and chapters
+            else // make changes or update novel and newChapters
             {
                 var currentChapter = novelContext?.CurrentChapter;
                 var chapterContext = novelContext?.Chapters;
@@ -73,22 +64,44 @@ namespace Benny_Scraper
                 if (currentChapter == null || chapterContext == null)
                     return;
 
-                using (var client = new HttpClient())
-                {
-                    var response = await client.GetAsync(novelTableOfContentUrl);
-                    response.EnsureSuccessStatusCode();
-                    var responseBody = await response.Content.ReadAsStringAsync();
-                    var htmlDocument = new HtmlDocument();
-                    htmlDocument.LoadHtml(responseBody);
 
-                    var titleElement = htmlDocument.DocumentNode.SelectSingleNode("//h3[@class='title']");
-                    var title = titleElement.InnerText;
-                    var chapterList = htmlDocument.DocumentNode.Descendants("div")
-                        .Where(node => node.GetAttributeValue("class", "list-chapter")
-                        .Equals("row")).ToList();
+                INovelPageScraper novelPageScraper = new NovelPageScraper();
+                var latestChapter = await novelPageScraper.GetLatestChapterAsync("//ul[@class='l-chapters']//a", novelTableOfContentUri);
+                bool isCurrentChapterNewest = string.Equals(currentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
+
+                if (isCurrentChapterNewest)
+                {
+                    Logger.Log.Info($"{novelContext.Title} is currently at the latest chapter.\nCurrent Saved: {novelContext.CurrentChapter}");
+                    return;
+                }
+
+
+                // get all newChapters after the current chapter up to the latest
+                if (string.IsNullOrEmpty(novelContext.LastTableOfContentsUrl))
+                {
+                    Logger.Log.Info($"{novelContext.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novelContext.LastTableOfContentsUrl}");
+                    return;
                 }
                 
+                Uri lastTableOfContentsUrl = new Uri(novelContext.LastTableOfContentsUrl);
+                var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novelContext.CurrentChapter);
+                IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novelContext.Title);
 
+                List<Chapter> newChapters = chapterData.Select(data => new Chapter
+                {
+                    Url = data.Url ?? "",
+                    Content = data.Content ?? "",
+                    Title = data.Title ?? "",
+                    DateCreated = DateTime.UtcNow,
+                    DateLastModified = DateTime.UtcNow,
+                    Number = data.Number,
+
+                }).ToList();
+                novelContext.LastTableOfContentsUrl = latestChapterData.LastTableOfContentsUrl;
+                novelContext.Status = latestChapterData.Status;
+
+                novelContext.Chapters.AddRange(newChapters);
+                await novelService.UpdateAndAddChapters(novelContext, newChapters);
             }
         }        
         
