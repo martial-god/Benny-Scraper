@@ -139,6 +139,66 @@ namespace Benny_Scraper
                 throw;
             }
         }
+
+        /// <summary>
+        /// Gets the most recent chapters using the last page in the table of contents as a starting point, will only get chapters greater than the last
+        /// saved chapter
+        /// </summary>
+        /// <param name="xPathSelector"></param>
+        /// <param name="novelTableOfContentLatestUri">uri for the table of contents page</param>
+        /// <param name="currentChapter">last chapter saved in the database for the novel</param>
+        /// <returns></returns>
+        public async Task<NovelData> GetChaptersFromCheckPointAsync(string xPathSelector, Uri novelTableOfContentLatestUri, string currentChapter)
+        {
+            try
+            {
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+                using (var client = new HttpClient())
+                {
+                    var response = await client.GetAsync(novelTableOfContentLatestUri);
+                    response.EnsureSuccessStatusCode();
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    var htmlDocument = new HtmlDocument();
+                    htmlDocument.LoadHtml(responseBody);
+                    // how to get last element using XPath https://stackoverflow.com/questions/1459132/xslt-getting-last-element
+                    var novelInfo = htmlDocument.DocumentNode.SelectSingleNode("(//div[@class='info']//a)[last()]").InnerText;
+                    var lastContentPage = htmlDocument.DocumentNode.SelectSingleNode("//li[@class='last']//a/@href")?.Attributes["href"].Value;
+                    
+
+                    var latestChapterElements = htmlDocument.DocumentNode.SelectNodes(xPathSelector);
+                    var latestChapters = latestChapterElements.Select(x => x.Attributes["href"].Value).Where(c =>
+                    {
+                        var currentMatch = Regex.Match(currentChapter, @"\d+");
+                        var siteMatch = Regex.Match(c, @"\d+");
+                        var chapterNumberOnSite = int.Parse(siteMatch.Success ? siteMatch.Groups[0].Value : "0");
+                        var currentChap = int.Parse(currentMatch.Success ? currentMatch.Groups[0].Value : "0");
+                        return chapterNumberOnSite > currentChap; // only get chapters new than the ones we have saved
+
+                    });
+
+                    // make this a full url with https/ http for the scheme
+                    List<string> lastestChapterUrlsToAdd = latestChapters.Select(x =>
+                    {
+                        return $"{novelTableOfContentLatestUri.Scheme}://{novelTableOfContentLatestUri.Host}{x}";
+                    }).ToList();
+
+                    NovelData novelData = new NovelData()
+                    {
+                        LatestChapterUrls = lastestChapterUrlsToAdd,
+                        Status = novelInfo,
+                        LastTableOfContentsUrl = (!string.IsNullOrEmpty(lastContentPage) ? 
+                            $"{novelTableOfContentLatestUri.Scheme}://{novelTableOfContentLatestUri.Host}{lastContentPage}" : novelTableOfContentLatestUri.ToString())
+                    };
+
+                    return novelData;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Log.Debug($"Error while trying to get the latest chapter. \n{e.Message}");
+                throw;
+            }
+        }
         #endregion
     }
 }

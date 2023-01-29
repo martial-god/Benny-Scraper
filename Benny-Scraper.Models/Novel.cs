@@ -29,7 +29,7 @@ namespace Benny_Scraper.Models
 
         //[DatabaseGenerated(DatabaseGeneratedOption.Computed)] // will need to create a constraint to default the value to 0
         public bool LastChapter { get; set; }
-        public string LastTableOfContentsUrl { get; set; }
+        public string? LastTableOfContentsUrl { get; set; }
         [StringLength(50)] public string? Status { get; set; }
         
 

@@ -23,5 +23,10 @@ namespace Benny_Scraper.DataAccess.Repository
         {
             _db.Chapters.Update(chapter);
         }
+
+        public void AddRange(ICollection<Chapter> chapters)
+        {
+            _db.Chapters.AddRange(chapters);
+        }
     }
 }

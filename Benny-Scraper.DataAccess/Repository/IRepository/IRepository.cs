@@ -56,9 +56,10 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
         /// </summary>
         /// <param name="entity">Object to add to the database</param>
         void Add(GenericDbObject entity);
-
+         void AddRange(IEnumerable<GenericDbObject> entities);
         Task AddAsync(GenericDbObject entity, CancellationToken cancellationToken = default);
-        
+        Task AddRangeAsync(IEnumerable<GenericDbObject> entities, CancellationToken cancellationToken = default);
+
         void RemoveById(Guid id);
 
         Task RemoveByIdAsync(Guid id, CancellationToken cancellationToken = default);

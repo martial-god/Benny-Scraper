@@ -19,15 +19,24 @@ namespace Benny_Scraper
         {
             novel.DateLastModified = DateTime.UtcNow;
             await _unitOfWork.Novel.AddAsync(novel);
-            await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
+            //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task UpdateAsync(Novel novel)
-        {
-            novel.DateLastModified = DateTime.UtcNow;            
-            _unitOfWork.Novel.Update(novel);
-            _unitOfWork.Chapter.Update(novel.Chapters.FirstOrDefault());
+        /// <summary>
+        /// Updates existing novel and adds collection of chapters
+        /// </summary>
+        /// <param name="novel"></param>
+        /// <param name="newChapters"></param>
+        /// <returns></returns>
+        public async Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> newChapters)
+        {            
+            novel.DateLastModified = DateTime.UtcNow;
+            novel.TotalChapters = novel.Chapters.Count;
+            novel.CurrentChapter = novel.Chapters.LastOrDefault().Title;
+            _unitOfWork.Novel.Update(novel); //update existing
+
+            _unitOfWork.Chapter.AddRange(newChapters);
             await _unitOfWork.SaveAsync();
         }
         public async Task<Novel> GetByUrlAsync(Uri uri)

@@ -44,7 +44,7 @@ namespace Benny_Scraper
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
 
             // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-            Uri novelTableOfContentUri = new Uri("https://novelfull.com/martial-arts-master.html");
+            Uri novelTableOfContentUri = new Uri("https://novelfull.com/demons-diary.html");
             var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);
 
             if (novelContext == null) // Novel is not in database so add it
@@ -56,7 +56,7 @@ namespace Benny_Scraper
                 await novelService.CreateAsync(novel);
                 driverFactory.DisposeAllDrivers();
             }
-            else // make changes or update novel and chapters
+            else // make changes or update novel and newChapters
             {
                 var currentChapter = novelContext?.CurrentChapter;
                 var chapterContext = novelContext?.Chapters;
@@ -68,17 +68,40 @@ namespace Benny_Scraper
                 INovelPageScraper novelPageScraper = new NovelPageScraper();
                 var latestChapter = await novelPageScraper.GetLatestChapterAsync("//ul[@class='l-chapters']//a", novelTableOfContentUri);
                 bool isCurrentChapterNewest = string.Equals(currentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
-                
-                if (!isCurrentChapterNewest)
-                {
-                    // get all chapters after the current chapter up to the latest
-                    novelContext.Description = "Hello World";
-                    await novelService.UpdateAsync(novelContext);
-                    
-                    
-                }
-                    
 
+                if (isCurrentChapterNewest)
+                {
+                    Logger.Log.Info($"{novelContext.Title} is currently at the latest chapter.\nCurrent Saved: {novelContext.CurrentChapter}");
+                    return;
+                }
+
+
+                // get all newChapters after the current chapter up to the latest
+                if (string.IsNullOrEmpty(novelContext.LastTableOfContentsUrl))
+                {
+                    Logger.Log.Info($"{novelContext.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novelContext.LastTableOfContentsUrl}");
+                    return;
+                }
+                
+                Uri lastTableOfContentsUrl = new Uri(novelContext.LastTableOfContentsUrl);
+                var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novelContext.CurrentChapter);
+                IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novelContext.Title);
+
+                List<Chapter> newChapters = chapterData.Select(data => new Chapter
+                {
+                    Url = data.Url ?? "",
+                    Content = data.Content ?? "",
+                    Title = data.Title ?? "",
+                    DateCreated = DateTime.UtcNow,
+                    DateLastModified = DateTime.UtcNow,
+                    Number = data.Number,
+
+                }).ToList();
+                novelContext.LastTableOfContentsUrl = latestChapterData.LastTableOfContentsUrl;
+                novelContext.Status = latestChapterData.Status;
+
+                novelContext.Chapters.AddRange(newChapters);
+                await novelService.UpdateAndAddChapters(novelContext, newChapters);
             }
         }        
         
