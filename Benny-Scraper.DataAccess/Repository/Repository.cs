@@ -69,7 +69,7 @@ namespace Benny_Scraper.DataAccess.Repository
             try
             {
                 cancellation.ThrowIfCancellationRequested();
-                return await _dbSet.FindAsync(new object[] { id });
+                return await _dbSet.FindAsync(new object[] { id }, cancellation);
 
             }
             catch (Exception)
@@ -198,20 +198,12 @@ namespace Benny_Scraper.DataAccess.Repository
         public void Remove(GenericDbObject entity)
         {
             _dbSet.Remove(entity);
-        }
-
-        
+        }        
 
         public void RemoveRange(IEnumerable<GenericDbObject> entity)
         {
             _dbSet.RemoveRange(entity);
         }
-
-        public void UpdateRange(IEnumerable<GenericDbObject> entities)
-        {
-            _dbSet.UpdateRange(entities);
-        }
-
 
         public void RemoveById(Guid id)
         {
@@ -221,8 +213,6 @@ namespace Benny_Scraper.DataAccess.Repository
         public Task RemoveByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
-        }
-
-        
+        }        
     }
 }
