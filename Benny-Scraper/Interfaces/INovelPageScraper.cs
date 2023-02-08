@@ -1,7 +1,6 @@
-﻿
-using Benny_Scraper.Models;
+﻿using Benny_Scraper.Models;
 
-namespace Benny_Scraper
+namespace Benny_Scraper.Interfaces
 {
     public interface INovelPageScraper
     {

@@ -1,7 +1,8 @@
 ﻿using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
+using Benny_Scraper.Services.Interface;
 
-namespace Benny_Scraper
+namespace Benny_Scraper.Services
 {
     public class NovelService : INovelService
     {
@@ -13,7 +14,7 @@ namespace Benny_Scraper
             _unitOfWork = unitOfWork;
         }
         #endregion
-        
+
         // Create new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
@@ -30,7 +31,7 @@ namespace Benny_Scraper
         /// <param name="newChapters"></param>
         /// <returns></returns>
         public async Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> newChapters)
-        {            
+        {
             novel.DateLastModified = DateTime.UtcNow;
             novel.TotalChapters = novel.Chapters.Count;
             novel.CurrentChapter = novel.Chapters.LastOrDefault().Title;
@@ -68,6 +69,6 @@ namespace Benny_Scraper
             Console.WriteLine(lifetimeDetails);
             Console.WriteLine("Changes only with lifetime");
         }
-        
+
     }
 }

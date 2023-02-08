@@ -3,6 +3,8 @@ using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
+using Benny_Scraper.Services;
+using Benny_Scraper.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

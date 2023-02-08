@@ -2,7 +2,10 @@
 using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
+using Benny_Scraper.Interfaces;
 using Benny_Scraper.Models;
+using Benny_Scraper.Services;
+using Benny_Scraper.Services.Interface;
 using HtmlAgilityPack;
 using log4net;
 using log4net.Config;
@@ -44,7 +47,7 @@ namespace Benny_Scraper
             INovelService novelService = host.Services.GetRequiredService<INovelService>();
 
             // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-            Uri novelTableOfContentUri = new Uri("https://novelfull.com/demons-diary.html");
+            Uri novelTableOfContentUri = new Uri("https://novelfull.com/supremacy-games.html");
             var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);
 
             if (novelContext == null) // Novel is not in database so add it

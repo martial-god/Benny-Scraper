@@ -9,6 +9,7 @@ using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Benny_Scraper.Interfaces;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using Microsoft.IdentityModel.Tokens;

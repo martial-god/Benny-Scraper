@@ -1,6 +1,6 @@
 ﻿using Benny_Scraper.Models;
 
-namespace Benny_Scraper
+namespace Benny_Scraper.Services.Interface
 {
     public interface INovelService
     {

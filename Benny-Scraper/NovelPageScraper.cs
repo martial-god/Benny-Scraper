@@ -1,7 +1,10 @@
-﻿using Benny_Scraper.Models;
+﻿using Benny_Scraper.Interfaces;
+using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Net;
 using System.Text.RegularExpressions;
+using Aspose.Html;
+using Aspose.Html.Saving;
 
 namespace Benny_Scraper
 {
@@ -12,6 +15,7 @@ namespace Benny_Scraper
     {
 
         private string _fileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.html";
+        private string _fileXHTMLSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.xhtml";
         private string _pdfFileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.pdf";
         private string _fileSaveFolder = @"H:\Projects\Novels\{0}\";
 
@@ -79,11 +83,15 @@ namespace Benny_Scraper
                     var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
                     var novelTitleFileSafe = Regex.Replace(novelTitle, fileRegex, " ");
                     string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
+                    string xhtmlFilePath = string.Format(_fileXHTMLSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
                     string directory = Path.GetDirectoryName(filePath);
                     if (!Directory.Exists(directory))
                     {
                         Directory.CreateDirectory(directory);
                     }
+                    //var foo = new Url(url);
+                    //using var document = new HTMLDocument(foo);
+                    //document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
                     File.WriteAllText(filePath, contentHtml);
 
                     return new ChapterData

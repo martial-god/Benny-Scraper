@@ -1,7 +1,7 @@
 ﻿using OpenQA.Selenium;
 using System.Collections.Concurrent;
 
-namespace Benny_Scraper
+namespace Benny_Scraper.Interfaces
 {
     public interface IDriverFactory
     {
@@ -30,7 +30,7 @@ namespace Benny_Scraper
         /// </summary>
         /// <returns></returns>
         ConcurrentDictionary<int, IWebDriver> GetAllDrivers();
-        
+
         /// <summary>
         /// Deletes all drivers
         /// </summary>

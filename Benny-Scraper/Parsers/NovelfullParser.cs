@@ -2,7 +2,7 @@
 
 namespace Benny_Scraper.Parsers
 {
-    interface class NovelfullParser
+    public class NovelfullParser
     {
     }
 }
