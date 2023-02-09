@@ -1,21 +1,9 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Net;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Benny_Scraper.Interfaces;
+﻿using Benny_Scraper.Interfaces;
 using Benny_Scraper.Models;
-using HtmlAgilityPack;
-using Microsoft.IdentityModel.Tokens;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
+using System.Text.RegularExpressions;
 
 
 namespace Benny_Scraper
@@ -130,7 +118,7 @@ namespace Benny_Scraper
                 Logger.Log.Debug(e);
                 throw;
             }
-        }        
+        }
 
         public async Task<List<ChapterData>> GetChaptersDataUsingSeleniumAsync(List<string> chapterUrls, string titleSelector, string novelTitle)
         {
@@ -138,7 +126,7 @@ namespace Benny_Scraper
             {
                 List<ChapterData> chapterData = new List<ChapterData>();
                 foreach (var url in chapterUrls)
-                {                    
+                {
                     _driver.Navigate().GoToUrl(url);
                     new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(url));
 
@@ -157,8 +145,8 @@ namespace Benny_Scraper
                     {
                         Directory.CreateDirectory(directory);
                     }
-                    
-                    
+
+
                     //var renderer = new IronPdf.HtmlToPdf();
                     //var pdf = await renderer.RenderHtmlAsPdfAsync(contentHtml);
                     //pdf.SaveAs(pdfFilePath);
@@ -170,7 +158,7 @@ namespace Benny_Scraper
                         Content = contentHtml,
                         Url = url
                     });
-                    
+
                 }
                 return chapterData;
             }
@@ -208,16 +196,16 @@ namespace Benny_Scraper
 
             return new List<string>();
         }
-        
+
         /// <summary>
         /// Goes to the table of contents and gets chapters urls listed by pagiation, uri should be something that can be incremented
         /// </summary>
         /// <param name="startPagitation"></param>
         /// <param name="lastPagitation"></param>
         /// <returns></returns>
-        public List<string> GetChaptersUsingPagitation(int startPagitation,int lastPagitation, string siteUrl)
+        public List<string> GetChaptersUsingPagitation(int startPagitation, int lastPagitation, string siteUrl)
         {
-            string baseTableOfContentUrl = siteUrl+"?page={0}";
+            string baseTableOfContentUrl = siteUrl + "?page={0}";
             List<string> chapterUrls = new List<string>();
 
             for (int i = startPagitation; i <= lastPagitation; i++)
@@ -225,7 +213,7 @@ namespace Benny_Scraper
 
                 string tableOfContentUrl = string.Format(baseTableOfContentUrl, i);
                 try
-                {                    
+                {
                     _driver.Navigate().GoToUrl(tableOfContentUrl);
                     new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.UrlContains(tableOfContentUrl));
                     var chapterUrlsOnContentPage = GetChapterUrls("list-chapter");
@@ -289,7 +277,7 @@ namespace Benny_Scraper
         public string GetTitle(string titleSelector)
         {
             new WebDriverWait(_driver, TimeSpan.FromSeconds(10)).Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(titleSelector)));
-            var titleElements =  _driver.FindElements(By.CssSelector(titleSelector));
+            var titleElements = _driver.FindElements(By.CssSelector(titleSelector));
             if (titleElements.Count == 0)
                 throw new Exception("No title elements found.");
             else if (titleElements.Count > 1 && titleElements[1].Displayed) // title will be the second

@@ -51,7 +51,7 @@ namespace Benny_Scraper
                 Logger.Log.Debug(e);
                 throw;
             }
-        }        
+        }
 
         /// <summary>
         /// Gets chapter data and creates html files
@@ -171,7 +171,7 @@ namespace Benny_Scraper
                     // how to get last element using XPath https://stackoverflow.com/questions/1459132/xslt-getting-last-element
                     var novelInfo = htmlDocument.DocumentNode.SelectSingleNode("(//div[@class='info']//a)[last()]").InnerText;
                     var lastContentPage = htmlDocument.DocumentNode.SelectSingleNode("//li[@class='last']//a/@href")?.Attributes["href"].Value;
-                    
+
 
                     var latestChapterElements = htmlDocument.DocumentNode.SelectNodes(xPathSelector);
                     var latestChapters = latestChapterElements.Select(x => x.Attributes["href"].Value).Where(c =>
@@ -194,7 +194,7 @@ namespace Benny_Scraper
                     {
                         LatestChapterUrls = lastestChapterUrlsToAdd,
                         Status = novelInfo,
-                        LastTableOfContentsUrl = (!string.IsNullOrEmpty(lastContentPage) ? 
+                        LastTableOfContentsUrl = (!string.IsNullOrEmpty(lastContentPage) ?
                             $"{novelTableOfContentLatestUri.Scheme}://{novelTableOfContentLatestUri.Host}{lastContentPage}" : novelTableOfContentLatestUri.ToString())
                     };
 

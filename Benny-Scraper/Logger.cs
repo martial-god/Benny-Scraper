@@ -1,7 +1,5 @@
 ﻿using log4net;
 using log4net.Config;
-using log4net.Core;
-using Microsoft.Extensions.Hosting;
 
 namespace Benny_Scraper
 {
@@ -25,7 +23,7 @@ namespace Benny_Scraper
             };
             BasicConfigurator.Configure(appender);
             XmlConfigurator.ConfigureAndWatch(new FileInfo("log4net.config"));
-        }      
+        }
 
     }
 }

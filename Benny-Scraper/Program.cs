@@ -1,23 +1,13 @@
-﻿using Benny_Scraper.DataAccess.Data;
-using Benny_Scraper.DataAccess.DbInitializer;
-using Benny_Scraper.DataAccess.Repository;
+﻿using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Interfaces;
 using Benny_Scraper.Models;
 using Benny_Scraper.Services;
 using Benny_Scraper.Services.Interface;
-using HtmlAgilityPack;
-using log4net;
-using log4net.Config;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
-using System.Text.RegularExpressions;
-using static System.Net.Mime.MediaTypeNames;
 
 //[assembly: log4net.Config.XmlConfigurator(ConfigFile = "log4net.config", Watch = true)]
 
@@ -28,7 +18,7 @@ namespace Benny_Scraper
     {
         //private static readonly ILog logger = LogManager.GetLogger(typeof(Program));
         //private const string _connectionString = "Server=localhost;Database=Test;TrustServerCertificate=True;Trusted_Connection=True;";
-        
+
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
@@ -85,7 +75,7 @@ namespace Benny_Scraper
                     Logger.Log.Info($"{novelContext.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novelContext.LastTableOfContentsUrl}");
                     return;
                 }
-                
+
                 Uri lastTableOfContentsUrl = new Uri(novelContext.LastTableOfContentsUrl);
                 var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novelContext.CurrentChapter);
                 IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novelContext.Title);
@@ -106,9 +96,10 @@ namespace Benny_Scraper
                 novelContext.Chapters.AddRange(newChapters);
                 await novelService.UpdateAndAddChapters(novelContext, newChapters);
             }
-        }        
-        
-        private static void ConfigureLogger() {
+        }
+
+        private static void ConfigureLogger()
+        {
             var builder = new HostBuilder()
                 .ConfigureServices((hostContext, services) =>
                 {

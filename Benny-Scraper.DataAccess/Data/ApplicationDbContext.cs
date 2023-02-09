@@ -1,7 +1,5 @@
 ﻿using Benny_Scraper.Models;
-using Benny_Scraper;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Design;
 
 namespace Benny_Scraper.DataAccess.Data
 {
@@ -16,7 +14,7 @@ namespace Benny_Scraper.DataAccess.Data
         /// </summary>
         /// <param name="options"></param>
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
-        {            
+        {
         }
 
         #region Required
@@ -34,7 +32,7 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Chapter>().Property(x => x.DateLastModified).HasColumnName("date_last_modified").HasColumnOrder(5);
             modelBuilder.Entity<Chapter>().Property(x => x.Number).HasColumnName("number").HasColumnOrder(6);
             modelBuilder.Entity<Chapter>().Property(x => x.Content).HasColumnName("content").HasColumnOrder(7);
-            
+
             modelBuilder.Entity<Novel>().Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Novel>().Property(x => x.Title).HasColumnName("title");
             modelBuilder.Entity<Novel>().Property(x => x.Url).HasColumnName("url");
