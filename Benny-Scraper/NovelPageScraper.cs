@@ -1,10 +1,10 @@
-﻿using Benny_Scraper.Interfaces;
+﻿using Aspose.Html;
+using Aspose.Html.Saving;
+using Benny_Scraper.Interfaces;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Net;
 using System.Text.RegularExpressions;
-using Aspose.Html;
-using Aspose.Html.Saving;
 
 namespace Benny_Scraper
 {
@@ -89,9 +89,9 @@ namespace Benny_Scraper
                     {
                         Directory.CreateDirectory(directory);
                     }
-                    //var foo = new Url(url);
-                    //using var document = new HTMLDocument(foo);
-                    //document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
+                    var foo = new Url(url);
+                    using var document = new HTMLDocument(foo);
+                    document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
                     File.WriteAllText(filePath, contentHtml);
 
                     return new ChapterData
