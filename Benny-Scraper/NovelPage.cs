@@ -35,7 +35,7 @@ namespace Benny_Scraper
 
                 var title = GetTitle(".title");
                 var latestChapter = GetLatestChapterUsingSelenium(".l-chapters a span.chapter-text");
-                List<string> info = new List<string>();
+                IEnumerable<string> info = new List<string>();
                 string author = string.Empty;
                 string genre = string.Empty;
                 string status = string.Empty;
