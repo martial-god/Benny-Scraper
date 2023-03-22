@@ -11,6 +11,8 @@ namespace Benny_Scraper.DataAccess.Data
 
         /// <summary>
         /// Connection string is handled in the Program.cs injection
+        /// The ApplicationDbContext class must expose a public constructor with a DbContextOptions<ApplicationDbContext> parameter. 
+        /// This is how context configuration from AddDbContext is passed to the DbContext. https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/
         /// </summary>
         /// <param name="options"></param>
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
