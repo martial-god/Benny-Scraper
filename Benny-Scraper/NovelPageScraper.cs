@@ -82,6 +82,7 @@ namespace Benny_Scraper
                     string fileRegex = @"[^a-zA-Z0-9-\s]";
                     var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
                     var novelTitleFileSafe = Regex.Replace(novelTitle, fileRegex, " ");
+                    string saveLocation = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
                     string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
                     string xhtmlFilePath = string.Format(_fileXHTMLSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
                     string directory = Path.GetDirectoryName(filePath);
