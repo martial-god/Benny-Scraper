@@ -79,19 +79,20 @@ namespace Benny_Scraper
                 string fileRegex = @"[^a-zA-Z0-9-\s]";
                 var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
                 var novelTitleFileSafe = Regex.Replace(novelTitle, fileRegex, " ");
-                string saveLocation = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
-                string xhtmlFilePath = string.Format(_fileXHTMLSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
-                string directory = Path.GetDirectoryName(filePath);
+                string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string _fileSavePath = Path.Combine(documentsFolder, "Benny Scraper", "{0}", "{0} - {1}.html");
+                //string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
+                //string xhtmlFilePath = string.Format(_fileXHTMLSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
+                //string directory = Path.GetDirectoryName(filePath);
 
-                if (!Directory.Exists(directory))
+                if (!Directory.Exists(_fileSavePath))
                 {
-                    Directory.CreateDirectory(directory);
+                    Directory.CreateDirectory(_fileSavePath);
                 }
                 var foo = new Url(url);
                 using var document = new HTMLDocument(foo);
-                document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
-                File.WriteAllText(filePath, contentHtml);
+                //document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
+                File.WriteAllText(_fileSavePath, contentHtml);
 
                 return new ChapterData
                 {
@@ -128,24 +129,28 @@ namespace Benny_Scraper
         /// <returns></returns>
         public async Task<string> GetLatestChapterAsync(string xPathSelector, Uri uri)
         {
-            try
-            {
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-                var response = await _client.GetAsync(uri);
-                response.EnsureSuccessStatusCode();
-                var responseBody = await response.Content.ReadAsStringAsync();
-                var htmlDocument = new HtmlDocument();
-                htmlDocument.LoadHtml(responseBody);
-
-                var latestChapterElements = htmlDocument.DocumentNode.SelectNodes(xPathSelector);
-                var latestChapters = latestChapterElements.First().InnerText ?? string.Empty;
-                return latestChapters;
-            }
-            catch (Exception e)
+            var htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
+            if (htmlDocument == null)
             {
                 Logger.Log.Debug($"Error while trying to get the latest chapter. \n{e.Message}");
-                throw;
+                return string.Empty;
             }
+
+            var latestChapterElements = htmlDocument.DocumentNode.SelectNodes(xPathSelector);
+            var latestChapters = latestChapterElements.First().InnerText ?? string.Empty;
+            return latestChapters;
+        }
+        
+        private static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
+        {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+            var response = await _client.GetAsync(uri);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            
+            var htmlDocument = new HtmlDocument();
+            htmlDocument.LoadHtml(content);
+            return htmlDocument;
         }
 
         /// <summary>
