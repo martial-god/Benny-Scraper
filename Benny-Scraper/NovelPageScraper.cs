@@ -14,12 +14,6 @@ namespace Benny_Scraper
     /// </summary>
     public class NovelPageScraper : INovelPageScraper
     {
-
-        private string _fileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.html";
-        private string _fileXHTMLSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.xhtml";
-        private string _pdfFileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.pdf";
-        private string _fileSaveFolder = @"H:\Projects\Novels\{0}\";
-
         private static readonly HttpClient _client = new HttpClient(); // better to keept one instance through the life of the method
         private static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(5); // limit the number of concurrent requests, prevent posssible rate limiting
 

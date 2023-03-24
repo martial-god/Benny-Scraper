@@ -20,6 +20,7 @@ namespace Benny_Scraper
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IDbInitializer, DbInitializer>();
             services.AddScoped<INovelService, NovelService>();
+            services.AddMemoryCache();
             // another way to use a server is
             //IStartUpService startUpService = serviceProvider.GetService<IStartUpService>();
             //startUpService.CreateNovel(novel);

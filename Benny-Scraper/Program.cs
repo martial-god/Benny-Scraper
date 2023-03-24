@@ -24,11 +24,10 @@ namespace Benny_Scraper
         {
             // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
             using IHost host = Host.CreateDefaultBuilder(args)
-               .ConfigureServices(services =>
-               {
+               .ConfigureServices(services =>               
                    // Services here
-                   new Startup().ConfigureServices(services);
-               }).Build();
+                   new Startup().ConfigureServices(services)
+               ).Build();
 
             // run database initializer
             IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();
@@ -38,21 +37,21 @@ namespace Benny_Scraper
 
             // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
             Uri novelTableOfContentUri = new Uri("https://novelfull.com/paragon-of-sin.html");
-            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);
+            Novel novel = await novelService.GetByUrlAsync(novelTableOfContentUri);
 
-            if (novelContext == null) // Novel is not in database so add it
+            if (novel == null) // Novel is not in database so add it
             {
                 IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
                 Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
                 NovelPage novelPage = new NovelPage(driver.Result);
-                Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUri);
-                await novelService.CreateAsync(novel);
+                Novel novelToAdd = await novelPage.BuildNovelAsync(novelTableOfContentUri);
+                await novelService.CreateAsync(novelToAdd);
                 driverFactory.DisposeAllDrivers();
             }
-            else // make changes or update novel and newChapters
+            else // make changes or update novelToAdd and newChapters
             {
-                var currentChapter = novelContext?.CurrentChapter;
-                var chapterContext = novelContext?.Chapters;
+                var currentChapter = novel?.CurrentChapter;
+                var chapterContext = novel?.Chapters;
 
                 if (currentChapter == null || chapterContext == null)
                     return;
@@ -64,21 +63,21 @@ namespace Benny_Scraper
 
                 if (isCurrentChapterNewest)
                 {
-                    Logger.Log.Info($"{novelContext.Title} is currently at the latest chapter.\nCurrent Saved: {novelContext.CurrentChapter}");
+                    Logger.Log.Info($"{novel.Title} is currently at the latest chapter.\nCurrent Saved: {novel.CurrentChapter}");
                     return;
                 }
 
 
                 // get all newChapters after the current chapter up to the latest
-                if (string.IsNullOrEmpty(novelContext.LastTableOfContentsUrl))
+                if (string.IsNullOrEmpty(novel.LastTableOfContentsUrl))
                 {
-                    Logger.Log.Info($"{novelContext.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novelContext.LastTableOfContentsUrl}");
+                    Logger.Log.Info($"{novel.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novel.LastTableOfContentsUrl}");
                     return;
                 }
 
-                Uri lastTableOfContentsUrl = new Uri(novelContext.LastTableOfContentsUrl);
-                var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novelContext.CurrentChapter);
-                IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novelContext.Title);
+                Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
+                var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novel.CurrentChapter);
+                IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novel.Title);
 
                 List<Chapter> newChapters = chapterData.Select(data => new Chapter
                 {
@@ -90,11 +89,11 @@ namespace Benny_Scraper
                     Number = data.Number,
 
                 }).ToList();
-                novelContext.LastTableOfContentsUrl = latestChapterData.LastTableOfContentsUrl;
-                novelContext.Status = latestChapterData.Status;
+                novel.LastTableOfContentsUrl = latestChapterData.LastTableOfContentsUrl;
+                novel.Status = latestChapterData.Status;
 
-                novelContext.Chapters.AddRange(newChapters);
-                await novelService.UpdateAndAddChapters(novelContext, newChapters);
+                novel.Chapters.AddRange(newChapters);
+                await novelService.UpdateAndAddChapters(novel, newChapters);
             }
         }
 
