@@ -24,10 +24,11 @@ namespace Benny_Scraper
         {
             // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
             using IHost host = Host.CreateDefaultBuilder(args)
-               .ConfigureServices(services =>               
+               .ConfigureServices(services =>
                    // Services here
                    new Startup().ConfigureServices(services)
                ).Build();
+            //host.Run();
 
             // run database initializer
             IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();

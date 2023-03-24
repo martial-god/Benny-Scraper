@@ -6,6 +6,7 @@ using HtmlAgilityPack;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Globalization;
 
 namespace Benny_Scraper
 {
@@ -75,24 +76,7 @@ namespace Benny_Scraper
                 var contentHtml = htmlDocument.DocumentNode.SelectSingleNode(contentXPathSelector)?.OuterHtml;
                 var content = htmlDocument.DocumentNode.SelectNodes("//p").Select(x => x.InnerText).ToList();
 
-                // save content to file
-                string fileRegex = @"[^a-zA-Z0-9-\s]";
-                var fileSafeTitle = Regex.Replace(title, fileRegex, " ");
-                var novelTitleFileSafe = Regex.Replace(novelTitle, fileRegex, " ");
-                string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                string _fileSavePath = Path.Combine(documentsFolder, "Benny Scraper", "{0}", "{0} - {1}.html");
-                //string filePath = string.Format(_fileSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
-                //string xhtmlFilePath = string.Format(_fileXHTMLSavePath, novelTitleFileSafe, novelTitleFileSafe, fileSafeTitle);
-                //string directory = Path.GetDirectoryName(filePath);
-
-                if (!Directory.Exists(_fileSavePath))
-                {
-                    Directory.CreateDirectory(_fileSavePath);
-                }
-                var foo = new Url(url);
-                using var document = new HTMLDocument(foo);
-                //document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
-                File.WriteAllText(_fileSavePath, contentHtml);
+                SaveAndWriteNovelToMyDocuments(title, novelTitle, contentHtml);
 
                 return new ChapterData
                 {
@@ -121,6 +105,24 @@ namespace Benny_Scraper
 
         }
 
+        private void SaveAndWriteNovelToMyDocuments(string title, string novelTitle, string? contentHtml)
+        {
+            // save content to file
+            string fileRegex = @"[^a-zA-Z0-9-\s]";
+            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+            var chapterFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(title, fileRegex, " ").ToLower());
+            var novelTitleFileSafe = textInfo.ToTitleCase(Regex.Replace(novelTitle, fileRegex, " ").ToLower());
+            string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string _fileSavePath = Path.Combine(documentsFolder, "Novel", novelTitleFileSafe, $"Read {novelTitleFileSafe} - {chapterFileSafeTitle}.html");
+
+            if (!Directory.Exists(_fileSavePath))
+            {
+                Directory.CreateDirectory(_fileSavePath);
+            }
+
+            File.WriteAllText(_fileSavePath, contentHtml);
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -132,7 +134,7 @@ namespace Benny_Scraper
             var htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
             if (htmlDocument == null)
             {
-                Logger.Log.Debug($"Error while trying to get the latest chapter. \n{e.Message}");
+                Logger.Log.Debug($"Error while trying to get the latest chapter. \n");
                 return string.Empty;
             }
 

@@ -7,11 +7,14 @@ using Benny_Scraper.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Benny_Scraper
 {
     public class Startup
     {
+        private static readonly string _appSettings = "appsettings.json";
+        private static readonly string  _connectionType = "DefaultConnection";
         public void ConfigureServices(IServiceCollection services)
         {
             // Add services here for dependency injection
@@ -21,9 +24,6 @@ namespace Benny_Scraper
             services.AddScoped<IDbInitializer, DbInitializer>();
             services.AddScoped<INovelService, NovelService>();
             services.AddMemoryCache();
-            // another way to use a server is
-            //IStartUpService startUpService = serviceProvider.GetService<IStartUpService>();
-            //startUpService.CreateNovel(novel);
 
         }
 
@@ -33,9 +33,9 @@ namespace Benny_Scraper
             //https://stackoverflow.com/questions/57158388/configurationbuilder-does-not-contain-a-definition-for-addjsonfile
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                .AddJsonFile(_appSettings, optional: true, reloadOnChange: true);
 
-            string connectionString = builder.Build().GetConnectionString("DefaultConnection");
+            string connectionString = builder.Build().GetConnectionString(_connectionType);
             return connectionString;
         }
     }
