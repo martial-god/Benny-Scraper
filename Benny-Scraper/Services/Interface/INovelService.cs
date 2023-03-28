@@ -8,6 +8,5 @@ namespace Benny_Scraper.Services.Interface
         public Task<bool> IsNovelInDatabaseAsync(string tableOfContentsUrl);
         public Task<Novel> GetByUrlAsync(Uri uri);
         public Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> chapters);
-        public Task ProcessNovelAsync(Uri tableOfContentsUri);
     }
 }

@@ -1,4 +1,6 @@
-﻿using Benny_Scraper.DataAccess.Data;
+﻿using Benny_Scraper.BusinessLogic;
+using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
@@ -25,6 +27,7 @@ namespace Benny_Scraper
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IDbInitializer, DbInitializer>();
             services.AddScoped<INovelService, NovelService>();
+            services.AddScoped<INovelProcessor, NovelProcessor>();
             services.AddMemoryCache();
 
         }
