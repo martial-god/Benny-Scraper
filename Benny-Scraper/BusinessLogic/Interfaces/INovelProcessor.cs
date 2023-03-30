@@ -10,6 +10,6 @@ namespace Benny_Scraper.BusinessLogic.Interfaces
     public interface INovelProcessor
     {
         public Task ProcessNovelAsync(Uri novelTableOfContentsUri);
-        public Task GenerateEpubAsync(Novel novel, List<Models.Chapter> chapters, string outputPath);
+        public Task<object> CreateEpubAsync(Novel novel, List<Models.Chapter> chapters, string outputPath);
     }
 }

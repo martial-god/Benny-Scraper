@@ -1,10 +1,9 @@
 ﻿using Benny_Scraper.Interfaces;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Globalization;
 
 namespace Benny_Scraper
 {
@@ -140,14 +139,14 @@ namespace Benny_Scraper
             var latestChapters = latestChapterElements.First().InnerText ?? string.Empty;
             return latestChapters;
         }
-        
+
         private static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
             var response = await _client.GetAsync(uri);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
-            
+
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(content);
             return htmlDocument;

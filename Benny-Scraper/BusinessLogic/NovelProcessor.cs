@@ -1,16 +1,8 @@
-﻿using Benny_Scraper.Interfaces;
+﻿using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.Interfaces;
 using Benny_Scraper.Models;
 using Benny_Scraper.Services.Interface;
 using OpenQA.Selenium;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Epub.Net;
-using Epub.Net.Models;
-using Epub.Net.Extensions;
-using Benny_Scraper.BusinessLogic.Interfaces;
 
 namespace Benny_Scraper.BusinessLogic
 {
