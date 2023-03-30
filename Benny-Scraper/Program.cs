@@ -32,7 +32,6 @@ namespace Benny_Scraper
             IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();
             dbInitializer.Initialize();
 
-            INovelService novelService = host.Services.GetRequiredService<INovelService>();
             INovelProcessor novelProcessor = host.Services.GetRequiredService<INovelProcessor>();
 
             // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22

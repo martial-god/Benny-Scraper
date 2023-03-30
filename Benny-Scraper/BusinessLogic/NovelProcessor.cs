@@ -37,8 +37,8 @@ namespace Benny_Scraper.BusinessLogic
             }
 
         }
-        
-        public async Task<object> CreateEpubAsync (Novel novel, List<Models.Chapter> chapters, string outputPath)
+
+        public async Task<object> CreateEpubAsync(Novel novel, List<Models.Chapter> chapters, string outputPath)
         {
             // Reasearch Epub.net on how to make epubs, ex: https://github.com/Mitch528/WebNovelConverter/blob/master/WebNovelConverter/MainForm.cs
             return null;
@@ -102,7 +102,4 @@ namespace Benny_Scraper.BusinessLogic
             await _novelService.UpdateAndAddChapters(novel, newChapters);
         }
     }
-
-
-
 }
