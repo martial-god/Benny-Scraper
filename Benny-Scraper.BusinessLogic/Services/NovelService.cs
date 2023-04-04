@@ -1,11 +1,8 @@
-﻿using Benny_Scraper.DataAccess.Repository.IRepository;
-using Benny_Scraper.Interfaces;
+﻿using Benny_Scraper.BusinessLogic.Services.Interface;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
-using Benny_Scraper.Services.Interface;
-using OpenQA.Selenium;
-using System.Drawing.Text;
 
-namespace Benny_Scraper.Services
+namespace Benny_Scraper.BusinessLogic.Services
 {
     public class NovelService : INovelService
     {
@@ -18,7 +15,7 @@ namespace Benny_Scraper.Services
         }
         #endregion
 
-        // Create new novel with a passed in novel
+        // CreateSeleniumOrHttpScraper new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
             novel.DateLastModified = DateTime.UtcNow;
@@ -65,7 +62,7 @@ namespace Benny_Scraper.Services
             if (context == null)
                 return false;
             return true;
-        }       
+        }
 
     }
 }

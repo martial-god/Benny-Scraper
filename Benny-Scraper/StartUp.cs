@@ -1,12 +1,15 @@
 ﻿using Benny_Scraper.BusinessLogic;
+using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Factory;
+using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Services;
+using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
-using Benny_Scraper.Services;
-using Benny_Scraper.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,19 +18,30 @@ using Microsoft.Extensions.Logging;
 
 namespace Benny_Scraper
 {
-    public class Startup
+    public class StartUp
     {
         private static readonly string _appSettings = "appsettings.json";
-        private static readonly string  _connectionType = "DefaultConnection";
+        private static readonly string _connectionType = "DefaultConnection";
+        public IConfiguration Configuration { get; }
+
+        public StartUp(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
+        
         public void ConfigureServices(IServiceCollection services)
         {
             // Add services here for dependency injection
+            services.Configure<NovelScraperSettings>(Configuration.GetSection("NovelScraperSettings"));
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(GetConnectionString()));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IDbInitializer, DbInitializer>();
             services.AddScoped<INovelService, NovelService>();
             services.AddScoped<INovelProcessor, NovelProcessor>();
+            services.AddScoped<INovelScraper, HttpNovelScraper>();
+            services.AddScoped<INovelScraper, SeleniumNovelScraper>();
+            services.AddSingleton<INovelScraperFactory, NovelScraperFactory>();
             services.AddMemoryCache();
 
         }
