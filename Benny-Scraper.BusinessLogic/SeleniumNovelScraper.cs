@@ -9,6 +9,7 @@ namespace Benny_Scraper.BusinessLogic
     /// </summary>
     public class SeleniumNovelScraper : INovelScraper
     {
+        
         public Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig)
         {
             throw new NotImplementedException();

@@ -1,4 +1,5 @@
-﻿using Benny_Scraper.BusinessLogic;
+﻿using Autofac;
+using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
@@ -12,9 +13,9 @@ using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Benny_Scraper
 {
@@ -28,22 +29,43 @@ namespace Benny_Scraper
         {
             Configuration = configuration;
         }
-        
-        public void ConfigureServices(IServiceCollection services)
-        {
-            // Add services here for dependency injection
-            services.Configure<NovelScraperSettings>(Configuration.GetSection("NovelScraperSettings"));
-            services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(GetConnectionString()));
-            services.AddScoped<IUnitOfWork, UnitOfWork>();
-            services.AddScoped<IDbInitializer, DbInitializer>();
-            services.AddScoped<INovelService, NovelService>();
-            services.AddScoped<INovelProcessor, NovelProcessor>();
-            services.AddScoped<INovelScraper, HttpNovelScraper>();
-            services.AddScoped<INovelScraper, SeleniumNovelScraper>();
-            services.AddSingleton<INovelScraperFactory, NovelScraperFactory>();
-            services.AddMemoryCache();
 
+        public void ConfigureServices(ContainerBuilder builder)
+        {
+            // Register IConfiguration
+            builder.RegisterInstance(Configuration).As<IConfiguration>();
+
+            builder.Register(c => new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseSqlServer(GetConnectionString()).Options)).InstancePerLifetimeScope();
+
+            builder.RegisterType<DbInitializer>().As<IDbInitializer>();
+            builder.RegisterType<UnitOfWork>().As<IUnitOfWork>();
+            builder.RegisterType<NovelProcessor>().As<INovelProcessor>();
+            builder.RegisterType<ChapterRepository>().As<IChapterRepository>();
+            builder.RegisterType<NovelService>().As<INovelService>().InstancePerLifetimeScope();
+            builder.RegisterType<NovelRepository>().As<INovelRepository>();
+
+            builder.Register(c =>
+            {
+                var config = c.Resolve<IConfiguration>();
+                var settings = new NovelScraperSettings();
+                config.GetSection("NovelScraperSettings").Bind(settings);
+                return settings;
+            }).SingleInstance();
+            //needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
+            builder.Register(c => Options.Create(c.Resolve<NovelScraperSettings>())).As<IOptions<NovelScraperSettings>>().SingleInstance();
+
+
+            // register the factory
+            builder.Register<Func<string, INovelScraper>>(c =>
+            {
+                var context = c.Resolve<IComponentContext>();
+                return key => context.ResolveNamed<INovelScraper>(key);
+            });
+
+            builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
+            builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
+            builder.RegisterType<HttpNovelScraper>().Named<INovelScraper>("Http").InstancePerDependency();
         }
 
         private static string GetConnectionString()
@@ -56,48 +78,6 @@ namespace Benny_Scraper
 
             string connectionString = builder.Build().GetConnectionString(_connectionType);
             return connectionString;
-        }
-
-        private static void ConfigureLogger()
-        {
-            var builder = new HostBuilder()
-                .ConfigureServices((hostContext, services) =>
-                {
-                    services.AddTransient<Program>();
-
-                })
-                .ConfigureLogging(logBuilder =>
-                {
-                    logBuilder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
-                    logBuilder.AddLog4Net("log4net.config");
-
-                }).UseConsoleLifetime();
-        }
-
-        static void ExemplifyServiceLifetime(IServiceProvider hostProvider, string lifetime)
-        {
-            using IServiceScope serviceScope = hostProvider.CreateScope();
-
-            IServiceProvider provider = serviceScope.ServiceProvider;
-            IUnitOfWork unitOfWork = provider.GetRequiredService<IUnitOfWork>();
-            IDbInitializer dbInitializer = provider.GetRequiredService<IDbInitializer>();
-            dbInitializer.Initialize();
-            INovelService startUp1 = provider.GetRequiredService<INovelService>();
-
-            //startUp.ReportServiceLifetimeDetails(
-            //    $"{lifetime}: Call 1 to provider.GetRequiredService<ServiceLifetimeLogger>()");
-
-            Console.WriteLine("...");
-            var novel = new Novel
-            {
-                Title = "Test2",
-                Url = @"https://novelfull.com",
-                DateCreated = DateTime.Now,
-                SiteName = "novelfull",
-            };
-
-            INovelService startUp = new NovelService(unitOfWork);
-            startUp1.CreateAsync(novel);
         }
     }
 }

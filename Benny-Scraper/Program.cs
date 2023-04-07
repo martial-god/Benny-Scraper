@@ -1,42 +1,64 @@
-﻿using Benny_Scraper.BusinessLogic.Interfaces;
+﻿using Autofac;
+using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.DataAccess.DbInitializer;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 
 namespace Benny_Scraper
 {
     internal class Program
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+        private static IContainer Container { get; set; }
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
-            Logger.Info("Starting Benny Scraper");
-            // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
-            using IHost host = Host.CreateDefaultBuilder(args)
-               .ConfigureServices((hostContext, services) =>
-                   // Services here
-                   new StartUp(hostContext.Configuration).ConfigureServices(services)
-               ).Build();
+            var configuration = BuildConfiguration();
+            // Pass the built configuration to the StartUp class
+            var startUp = new StartUp(configuration);
 
-            Logger.Info("Initializing Database");
-            IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();
-            dbInitializer.Initialize();
-            Logger.Info("Database Initialized");
+            // Database Injections
+            var builder = new ContainerBuilder();
+            startUp.ConfigureServices(builder);
 
-            INovelProcessor novelProcessor = host.Services.GetRequiredService<INovelProcessor>();
+            Container = builder.Build();
 
-            // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-            Uri novelTableOfContentUri = new Uri("https://novelfull.com/paragon-of-sin.html");
+            await RunAsync();
+        }
 
-            try
+        private static async Task RunAsync()
+        {
+            using (var scope = Container.BeginLifetimeScope())
             {
-                await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Exception when trying to process novel. {ex}");
+                Logger.Info("Initializing Database");
+                IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
+                dbInitializer.Initialize();
+                Logger.Info("Database Initialized");
+
+                INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
+
+                // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
+                Uri novelTableOfContentUri = new Uri("https://novelfull.com/paragon-of-sin.html");
+
+                try
+                {
+                    await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Exception when trying to process novel. {ex}");
+                }
             }
         }
+
+        private static IConfigurationRoot BuildConfiguration()
+        {
+            // Build the configuration
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+            return configuration;
+        }
     }
+
 }

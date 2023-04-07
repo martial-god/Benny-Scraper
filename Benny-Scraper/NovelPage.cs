@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace Benny_Scraper
 {
-    internal class NovelPage
+    public class NovelPage
     {
         private string _fileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.html";
         private string _pdfFileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.pdf";

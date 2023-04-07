@@ -6,7 +6,7 @@ using Benny_Scraper.Models;
 
 namespace Benny_Scraper.DataAccess.Repository
 {
-    internal class ChapterRespository : Repository<Chapter>, IChapterRepository
+    public class ChapterRepository : Repository<Chapter>, IChapterRepository
     {
         private ApplicationDbContext _db;
 
@@ -14,7 +14,7 @@ namespace Benny_Scraper.DataAccess.Repository
         /// Values will be passed in by the UnitOfWork class
         /// </summary>
         /// <param name="db"></param>
-        public ChapterRespository(ApplicationDbContext db) : base(db)
+        public ChapterRepository(ApplicationDbContext db) : base(db)
         {
             _db = db;
         }

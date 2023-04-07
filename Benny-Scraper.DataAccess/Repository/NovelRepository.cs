@@ -5,7 +5,7 @@ using Benny_Scraper.Models;
 
 namespace Benny_Scraper.DataAccess.Repository
 {
-    internal class NovelRepository : Repository<Novel>, INovelRepository
+    public class NovelRepository : Repository<Novel>, INovelRepository
     {
         private ApplicationDbContext _db;
 
