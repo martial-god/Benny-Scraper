@@ -90,9 +90,9 @@ namespace Benny_Scraper
                     {
                         Directory.CreateDirectory(directory);
                     }
-                    var foo = new Url(url);
-                    using var document = new HTMLDocument(foo);
-                    document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
+                    //var foo = new Url(url);
+                    //using var document = new HTMLDocument(foo);
+                    //document.Save(xhtmlFilePath, new HTMLSaveOptions() { DocumentType = HTMLSaveOptions.XHTML });
                     File.WriteAllText(filePath, contentHtml);
 
                     return new ChapterData

@@ -64,11 +64,36 @@ namespace Benny_Scraper.Services
             return true;
         }
 
+        public async Task RemoveAllAsync()
+        {
+            var allNovels = await _unitOfWork.Novel.GetAllAsync();
+            var allChapters = await _unitOfWork.Chapter.GetAllAsync();
+
+            _unitOfWork.Novel.RemoveRange(allNovels);
+            _unitOfWork.Chapter.RemoveRange(allChapters);
+
+            await _unitOfWork.SaveAsync();
+        }
+
+        public async Task RemoveByIdAsync(Guid id)
+        {
+            var novel = await _unitOfWork.Novel.GetByIdAsync(id);
+            if (novel == null)
+            {
+                throw new InvalidOperationException("Novel not found.");
+            }
+
+            var chapters = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == id);
+            _unitOfWork.Chapter.RemoveRange(chapters);
+            _unitOfWork.Novel.Remove(novel);
+            await _unitOfWork.SaveAsync();
+        }
+
+
         public void ReportServiceLifetimeDetails(string lifetimeDetails)
         {
             Console.WriteLine(lifetimeDetails);
             Console.WriteLine("Changes only with lifetime");
         }
-
     }
 }
