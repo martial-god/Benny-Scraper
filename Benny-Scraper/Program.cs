@@ -38,7 +38,7 @@ namespace Benny_Scraper
 
             // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
             Uri novelTableOfContentUri = new Uri("https://novelfull.com/paragon-of-sin.html");
-            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);
+            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);            
 
             if (novelContext == null) // Novel is not in database so add it
             {
