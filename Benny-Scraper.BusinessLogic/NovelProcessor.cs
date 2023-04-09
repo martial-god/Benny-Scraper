@@ -13,12 +13,14 @@ namespace Benny_Scraper.BusinessLogic
     {
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private readonly INovelService _novelService;
+        private readonly IChapterService _chapterService;
         private readonly INovelScraperFactory _novelScraper;
         private readonly NovelScraperSettings _novelScraperSettings;
 
-        public NovelProcessor(INovelService novelService, INovelScraperFactory novelScraper, IOptions<NovelScraperSettings> novelScraperSettings)
+        public NovelProcessor(INovelService novelService, IChapterService chapterService, INovelScraperFactory novelScraper, IOptions<NovelScraperSettings> novelScraperSettings)
         {
             _novelService = novelService;
+            _chapterService = chapterService;
             _novelScraper = novelScraper;
             _novelScraperSettings = novelScraperSettings.Value;
         }
@@ -73,20 +75,41 @@ namespace Benny_Scraper.BusinessLogic
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper)
         {
             SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
-            
-            var latestChapter = await scraper.GetLatestChapterAsync(novelTableOfContentsUri, siteConfig);
+             string lastSavedChaptersName = string.Empty;
+
+            string latestChapter = await scraper.GetLatestChapterNameAsync(novelTableOfContentsUri, siteConfig);
             bool isCurrentChapterNewest = string.Equals(novel.CurrentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
 
             if (isCurrentChapterNewest)
             {
-                Logger.Info($"{novel.Title} is currently at the latest chapter.\nCurrent Saved: {novel.CurrentChapter}. Novel Id: {novel.Id}");
+                Logger.Info($"{novel.Title} is currently at the latest chapter. Current Saved: {novel.CurrentChapter}. Novel Id: {novel.Id}");
                 return;
             }
 
             // get all newChapters after the current chapter up to the latest
             if (string.IsNullOrEmpty(novel.LastTableOfContentsUrl))
             {
-                Logger.Warn($"{novel.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novel.LastTableOfContentsUrl}");
+                Logger.Warn($"{novel.Title} does not have a LastTableOfContentsUrl. Novel Id: {novel.Id}");
+
+                Chapter lastSavedChapter = await _chapterService.GetLastSavedChapterByNovelIdAsync(novel.Id);
+
+                if (lastSavedChapter != null)
+                {
+                    lastSavedChaptersName = lastSavedChapter.Title ?? string.Empty;
+                    int.TryParse(lastSavedChapter.Number, out int chapterNumber);
+                    var lazyTableOfContentsPage = chapterNumber / siteConfig.ChaptersPerPage;
+                    var newPageQuery = string.Format(siteConfig.PaginationType, lazyTableOfContentsPage.ToString());
+
+                    novel.LastTableOfContentsUrl = novelTableOfContentsUri.AbsoluteUri + newPageQuery;
+                }
+                else // No novel found should still be okay to proceed, just get all chapters from beginning. Might need to remove older chapters.
+                {
+                    Logger.Warn($"{novel.Title} does not have a LastTableOfContentsUrl and no chapter was found in database. Novel Id: {novel.Id}");                    
+                }
+            }
+            else
+            {
+                lastSavedChaptersName = novel.CurrentChapter;
             }
 
             List<string> newChapters = new List<string>();
@@ -95,8 +118,8 @@ namespace Benny_Scraper.BusinessLogic
             {
                 Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
                 
-                int pageToStartAt = GetPageToStartAt(lastTableOfContentsUrl, novel, siteConfig);
-                newChapters = await scraper.BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig);
+                int pageToStartAt = GetTableOfContentsPageToStartAt(lastTableOfContentsUrl, novel, siteConfig);
+                newChapters = await scraper.BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChaptersName);
             }
             
             //var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novel.CurrentChapter);
@@ -131,7 +154,14 @@ namespace Benny_Scraper.BusinessLogic
             return siteConfigurations.FirstOrDefault(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern));
         }
 
-        private int GetPageToStartAt(Uri novelTableOfContentsUrl, Novel novel, SiteConfiguration siteConfig)
+        /// <summary>
+        /// Gets the page number to start at when scraping chapters from a table of contents.
+        /// </summary>
+        /// <param name="novelTableOfContentsUrl"></param>
+        /// <param name="novel"></param>
+        /// <param name="siteConfig"></param>
+        /// <returns>int of the page number</returns>
+        private int GetTableOfContentsPageToStartAt(Uri novelTableOfContentsUrl, Novel novel, SiteConfiguration siteConfig)
         {
             if (novelTableOfContentsUrl == null || string.IsNullOrEmpty(novelTableOfContentsUrl.ToString()))
             {
@@ -139,9 +169,8 @@ namespace Benny_Scraper.BusinessLogic
                 return 1;
             }
             
-            string[] urlSegments = novelTableOfContentsUrl.Segments;
-            string lastSegment = urlSegments.Last();
-            string pageString = lastSegment.Replace(siteConfig.PaginationQueryPartial, ""); //ex: page="2" so we remove page=
+            
+            string pageString = novelTableOfContentsUrl.Query.Replace(siteConfig.PaginationQueryPartial, ""); //ex: page="2" so we remove page=
             int.TryParse(pageString, out int page);
             Logger.Info($"Table of content page to start at is {page}");
             return page;

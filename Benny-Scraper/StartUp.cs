@@ -43,6 +43,7 @@ namespace Benny_Scraper
             builder.RegisterType<NovelProcessor>().As<INovelProcessor>();
             builder.RegisterType<ChapterRepository>().As<IChapterRepository>();
             builder.RegisterType<NovelService>().As<INovelService>().InstancePerLifetimeScope();
+            builder.RegisterType<ChapterService>().As<IChapterService>().InstancePerLifetimeScope();
             builder.RegisterType<NovelRepository>().As<INovelRepository>();
 
             builder.Register(c =>

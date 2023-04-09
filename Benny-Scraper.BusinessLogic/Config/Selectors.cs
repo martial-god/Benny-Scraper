@@ -4,7 +4,7 @@
     {
         public string ChapterLinks { get; set; }
         public string LastTableOfContentsPage { get; set; }
-        public string LastTableOfContentsPageNumber { get; set; }
+        public string LastTableOfContentPageNumberAttribute { get; set; }
         public string LatestChapterLink { get; set; }
         // Add more selectors as needed
     }

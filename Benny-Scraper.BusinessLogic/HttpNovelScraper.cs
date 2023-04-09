@@ -4,6 +4,7 @@ using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
 using NLog;
+using NLog.Fluent;
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -38,7 +39,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteUrl"></param>
         /// <param name="siteConfig"></param>
         /// <returns>collection of urls</returns>
-        public async Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig)
+        public async Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChaptersName)
         {
             
             string baseTableOfContentUrl = siteUrl + siteConfig.PaginationType;
@@ -53,7 +54,7 @@ namespace Benny_Scraper.BusinessLogic
                 {
                     Logger.Info($"Navigating to {tableOfContentUrl}");
                     var htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(tableOfContentUrl));
-                    var chapterUrlsOnContentPage = GetChapterUrls(htmlDocument, siteConfig.Selectors.ChapterLinks);
+                    var chapterUrlsOnContentPage = GetChapterUrls(htmlDocument, siteConfig, lastSavedChaptersName);
                     if (chapterUrlsOnContentPage != null)
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
@@ -108,12 +109,30 @@ namespace Benny_Scraper.BusinessLogic
         private int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
         {
             Logger.Info($"Getting last table of contents page number at {siteConfig.Selectors.LastTableOfContentsPage}");
-            var lastPage = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LastTableOfContentsPage)?
-                .Attributes[siteConfig.Selectors.LastTableOfContentsPageNumber].Value;
+            try
+            {
+                HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LastTableOfContentsPage);
+                string lastPage = lastPageNode.Attributes[siteConfig.Selectors.LastTableOfContentPageNumberAttribute].Value;
 
-            int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
-            Logger.Info($"Last table of contents page number is {lastPage}");
-            return lastPageNumber;
+                int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
+                
+                if (siteConfig.PageOffSet > 0)
+                {
+                    lastPageNumber += siteConfig.PageOffSet;
+                }
+                
+                Logger.Info($"Last table of contents page number is {lastPage}");
+                return lastPageNumber;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error when getting last page table of contents page number. {ex}");
+                throw;
+            }
+            
+            
+
+            
         }
 
         /// <summary>
@@ -187,16 +206,16 @@ namespace Benny_Scraper.BusinessLogic
         }
 
         /// <summary>
-        /// 
+        /// Retrieves the latest chapter's name from the provided URL using the site configuration.
         /// </summary>
-        /// <param name="xPathSelector"></param>
-        /// <param name="uri">uri</param>
-        /// <returns>name of the current chapter as a string</returns>
-        public async Task<string> GetLatestChapterAsync(Uri uri, SiteConfiguration siteConfig)
+        /// <param name="uri">The URL of the web page to scrape.</param>
+        /// <param name="siteConfig">The site configuration containing the selectors for scraping.</param>
+        /// <returns>The latest chapter's name, or an empty string if an error occurs.</returns>
+        public async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
         {
-            string latestChapter = string.Empty;
-            var htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
             Logger.Info("Getting latest chapter name");
+            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
+            
             if (htmlDocument == null)
             {
                 Logger.Debug($"Error while trying to get the latest chapter. \n");
@@ -206,16 +225,30 @@ namespace Benny_Scraper.BusinessLogic
 
             try
             {
-                latestChapter = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink).InnerText;
+                HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
+
+                if (latestChapterNode == null)
+                {
+                    Logger.Debug($"Error while trying to get the latest chapter node. \n");
+                    return string.Empty;
+                }
+
+                string latestChapterName = latestChapterNode.InnerText;
+                if (latestChapterName == null)
+                {
+                    Logger.Debug($"Error while trying to get the latest chapter name form the node. \n");
+                    return string.Empty;
+                }
+                return latestChapterName;
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error while getting latest chapter. {ex}");
+                Logger.Error($"Error while getting latest chapter name. {ex}");
                 throw;
             }
             
             
-            return latestChapter;
+            
         }
 
         private static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
@@ -230,25 +263,48 @@ namespace Benny_Scraper.BusinessLogic
             return htmlDocument;
         }
 
-        private List<string> GetChapterUrls(HtmlDocument htmlDocument, string xPathSelector)
+        private List<string> GetChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChaptersName)
         {
-            var chapterLinks = htmlDocument.DocumentNode.SelectNodes(xPathSelector);
-            if (chapterLinks == null)
+            Logger.Info($"Getting chapter urls from table of contents");
+            try
             {
-                return new List<string>();
-            }
+                HtmlNodeCollection chapterLinks = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.ChapterLinks);
 
-            List<string> chapterUrls = new List<string>();
-            foreach (var link in chapterLinks)
-            {
-                string chapterUrl = link.Attributes["href"]?.Value;
-                if (!string.IsNullOrEmpty(chapterUrl))
+                if (chapterLinks == null)
                 {
-                    chapterUrls.Add(chapterUrl);
+                    Logger.Info("Chapter links Node Collection on table of contents page was null.");
+                    return new List<string>();
                 }
-            }
 
-            return chapterUrls;
+                List<string> chapterUrls = new List<string>();
+
+                bool foundLastSavedChapter = string.IsNullOrEmpty(lastSavedChaptersName);
+                foreach (var link in chapterLinks)
+                {
+                    string chapterUrl = link.Attributes["href"]?.Value;
+                    
+                    if (!foundLastSavedChapter && chapterUrl == lastSavedChaptersName) // only add chapters after last saved chapter
+                    {
+                        foundLastSavedChapter = true;
+                    }
+                    else if (foundLastSavedChapter && !string.IsNullOrEmpty(chapterUrl))
+                    {
+                        chapterUrls.Add(chapterUrl);
+                    }
+                    else
+                    {
+                        chapterUrls.Add(chapterUrl);
+                    }
+                }
+
+                return chapterUrls;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error getting chapter urls from table of contents. {ex}");
+                throw;
+            }
+            
         }
 
 
@@ -321,8 +377,8 @@ namespace Benny_Scraper.BusinessLogic
 
 
         //    INovelPageScraper novelPageScraper = new NovelPageScraper();
-        //    var latestChapter = await novelPageScraper.GetLatestChapterAsync("//ul[@class='l-chapters']//a", novelTableOfContentsUri);
-        //    bool isCurrentChapterNewest = string.Equals(currentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
+        //    var latestChapterName = await novelPageScraper.GetLatestChapterNameAsync("//ul[@class='l-chapters']//a", novelTableOfContentsUri);
+        //    bool isCurrentChapterNewest = string.Equals(currentChapter, latestChapterName, comparisonType: StringComparison.OrdinalIgnoreCase);
 
         //    if (isCurrentChapterNewest)
         //    {

@@ -8,5 +8,6 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
     {
         void Update(Chapter obj);
         void AddRange(ICollection<Chapter> chapters);
+        Task<Chapter> GetLastSavedChapterAsyncByNovelId(Guid novelId);
     }
 }

@@ -14,5 +14,7 @@ namespace Benny_Scraper.BusinessLogic.Config
         public string PaginationType { get; set; }
         public string PaginationQueryPartial { get; set; }
         public Selectors Selectors { get; set; }
+        public int ChaptersPerPage { get; set; }
+        public int PageOffSet { get; set; }
     }
 }
