@@ -75,7 +75,7 @@ namespace Benny_Scraper.BusinessLogic
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper)
         {
             SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
-             string lastSavedChaptersName = string.Empty;
+             string lastSavedChapterUrl = string.Empty;
 
             string latestChapter = await scraper.GetLatestChapterNameAsync(novelTableOfContentsUri, siteConfig);
             bool isCurrentChapterNewest = string.Equals(novel.CurrentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
@@ -95,7 +95,7 @@ namespace Benny_Scraper.BusinessLogic
 
                 if (lastSavedChapter != null)
                 {
-                    lastSavedChaptersName = lastSavedChapter.Title ?? string.Empty;
+                    lastSavedChapterUrl = novel.CurrentChapterUrl ?? string.Empty;
                     int.TryParse(lastSavedChapter.Number, out int chapterNumber);
                     var lazyTableOfContentsPage = chapterNumber / siteConfig.ChaptersPerPage;
                     var newPageQuery = string.Format(siteConfig.PaginationType, lazyTableOfContentsPage.ToString());
@@ -109,7 +109,7 @@ namespace Benny_Scraper.BusinessLogic
             }
             else
             {
-                lastSavedChaptersName = novel.CurrentChapter;
+                lastSavedChapterUrl = novel.CurrentChapterUrl;
             }
 
             List<string> newChapters = new List<string>();
@@ -117,9 +117,9 @@ namespace Benny_Scraper.BusinessLogic
             if (siteConfig.HasPagination) 
             {
                 Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
-                
+
                 int pageToStartAt = GetTableOfContentsPageToStartAt(lastTableOfContentsUrl, novel, siteConfig);
-                newChapters = await scraper.BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChaptersName);
+                newChapters = await scraper.BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
             }
             
             //var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novel.CurrentChapter);

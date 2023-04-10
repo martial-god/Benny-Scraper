@@ -39,7 +39,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteUrl"></param>
         /// <param name="siteConfig"></param>
         /// <returns>collection of urls</returns>
-        public async Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChaptersName)
+        public async Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl)
         {
             
             string baseTableOfContentUrl = siteUrl + siteConfig.PaginationType;
@@ -54,7 +54,8 @@ namespace Benny_Scraper.BusinessLogic
                 {
                     Logger.Info($"Navigating to {tableOfContentUrl}");
                     var htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(tableOfContentUrl));
-                    var chapterUrlsOnContentPage = GetChapterUrls(htmlDocument, siteConfig, lastSavedChaptersName);
+                    
+                    var chapterUrlsOnContentPage = RetrieveLatestChapterUrls(htmlDocument, siteConfig, lastSavedChapterUrl);
                     if (chapterUrlsOnContentPage != null)
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
@@ -263,7 +264,7 @@ namespace Benny_Scraper.BusinessLogic
             return htmlDocument;
         }
 
-        private List<string> GetChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChaptersName)
+        private List<string> RetrieveLatestChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChapterUrl)
         {
             Logger.Info($"Getting chapter urls from table of contents");
             try
@@ -278,20 +279,16 @@ namespace Benny_Scraper.BusinessLogic
 
                 List<string> chapterUrls = new List<string>();
 
-                bool foundLastSavedChapter = string.IsNullOrEmpty(lastSavedChaptersName);
+                bool foundLastSavedChapter = string.IsNullOrEmpty(lastSavedChapterUrl);
                 foreach (var link in chapterLinks)
                 {
                     string chapterUrl = link.Attributes["href"]?.Value;
                     
-                    if (!foundLastSavedChapter && chapterUrl == lastSavedChaptersName) // only add chapters after last saved chapter
+                    if (!foundLastSavedChapter && chapterUrl == lastSavedChapterUrl) // only add chapters after last saved chapter
                     {
                         foundLastSavedChapter = true;
                     }
                     else if (foundLastSavedChapter && !string.IsNullOrEmpty(chapterUrl))
-                    {
-                        chapterUrls.Add(chapterUrl);
-                    }
-                    else
                     {
                         chapterUrls.Add(chapterUrl);
                     }

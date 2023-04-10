@@ -7,6 +7,6 @@ namespace Benny_Scraper.BusinessLogic.Interfaces
     {
         public Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig);
         public Task GoToTableOfContentsPageAsync(Uri novelTableOfContentsUri);
-        public Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChaptersName);
+        public Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl);
     }
 }

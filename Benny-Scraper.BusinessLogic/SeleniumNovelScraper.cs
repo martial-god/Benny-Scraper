@@ -20,6 +20,11 @@ namespace Benny_Scraper.BusinessLogic
             throw new NotImplementedException();
         }
 
+        public Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, Uri lastSavedChapterUri)
+        {
+            throw new NotImplementedException();
+        }
+
         public Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
         {
             throw new NotImplementedException();
