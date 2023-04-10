@@ -10,13 +10,13 @@ namespace Benny_Scraper.BusinessLogic.Factory
 {
     public class NovelScraperFactory : INovelScraperFactory
     {
-        private readonly IComponentContext _serviceProvider;
+        private readonly Func<string, INovelScraper> _novelScraperResolver;
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private readonly NovelScraperSettings _novelScraperSettings;
 
-        public NovelScraperFactory(IComponentContext serviceProvider, IOptions<NovelScraperSettings> novelScraperSettings)
+        public NovelScraperFactory(Func<string, INovelScraper> novelScraperResolver, IOptions<NovelScraperSettings> novelScraperSettings)
         {
-            _serviceProvider = serviceProvider;
+            _novelScraperResolver = novelScraperResolver;
             _novelScraperSettings = novelScraperSettings.Value;
         }
 
@@ -28,20 +28,18 @@ namespace Benny_Scraper.BusinessLogic.Factory
             {
                 try
                 {
-                    return _serviceProvider.ResolveNamed<INovelScraper>("Selenium");
+                    return _novelScraperResolver("Selenium");
                 }
                 catch (Exception ex)
                 {
                     Logger.Error($"Error when getting SeleniumNovelScraper. {ex}");
                     throw;
                 }
-                
             }
 
             try
             {
-                
-                return _serviceProvider.ResolveNamed<INovelScraper>("Http");
+                return _novelScraperResolver("Http");
             }
             catch (Exception ex)
             {
@@ -49,6 +47,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
                 throw;
             }
         }
+
     }
 
 }

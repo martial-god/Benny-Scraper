@@ -36,7 +36,8 @@ namespace Benny_Scraper
             builder.RegisterInstance(Configuration).As<IConfiguration>();
 
             builder.Register(c => new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(GetConnectionString()).Options)).InstancePerLifetimeScope();
+                .UseSqlServer(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();
+
 
             builder.RegisterType<DbInitializer>().As<IDbInitializer>();
             builder.RegisterType<UnitOfWork>().As<IUnitOfWork>();

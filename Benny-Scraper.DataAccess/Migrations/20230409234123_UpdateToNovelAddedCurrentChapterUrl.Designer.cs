@@ -4,6 +4,7 @@ using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230409234123_UpdateToNovelAddedCurrentChapterUrl")]
+    partial class UpdateToNovelAddedCurrentChapterUrl
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -90,8 +93,8 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.Property<string>("CurrentChapter")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
+                        .HasMaxLength(144)
+                        .HasColumnType("nvarchar(144)")
                         .HasColumnName("current_chapter");
 
                     b.Property<string>("CurrentChapterUrl")
@@ -113,8 +116,8 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.Property<string>("FirstChapter")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
+                        .HasMaxLength(144)
+                        .HasColumnType("nvarchar(144)")
                         .HasColumnName("first_chapter");
 
                     b.Property<string>("Genre")

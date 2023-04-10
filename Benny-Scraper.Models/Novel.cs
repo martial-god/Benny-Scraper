@@ -21,8 +21,9 @@ namespace Benny_Scraper.Models
         public string? Genre { get; set; }
         public string? Description { get; set; }
         
-        [StringLength(144)] public string FirstChapter { get; set;}
-        [StringLength(144)] public string CurrentChapter { get; set; }
+        [StringLength(255)] public string FirstChapter { get; set;}
+        [StringLength(255)] public string CurrentChapter { get; set; }
+        public string CurrentChapterUrl { get; set; }
         public int? TotalChapters { get; set; }        
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }
