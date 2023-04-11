@@ -32,7 +32,7 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Stopping application.");
                 return;
             }
-            
+
             Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
 
             ValidateObject validator = new ValidateObject();
@@ -75,7 +75,7 @@ namespace Benny_Scraper.BusinessLogic
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper)
         {
             SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
-             string lastSavedChapterUrl = string.Empty;
+            string lastSavedChapterUrl = string.Empty;
 
             string latestChapter = await scraper.GetLatestChapterNameAsync(novelTableOfContentsUri, siteConfig);
             bool isCurrentChapterNewest = string.Equals(novel.CurrentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
@@ -104,7 +104,7 @@ namespace Benny_Scraper.BusinessLogic
                 }
                 else // No novel found should still be okay to proceed, just get all chapters from beginning. Might need to remove older chapters.
                 {
-                    Logger.Warn($"{novel.Title} does not have a LastTableOfContentsUrl and no chapter was found in database. Novel Id: {novel.Id}");                    
+                    Logger.Warn($"{novel.Title} does not have a LastTableOfContentsUrl and no chapter was found in database. Novel Id: {novel.Id}");
                 }
             }
             else
@@ -112,15 +112,16 @@ namespace Benny_Scraper.BusinessLogic
                 lastSavedChapterUrl = novel.CurrentChapterUrl;
             }
 
-            List<string> newChapters = new List<string>();
+            List<string> newChapterUrls = new List<string>();
 
-            if (siteConfig.HasPagination) 
+            if (siteConfig.HasPagination)
             {
                 Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
 
                 int pageToStartAt = GetTableOfContentsPageToStartAt(lastTableOfContentsUrl, novel, siteConfig);
-                newChapters = await scraper.BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
+                newChapterUrls = await scraper.BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
             }
+
             
             //var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novel.CurrentChapter);
             //IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novel.Title);
@@ -168,8 +169,8 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info($"{novel.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novel.LastTableOfContentsUrl}");
                 return 1;
             }
-            
-            
+
+
             string pageString = novelTableOfContentsUrl.Query.Replace(siteConfig.PaginationQueryPartial, ""); //ex: page="2" so we remove page=
             int.TryParse(pageString, out int page);
             Logger.Info($"Table of content page to start at is {page}");
