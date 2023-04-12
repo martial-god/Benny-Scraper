@@ -25,6 +25,16 @@ namespace Benny_Scraper.BusinessLogic
             throw new NotImplementedException();
         }
 
+        public Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, SiteConfiguration siteConfig)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<NovelData> GetChaptersFromCheckPointAsync(Uri novelTableOfContentLatestUri, string currentChapter, SiteConfiguration siteConfig)
+        {
+            throw new NotImplementedException();
+        }
+
         public Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
         {
             throw new NotImplementedException();
