@@ -39,11 +39,12 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteUrl"></param>
         /// <param name="siteConfig"></param>
         /// <returns>collection of urls</returns>
-        public async Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl)
+        public async Task<NovelData> BuildNovelDataFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl)
         {
             
             string baseTableOfContentUrl = siteUrl + siteConfig.PaginationType;
-            int lastPage = await GetCurrentLastTableOfContentsUrl(siteUrl, siteConfig);
+            int lastPage = await GetCurrentLastTableOfContentsPageNumber(siteUrl, siteConfig);
+            string lastTableOfContentsUrl = string.Format(baseTableOfContentUrl, lastPage);
             
             List<string> chapterUrls = new List<string>();
 
@@ -67,9 +68,22 @@ namespace Benny_Scraper.BusinessLogic
                     Logger.Error($"Error occurred while navigating to {tableOfContentUrl}. Error: {e}");
                 }
             }
-            return chapterUrls;
-        }        
-        
+
+            NovelData novelData = new NovelData()
+            {
+                LatestChapterUrls = chapterUrls,
+                Status = string.Empty,
+                LastTableOfContentsUrl = lastTableOfContentsUrl,
+            };
+
+            return novelData;
+        }
+
+        public Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, SiteConfiguration siteConfig)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <summary>
         /// Gets chapter from the collection of chapters
         /// </summary>
@@ -100,7 +114,9 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        private async Task<int> GetCurrentLastTableOfContentsUrl(Uri siteUrl, SiteConfiguration siteConfig)
+        
+
+        private async Task<int> GetCurrentLastTableOfContentsPageNumber(Uri siteUrl, SiteConfiguration siteConfig)
         {
             var htmlDocument = await LoadHtmlDocumentFromUrlAsync(siteUrl);
             int lastPageNumber = GetLastTableOfContentsPageNumber(htmlDocument, siteConfig);
@@ -361,65 +377,7 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Debug($"Error while trying to get the latest chapter. \n{e.Message}");
                 throw;
             }
-        }
-
-        public Task<NovelData> GetChaptersFromCheckPointAsync(Uri novelTableOfContentLatestUri, string currentChapter, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
+        }        
         #endregion
-
-        //private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri)
-        //{
-        //    var currentChapter = novel?.CurrentChapter;
-        //    var chapterContext = novel?.Chapters;
-
-        //    if (currentChapter == null || chapterContext == null)
-        //        return;
-
-
-        //    INovelPageScraper novelPageScraper = new NovelPageScraper();
-        //    var latestChapterName = await novelPageScraper.GetLatestChapterNameAsync("//ul[@class='l-chapters']//a", novelTableOfContentsUri);
-        //    bool isCurrentChapterNewest = string.Equals(currentChapter, latestChapterName, comparisonType: StringComparison.OrdinalIgnoreCase);
-
-        //    if (isCurrentChapterNewest)
-        //    {
-        //        Logger.Info($"{novel.Title} is currently at the latest chapter.\nCurrent Saved: {novel.CurrentChapter}");
-        //        return;
-        //    }
-
-
-        //    // get all newChapters after the current chapter up to the latest
-        //    if (string.IsNullOrEmpty(novel.LastTableOfContentsUrl))
-        //    {
-        //        Logger.Info($"{novel.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novel.LastTableOfContentsUrl}");
-        //        return;
-        //    }
-
-        //    Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
-        //    var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novel.CurrentChapter);
-        //    IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novel.Title);
-
-        //    List<Models.Chapter> newChapters = chapterData.Select(data => new Models.Chapter
-        //    {
-        //        Url = data.Url ?? "",
-        //        Content = data.Content ?? "",
-        //        Title = data.Title ?? "",
-        //        DateCreated = DateTime.UtcNow,
-        //        DateLastModified = DateTime.UtcNow,
-        //        Number = data.Number,
-
-        //    }).ToList();
-        //    novel.LastTableOfContentsUrl = latestChapterData.LastTableOfContentsUrl;
-        //    novel.Status = latestChapterData.Status;
-
-        //    novel.Chapters.AddRange(newChapters);
-        //    await _novelService.UpdateAndAddChapters(novel, newChapters);
-        //}
     }
 }

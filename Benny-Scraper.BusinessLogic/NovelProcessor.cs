@@ -119,7 +119,7 @@ namespace Benny_Scraper.BusinessLogic
                 Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
 
                 int pageToStartAt = GetTableOfContentsPageToStartAt(lastTableOfContentsUrl, novel, siteConfig);
-                newChapterUrls = await scraper.BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
+                newChapterUrls = await scraper.BuildNovelDataFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
             }
 
             
