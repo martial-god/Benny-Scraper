@@ -112,7 +112,7 @@ namespace Benny_Scraper.BusinessLogic
                 lastSavedChapterUrl = novel.CurrentChapterUrl;
             }
 
-            List<string> newChapterUrls = new List<string>();
+            NovelData newChapterUrls = new NovelData();
 
             if (siteConfig.HasPagination)
             {
