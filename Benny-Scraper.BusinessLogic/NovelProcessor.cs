@@ -122,6 +122,7 @@ namespace Benny_Scraper.BusinessLogic
                 novelData = await scraper.BuildNovelDataFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
             }
 
+            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
             
             //var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novel.CurrentChapter);
             //IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.RecentChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novel.Title);

@@ -14,7 +14,9 @@
         public string NovelRating { get; set; }
         public string TotalRatings { get; set; }
         public string NovelThumbnailUrl { get; set; }
-        
+        public string ChapterTitle { get; set; }
+        public string ChapterContent { get; set; }
+
         // Add more selectors as needed
     }
 }

@@ -2,9 +2,7 @@
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using Microsoft.Extensions.Options;
 using NLog;
-using NLog.Fluent;
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -19,19 +17,8 @@ namespace Benny_Scraper.BusinessLogic
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         private static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(5); // limit the number of concurrent requests, prevent posssible rate limiting
-        private readonly NovelScraperSettings _novelScraperSettings; // IOptions will get an instnace of NovelScraperSettings
-
-        public HttpNovelScraper(IOptions<NovelScraperSettings> novelScraperSettings)
-        {
-            _novelScraperSettings = novelScraperSettings.Value;
-        }
 
         #region Public Methods
-        public async Task GoToTableOfContentsPageAsync(Uri novelTableOfContentsUri)
-        {
-            await _client.GetAsync(novelTableOfContentsUri);
-        }
-
         /// <summary>
         /// Retrieves the latest chapter's name from the provided URL using the site configuration.
         /// </summary>
@@ -74,7 +61,7 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        
+
         /// <summary>
         /// Collects information about a novel from the table of contents and getting most recent chapters urls that are not saved locally
         /// </summary>
@@ -100,7 +87,7 @@ namespace Benny_Scraper.BusinessLogic
                     Logger.Info($"Navigating to {tableOfContentUrl}");
                     HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(tableOfContentUrl));
 
-                    List<string> chapterUrlsOnContentPage = GetLatestChapterUrls(htmlDocument, siteConfig, lastSavedChapterUrl);
+                    List<string> chapterUrlsOnContentPage = GetLatestChapterUrls(htmlDocument, siteConfig, lastSavedChapterUrl, siteUri);
                     if (chapterUrlsOnContentPage != null)
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
@@ -122,20 +109,7 @@ namespace Benny_Scraper.BusinessLogic
             return novelData;
         }
 
-        public Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Gets chapter from the collection of chapters
-        /// </summary>
-        /// <param name="chapterUrls"></param>
-        /// <param name="titleXPathSelector">selector in the form of an XPath</param>
-        /// <param name="contentXPathSelector">selector in the form of an XPath</param>
-        /// <param name="novelTitle">Title of the novel will be used to create a folder for the novel to save chapters</param>
-        /// <returns>Task that contains a collection of all chapters of type ChapterData</returns>
-        public async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, string titleXPathSelector, string contentXPathSelector, string novelTitle)
+        public async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, SiteConfiguration siteConfig)
         {
             try
             {
@@ -143,16 +117,15 @@ namespace Benny_Scraper.BusinessLogic
                 foreach (var url in chapterUrls)
                 {
                     await _semaphonreSlim.WaitAsync();
-                    tasks.Add(GetChapterDataAsync(url, titleXPathSelector, contentXPathSelector, novelTitle));
+                    tasks.Add(GetChapterDataAsync(url, siteConfig));
                 }
 
-                var chapterData = await Task.WhenAll(tasks);
-
+                ChapterData[] chapterData = await Task.WhenAll(tasks);
                 return chapterData.ToList();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Logger.Debug(e);
+                Logger.Error($"Error while getting chapters data. {ex}");
                 throw;
             }
         }
@@ -200,6 +173,34 @@ namespace Benny_Scraper.BusinessLogic
             return novelData;
         }
 
+        private async Task<ChapterData> GetChapterDataAsync(string url, SiteConfiguration siteConfig)
+        {
+            ChapterData chapterData = new ChapterData();
+            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(url));
+            try
+            {
+                HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.ChapterTitle);
+                chapterData.Title = titleNode.InnerText.Trim();
+
+                HtmlNodeCollection contentNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.ChapterContent);
+                List<string> htmlContent = contentNodes.Select(paragraph => paragraph.OuterHtml.Trim()).ToList();
+                chapterData.Content = string.Join("\n", htmlContent);
+
+                chapterData.Url = url;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+            }
+            finally
+            {
+                _semaphonreSlim.Release();
+            }
+
+            return chapterData;
+
+        }
+
         private async Task<int> GetCurrentLastTableOfContentsPageNumber(Uri siteUrl, SiteConfiguration siteConfig)
         {
             var htmlDocument = await LoadHtmlDocumentFromUrlAsync(siteUrl);
@@ -232,58 +233,6 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        /// <summary>
-        /// Gets chapter data and creates html files
-        /// </summary>
-        /// <param name="url"></param>
-        /// <param name="titleXPathSelector"></param>
-        /// <param name="contentXPathSelector"></param>
-        /// <param name="novelTitle"></param>
-        /// <returns></returns>
-        private async Task<ChapterData> GetChapterDataAsync(string url, string titleXPathSelector, string contentXPathSelector, string novelTitle)
-        {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            try
-            {
-                var response = await _client.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                var responseBody = await response.Content.ReadAsStringAsync();
-                var htmlDocument = new HtmlDocument();
-                htmlDocument.LoadHtml(responseBody);
-
-                var title = htmlDocument.DocumentNode.SelectSingleNode(titleXPathSelector)?.InnerText ?? string.Empty;
-                var contentHtml = htmlDocument.DocumentNode.SelectSingleNode(contentXPathSelector)?.OuterHtml;
-                var content = htmlDocument.DocumentNode.SelectNodes("//p").Select(x => x.InnerText).ToList();
-
-                SaveAndWriteNovelToMyDocuments(title, novelTitle, contentHtml);
-
-                return new ChapterData
-                {
-                    Title = title,
-                    Content = contentHtml,
-                    Url = url,
-                };
-            }
-            catch (Exception e)
-            {
-                Logger.Debug(e);
-
-                // return what we have so far
-                return new ChapterData
-                {
-                    Title = string.Empty,
-                    Content = string.Empty,
-                    Url = url,
-                };
-            }
-            finally
-            {
-                _semaphonreSlim.Release();
-            }
-
-
-        }
-
         private void SaveAndWriteNovelToMyDocuments(string title, string novelTitle, string? contentHtml)
         {
             // save content to file
@@ -300,7 +249,7 @@ namespace Benny_Scraper.BusinessLogic
             }
 
             File.WriteAllText(_fileSavePath, contentHtml);
-        }        
+        }
 
         private static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
@@ -342,7 +291,7 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        private List<string> GetLatestChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChapterUrl)
+        private List<string> GetLatestChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChapterUrl, Uri siteUri)
         {
             Logger.Info($"Getting chapter urls from table of contents");
             try
@@ -368,7 +317,8 @@ namespace Benny_Scraper.BusinessLogic
                     }
                     else if (foundLastSavedChapter && !string.IsNullOrEmpty(chapterUrl))
                     {
-                        chapterUrls.Add(chapterUrl);
+                        string fullUrl = new Uri(siteUri, chapterUrl.TrimStart('/')).ToString();
+                        chapterUrls.Add(fullUrl);
                     }
                 }
 
