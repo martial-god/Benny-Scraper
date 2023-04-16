@@ -16,5 +16,6 @@ namespace Benny_Scraper.BusinessLogic.Config
         public Selectors Selectors { get; set; }
         public int ChaptersPerPage { get; set; }
         public int PageOffSet { get; set; }
+        public string CompletedStatus { get; set; }
     }
 }

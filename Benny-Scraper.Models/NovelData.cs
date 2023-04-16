@@ -6,15 +6,23 @@ namespace Benny_Scraper.Models
     /// </summary>
     public class NovelData
     {
-        public List<string> LatestChapterUrls { get; set; }
-        public string Status { get; set; }
-        public string LastTableOfContentsUrl { get; set; }
-        public bool LastChapter { get; set; }
-        public string LatestChapterUrl
+        public List<string> RecentChapterUrls { get; set; }
+        public string NovelStatus { get; set; }
+        public string LastTableOfContentsPageUrl { get; set; }
+        public bool IsNovelCompleted { get; set; }
+        public string ThumbnailUrl { get; set; }
+        public double Rating { get; set; }
+        public int TotalRatings { get; set; }
+        public List<string> Description { get; set; }
+        public string Author { get; set; }
+        public List<string> Genres { get; set; }
+        public List<string> AlternativeNames { get; set; }
+
+        public string MostRecentChapterUrl
         {
             get 
             { 
-                return LatestChapterUrls.Last();
+                return RecentChapterUrls.Last();
             }
         }
     }

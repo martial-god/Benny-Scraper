@@ -26,27 +26,71 @@ namespace Benny_Scraper.BusinessLogic
             _novelScraperSettings = novelScraperSettings.Value;
         }
 
+        #region Public Methods
         public async Task GoToTableOfContentsPageAsync(Uri novelTableOfContentsUri)
         {
             await _client.GetAsync(novelTableOfContentsUri);
         }
 
-        #region Http Requests
         /// <summary>
-        /// Creates a collection of chapter urls by incrementing the page number in the url. ex: https://novelfull.com/paragon-of-sin.html?page=2 to ?page=3
+        /// Retrieves the latest chapter's name from the provided URL using the site configuration.
         /// </summary>
-        /// <param name="pageToStartAt"></param>
-        /// <param name="siteUrl"></param>
-        /// <param name="siteConfig"></param>
-        /// <returns>collection of urls</returns>
-        public async Task<NovelData> BuildNovelDataFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl)
+        /// <param name="uri">The URL of the web page to scrape.</param>
+        /// <param name="siteConfig">The site configuration containing the selectors for scraping.</param>
+        /// <returns>The latest chapter's name, or an empty string if an error occurs.</returns>
+        public async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
         {
-            
-            string baseTableOfContentUrl = siteUrl + siteConfig.PaginationType;
-            int lastPage = await GetCurrentLastTableOfContentsPageNumber(siteUrl, siteConfig);
-            string lastTableOfContentsUrl = string.Format(baseTableOfContentUrl, lastPage);
-            
+            Logger.Info("Getting latest chapter name");
+            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
+
+            if (htmlDocument == null)
+            {
+                Logger.Debug($"Error while trying to get the latest chapter. \n");
+                return string.Empty;
+            }
+
+            try
+            {
+                HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
+
+                if (latestChapterNode == null)
+                {
+                    Logger.Debug($"Error while trying to get the latest chapter node. \n");
+                    return string.Empty;
+                }
+
+                string latestChapterName = latestChapterNode.InnerText;
+                if (latestChapterName == null)
+                {
+                    Logger.Debug($"Error while trying to get the latest chapter name form the node. \n");
+                    return string.Empty;
+                }
+                return latestChapterName;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error while getting latest chapter name. {ex}");
+                throw;
+            }
+        }
+
+        
+        /// <summary>
+        /// Collects information about a novel from the table of contents and getting most recent chapters urls that are not saved locally
+        /// </summary>
+        /// <param name="pageToStartAt">Page number of the table of contents</param>
+        /// <param name="siteUri"></param>
+        /// <param name="siteConfig"></param>
+        /// <param name="lastSavedChapterUrl"></param>
+        /// <returns></returns>
+        public async Task<NovelData> BuildNovelDataFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl)
+        {
             List<string> chapterUrls = new List<string>();
+
+            string baseTableOfContentUrl = siteUri + siteConfig.PaginationType;
+
+            int lastPage = await GetCurrentLastTableOfContentsPageNumber(siteUri, siteConfig);
+            string lastTableOfContentsUrl = string.Format(baseTableOfContentUrl, lastPage);
 
             for (int i = pageToStartAt; i <= lastPage; i++)
             {
@@ -54,14 +98,14 @@ namespace Benny_Scraper.BusinessLogic
                 try
                 {
                     Logger.Info($"Navigating to {tableOfContentUrl}");
-                    var htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(tableOfContentUrl));
-                    
-                    var chapterUrlsOnContentPage = RetrieveLatestChapterUrls(htmlDocument, siteConfig, lastSavedChapterUrl);
+                    HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(tableOfContentUrl));
+
+                    List<string> chapterUrlsOnContentPage = GetLatestChapterUrls(htmlDocument, siteConfig, lastSavedChapterUrl);
                     if (chapterUrlsOnContentPage != null)
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
                     }
-                        
+
                 }
                 catch (HttpRequestException e)
                 {
@@ -69,12 +113,11 @@ namespace Benny_Scraper.BusinessLogic
                 }
             }
 
-            NovelData novelData = new NovelData()
-            {
-                LatestChapterUrls = chapterUrls,
-                Status = string.Empty,
-                LastTableOfContentsUrl = lastTableOfContentsUrl,
-            };
+            HtmlDocument html = await LoadHtmlDocumentFromUrlAsync(new Uri(baseTableOfContentUrl));
+            NovelData novelData = GetNovelDataFromTableOfContent(html, siteConfig);
+            novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+            novelData.RecentChapterUrls = chapterUrls;
+            novelData.ThumbnailUrl = new Uri(siteUri, novelData.ThumbnailUrl.TrimStart('/')).ToString();
 
             return novelData;
         }
@@ -113,8 +156,49 @@ namespace Benny_Scraper.BusinessLogic
                 throw;
             }
         }
+        #endregion
 
-        
+        #region Private Methods
+        private NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
+        {
+            NovelData novelData = new NovelData();
+
+            try
+            {
+                HtmlNode authorNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelAuthor);
+                novelData.Author = authorNode.InnerText.Trim();
+
+                HtmlNode novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelRating);
+                novelData.Rating = double.Parse(novelRatingNode.InnerText.Trim());
+
+                HtmlNode totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.TotalRatings);
+                novelData.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
+
+                HtmlNodeCollection descriptionNode = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelDescription);
+                var foo = descriptionNode[0].InnerText.Trim();
+                novelData.Description = descriptionNode.Select(description => description.InnerText.Trim()).ToList();
+
+                HtmlNodeCollection genreNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelGenres);
+                novelData.Genres = genreNodes.Select(genre => genre.InnerText.Trim()).ToList();
+
+                HtmlNodeCollection alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelAlternativeNames);
+                novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
+
+                HtmlNode novelStatusNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelStatus);
+                novelData.NovelStatus = novelStatusNode.InnerText.Trim();
+
+                HtmlNode thumbnailUrlNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelThumbnailUrl);
+                novelData.ThumbnailUrl = thumbnailUrlNode.Attributes["src"].Value;
+
+                novelData.IsNovelCompleted = novelData.NovelStatus.ToLower().Contains(siteConfig.CompletedStatus);
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Error occurred while getting novel data from table of content. Error: {e}");
+            }
+
+            return novelData;
+        }
 
         private async Task<int> GetCurrentLastTableOfContentsPageNumber(Uri siteUrl, SiteConfiguration siteConfig)
         {
@@ -132,12 +216,12 @@ namespace Benny_Scraper.BusinessLogic
                 string lastPage = lastPageNode.Attributes[siteConfig.Selectors.LastTableOfContentPageNumberAttribute].Value;
 
                 int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
-                
+
                 if (siteConfig.PageOffSet > 0)
                 {
                     lastPageNumber += siteConfig.PageOffSet;
                 }
-                
+
                 Logger.Info($"Last table of contents page number is {lastPage}");
                 return lastPageNumber;
             }
@@ -146,10 +230,6 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Error($"Error when getting last page table of contents page number. {ex}");
                 throw;
             }
-            
-            
-
-            
         }
 
         /// <summary>
@@ -220,53 +300,7 @@ namespace Benny_Scraper.BusinessLogic
             }
 
             File.WriteAllText(_fileSavePath, contentHtml);
-        }
-
-        /// <summary>
-        /// Retrieves the latest chapter's name from the provided URL using the site configuration.
-        /// </summary>
-        /// <param name="uri">The URL of the web page to scrape.</param>
-        /// <param name="siteConfig">The site configuration containing the selectors for scraping.</param>
-        /// <returns>The latest chapter's name, or an empty string if an error occurs.</returns>
-        public async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
-        {
-            Logger.Info("Getting latest chapter name");
-            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
-            
-            if (htmlDocument == null)
-            {
-                Logger.Debug($"Error while trying to get the latest chapter. \n");
-                return string.Empty;
-            }
-
-
-            try
-            {
-                HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
-
-                if (latestChapterNode == null)
-                {
-                    Logger.Debug($"Error while trying to get the latest chapter node. \n");
-                    return string.Empty;
-                }
-
-                string latestChapterName = latestChapterNode.InnerText;
-                if (latestChapterName == null)
-                {
-                    Logger.Debug($"Error while trying to get the latest chapter name form the node. \n");
-                    return string.Empty;
-                }
-                return latestChapterName;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error while getting latest chapter name. {ex}");
-                throw;
-            }
-            
-            
-            
-        }
+        }        
 
         private static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
@@ -280,7 +314,35 @@ namespace Benny_Scraper.BusinessLogic
             return htmlDocument;
         }
 
-        private List<string> RetrieveLatestChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChapterUrl)
+        private string GetNovelStatus(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
+        {
+            Logger.Info($"Getting novel status");
+            try
+            {
+                HtmlNode novelStatusNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelStatus);
+
+                if (novelStatusNode == null)
+                {
+                    Logger.Info("Novel status Node on table of contents page was null.");
+                    return string.Empty;
+                }
+
+                string novelStatus = novelStatusNode.InnerText;
+                if (novelStatus == null)
+                {
+                    Logger.Info("Novel status inner text on table of contents page was null.");
+                    return string.Empty;
+                }
+                return novelStatus;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error while getting novel status. {ex}");
+                throw;
+            }
+        }
+
+        private List<string> GetLatestChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChapterUrl)
         {
             Logger.Info($"Getting chapter urls from table of contents");
             try
@@ -299,7 +361,7 @@ namespace Benny_Scraper.BusinessLogic
                 foreach (var link in chapterLinks)
                 {
                     string chapterUrl = link.Attributes["href"]?.Value;
-                    
+
                     if (!foundLastSavedChapter && chapterUrl == lastSavedChapterUrl) // only add chapters after last saved chapter
                     {
                         foundLastSavedChapter = true;
@@ -317,67 +379,8 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Error($"Error getting chapter urls from table of contents. {ex}");
                 throw;
             }
-            
+
         }
-
-
-        /// <summary>
-        /// Gets the most recent chapters using the last page in the table of contents as a starting point, will only get chapters greater than the last
-        /// saved chapter
-        /// </summary>
-        /// <param name="xPathSelector"></param>
-        /// <param name="novelTableOfContentLatestUri">uri for the table of contents page</param>
-        /// <param name="currentChapter">last chapter saved in the database for the novel</param>
-        /// <returns></returns>
-        public async Task<NovelData> GetNewChaptersFromLastSavedAsync(string xPathSelector, Uri novelTableOfContentLatestUri, string currentChapter)
-        {
-            try
-            {
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-                var response = await _client.GetAsync(novelTableOfContentLatestUri);
-                response.EnsureSuccessStatusCode();
-                var responseBody = await response.Content.ReadAsStringAsync();
-                var htmlDocument = new HtmlDocument();
-                htmlDocument.LoadHtml(responseBody);
-                // how to get last element using XPath https://stackoverflow.com/questions/1459132/xslt-getting-last-element
-                var novelInfo = htmlDocument.DocumentNode.SelectSingleNode("(//div[@class='info']//a)[last()]").InnerText;
-                var lastContentPage = htmlDocument.DocumentNode.SelectSingleNode("//li[@class='last']//a/@href")?.Attributes["href"].Value;
-
-
-                var latestChapterElements = htmlDocument.DocumentNode.SelectNodes(xPathSelector);
-                var latestChapters = latestChapterElements.Select(x => x.Attributes["href"].Value).Where(c =>
-                {
-                    var currentMatch = Regex.Match(currentChapter, @"\d+");
-                    var siteMatch = Regex.Match(c, @"\d+");
-                    var chapterNumberOnSite = int.Parse(siteMatch.Success ? siteMatch.Groups[0].Value : "0");
-                    var currentChap = int.Parse(currentMatch.Success ? currentMatch.Groups[0].Value : "0");
-                    return chapterNumberOnSite > currentChap; // only get chapters new than the ones we have saved
-
-                });
-
-                // make this a full url with https/ http for the scheme
-                List<string> lastestChapterUrlsToAdd = latestChapters.Select(x =>
-                {
-                    return $"{novelTableOfContentLatestUri.Scheme}://{novelTableOfContentLatestUri.Host}{x}";
-                }).ToList();
-
-                NovelData novelData = new NovelData()
-                {
-                    LatestChapterUrls = lastestChapterUrlsToAdd,
-                    Status = novelInfo,
-                    LastTableOfContentsUrl = (!string.IsNullOrEmpty(lastContentPage) ?
-                        $"{novelTableOfContentLatestUri.Scheme}://{novelTableOfContentLatestUri.Host}{lastContentPage}" : novelTableOfContentLatestUri.ToString())
-                };
-
-                return novelData;
-
-            }
-            catch (Exception e)
-            {
-                Logger.Debug($"Error while trying to get the latest chapter. \n{e.Message}");
-                throw;
-            }
-        }        
         #endregion
     }
 }

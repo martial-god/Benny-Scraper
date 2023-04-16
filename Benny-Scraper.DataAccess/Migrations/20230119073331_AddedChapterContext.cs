@@ -49,7 +49,7 @@ namespace BennyScraper.DataAccess.Migrations
                 defaultValue: "");
 
             migrationBuilder.AddColumn<string>(
-                name: "Status",
+                name: "NovelStatus",
                 table: "Novels",
                 type: "nvarchar(50)",
                 maxLength: 50,
@@ -98,7 +98,7 @@ namespace BennyScraper.DataAccess.Migrations
                 table: "Novels");
 
             migrationBuilder.DropColumn(
-                name: "Status",
+                name: "NovelStatus",
                 table: "Novels");
 
             migrationBuilder.RenameColumn(
