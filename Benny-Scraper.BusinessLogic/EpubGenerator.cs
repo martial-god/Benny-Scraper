@@ -22,8 +22,11 @@ namespace Benny_Scraper.BusinessLogic
 
         public void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath)
         {
+            Logger.Info("Creating epub file. Novel: {0}, Chapters: {1}, OutputFilePath: {2}", novel.Title, chapters.Count(), outputFilePath);
             string tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Logger.Info("Temp directory: {0}", tempDirectory);
             Directory.CreateDirectory(tempDirectory);
+            Logger.Info("Temp directory created");
             try
             {
                 string mimetypeFilePath = Path.Combine(tempDirectory, "mimetype");
@@ -32,18 +35,23 @@ namespace Benny_Scraper.BusinessLogic
                 string metaInfDirectory = Path.Combine(tempDirectory, "META-INF");
                 string oebpsDirectory = Path.Combine(tempDirectory, "OEBPS");
                 string textDirectory = Path.Combine(oebpsDirectory, "Text");
+                Logger.Info("Creating directories: {0}, {1}, {2}", metaInfDirectory, oebpsDirectory, textDirectory);
                 Directory.CreateDirectory(metaInfDirectory);
                 Directory.CreateDirectory(oebpsDirectory);
                 Directory.CreateDirectory(textDirectory);
+                Logger.Info("Directories created");
 
                 XmlDocument containerXml = new XmlDocument();
                 containerXml.LoadXml(_epubTemplates.ContainerXml);
+                Logger.Info("Saving container.xml");
                 containerXml.Save(Path.Combine(metaInfDirectory, "container.xml"));
+                Logger.Info("container.xml saved");
 
                 string manifestItems = string.Empty;
                 string spineItems = string.Empty;
 
                 int chapterIndex = 1;
+                Logger.Info("Creating chapters and adding to manifest and spine");
                 foreach (var chapter in chapters)
                 {
                     string chapterFileName = $"chapter{chapterIndex}.xhtml";
@@ -57,18 +65,21 @@ namespace Benny_Scraper.BusinessLogic
 
                     chapterIndex++;
                 }
-
+                Logger.Info("Chapters created and added to manifest and spine");
                 string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, Guid.NewGuid(), novel.Title, novel.Author, manifestItems, spineItems);
 
                 XmlDocument contentOpf = new XmlDocument();
                 contentOpf.LoadXml(updatedContentOpf);
+                Logger.Info("Saving content.opf");
                 contentOpf.Save(Path.Combine(oebpsDirectory, "content.opf"));
+                Logger.Info("content.opf saved");
 
                 XmlDocument navXhtml = new XmlDocument();
                 navXhtml.LoadXml(_epubTemplates.NavXhtml);
                 var navList = navXhtml.SelectSingleNode("//*[local-name()='ol']");
 
                 chapterIndex = 1;
+                Logger.Info("Creating chapters and adding to nav.xhtml");
                 foreach (var chapter in chapters)
                 {
                     string chapterFileName = $"chapter{chapterIndex}.xhtml";
@@ -84,7 +95,9 @@ namespace Benny_Scraper.BusinessLogic
                 }
 
                 navXhtml.Save(Path.Combine(oebpsDirectory, "nav.xhtml"));
+                Logger.Info("nav.xhtml saved");
 
+                Logger.Info("Compressing everything into an epub file");
                 // Compress everything into an epub file
                 using (FileStream fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
                 {
@@ -98,6 +111,7 @@ namespace Benny_Scraper.BusinessLogic
                         AddDirectoryToZip(zip, oebpsDirectory, "OEBPS");
                     }
                 }
+                Logger.Info("Epub file created at: {0}", outputFilePath);
             }
             catch (Exception ex)
             {
@@ -105,8 +119,10 @@ namespace Benny_Scraper.BusinessLogic
             }
             finally
             {
+                Logger.Info($"Deleting temporary directory: {tempDirectory}");
                 // Delete temporary directory
                 Directory.Delete(tempDirectory, true);
+                Logger.Info($"Deleted temporary directory: {tempDirectory}");
             }
         }
 

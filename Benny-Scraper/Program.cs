@@ -2,6 +2,7 @@
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Microsoft.Extensions.Configuration;
+using NLog;
 
 namespace Benny_Scraper
 {
@@ -21,6 +22,15 @@ namespace Benny_Scraper
             startUp.ConfigureServices(builder);
 
             Container = builder.Build();
+            var config = new NLog.Config.LoggingConfiguration();
+
+            // Targets where to log to: Console
+            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
+
+            // Rules for mapping loggers to targets
+            config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
+            // Apply config
+            NLog.LogManager.Configuration = config;
 
             await RunAsync();
         }
@@ -29,6 +39,8 @@ namespace Benny_Scraper
         {
             using (var scope = Container.BeginLifetimeScope())
             {
+                var logger = NLog.LogManager.GetCurrentClassLogger();
+                logger.Info("Hello from NLog!");
                 Logger.Info("Initializing Database");
                 IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
                 dbInitializer.Initialize();
