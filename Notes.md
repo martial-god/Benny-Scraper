@@ -9,11 +9,17 @@
 1. Used `Autofac` Inversion of Control that allowed for keys and custom names to differentiate similarly implemented classes like the ones above.
 Ex:
 ```csharp
-builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
-builder.RegisterType<HttpNovelScraper>().Named<INovelScraper>("Http").InstancePerDependency();
+builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
+            builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
+            builder.RegisterType<HttpNovelScraper>().Named<INovelScraper>("Http").InstancePerDependency();
 ```
-Resolving service
+### Resolving service
 ```csharp
+/// <summary>
+/// Creates an instance of either a SeleniumNovelScraper or HttpNovelScraper depending on the url.
+/// </summary>
+/// <param name="novelTableOfContentsUri"></param>
+/// <returns>Scraper instance that implemnts INovelService </returns>
 public INovelScraper CreateSeleniumOrHttpScraper(Uri novelTableOfContentsUri)
 {
     bool isSeleniumUrl = _novelScraperSettings.SeleniumSites.Any(x => novelTableOfContentsUri.Host.Contains(x));
@@ -22,20 +28,18 @@ public INovelScraper CreateSeleniumOrHttpScraper(Uri novelTableOfContentsUri)
     {
         try
         {
-            return _serviceProvider.ResolveNamed<INovelScraper>("Selenium");
+            return _novelScraperResolver("Selenium");
         }
         catch (Exception ex)
         {
             Logger.Error($"Error when getting SeleniumNovelScraper. {ex}");
             throw;
         }
-
     }
 
     try
     {
-
-        return _serviceProvider.ResolveNamed<INovelScraper>("Http");
+        return _novelScraperResolver("Http");
     }
     catch (Exception ex)
     {
@@ -44,3 +48,36 @@ public INovelScraper CreateSeleniumOrHttpScraper(Uri novelTableOfContentsUri)
     }
 }
 ```
+---
+## April Update
+04/01/2023 - 04/16/2023
+* General change from `DateTime.UTCNow` to `DataTime.Now`, better for the future UI to display date add/last modified
+* Changes to `NovelData` and `ChapterData` models
+### appsettings.json
+* Removed most of the hardcoded strings to this file, the choice came about whether to use this or to create a `Configuration` table that would be used in the database ( benefit of easier to update without a need to build)
+* Setup in a way that each site config can be added easily, classes will need to be craeated passed into the dependency injection.
+
+```csharp
+builder.Register(c =>
+{
+    var config = c.Resolve<IConfiguration>();
+    var settings = new NovelScraperSettings();
+    config.GetSection("NovelScraperSettings").Bind(settings);
+    return settings;
+}).SingleInstance();
+//needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
+builder.Register(c => Options.Create(c.Resolve<NovelScraperSettings>())).As<IOptions<NovelScraperSettings>>().SingleInstance();
+
+// register EpuTemplates.cs
+builder.Register(c =>
+{
+    var config = c.Resolve<IConfiguration>();
+    var settings = new EpubTemplates();
+    config.GetSection("EpubTemplates").Bind(settings);
+    return settings;
+}).SingleInstance();
+builder.Register(c => Options.Create(c.Resolve<EpubTemplates>())).As<IOptions<EpubTemplates>>().SingleInstance();
+```
+### EpubGenerator.cs
+FINALLY ABLE TO GENERATE AN EPUB FILE. Still a work in progress, as @Voice will not open it.
+* Ran into an `UnauthorizedAccessException` it had to do with not have a file name passed into the `CreateEpub()` method, instead it was the path to a directory.
