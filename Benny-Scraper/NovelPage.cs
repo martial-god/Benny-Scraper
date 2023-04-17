@@ -89,6 +89,7 @@ namespace Benny_Scraper
                     LastChapter = lastChapter,
                     DateCreated = DateTime.Now,
                     Status = status,
+                    LastTableOfContentsUrl = lastPageUrl,
                 };
                 return novel;
             }

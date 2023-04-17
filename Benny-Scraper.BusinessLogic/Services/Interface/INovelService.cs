@@ -1,4 +1,5 @@
 ﻿using Benny_Scraper.Models;
+using System.Linq.Expressions;
 
 namespace Benny_Scraper.BusinessLogic.Services.Interface
 {
@@ -8,5 +9,7 @@ namespace Benny_Scraper.BusinessLogic.Services.Interface
         public Task<bool> IsNovelInDatabaseAsync(string tableOfContentsUrl);
         public Task<Novel> GetByUrlAsync(Uri uri);
         public Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> chapters);
+        public Task RemoveAllAsync();
+        public Task RemoveByIdAsync(Guid id);
     }
 }
