@@ -187,6 +187,7 @@ namespace Benny_Scraper.BusinessLogic
                 chapterData.Content = string.Join("\n", htmlContent);
 
                 chapterData.Url = url;
+                chapterData.DateLastModified = DateTime.Now;
             }
             catch (Exception ex)
             {

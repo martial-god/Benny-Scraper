@@ -18,7 +18,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         // CreateSeleniumOrHttpScraper new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
-            novel.DateLastModified = DateTime.UtcNow;
+            novel.DateLastModified = DateTime.Now;
             await _unitOfWork.Novel.AddAsync(novel);
             //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
@@ -31,10 +31,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         /// <param name="newChapters"></param>
         /// <returns></returns>
         public async Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> newChapters)
-        {
-            novel.DateLastModified = DateTime.UtcNow;
-            novel.TotalChapters = novel.Chapters.Count;
-            novel.CurrentChapter = novel.Chapters.LastOrDefault().Title;
+        {            
             _unitOfWork.Novel.Update(novel); //update existing
 
             _unitOfWork.Chapter.AddRange(newChapters);

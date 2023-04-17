@@ -68,8 +68,8 @@ namespace Benny_Scraper
                     Url = data.Url ?? "",
                     Content = data.Content ?? "",
                     Title = data.Title ?? "",
-                    DateCreated = DateTime.UtcNow,
-                    DateLastModified = DateTime.UtcNow,
+                    DateCreated = DateTime.Now,
+                    DateLastModified = DateTime.Now,
                     Number = data.Number,
 
                 }).ToList();
@@ -87,7 +87,7 @@ namespace Benny_Scraper
                     SaveLocation = saveFolder,
                     Chapters = chapters,
                     LastChapter = lastChapter,
-                    DateCreated = DateTime.UtcNow,
+                    DateCreated = DateTime.Now,
                     Status = status,
                 };
                 return novel;

@@ -10,11 +10,8 @@ using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
-using Benny_Scraper.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Benny_Scraper
@@ -46,6 +43,7 @@ namespace Benny_Scraper
             builder.RegisterType<NovelService>().As<INovelService>().InstancePerLifetimeScope();
             builder.RegisterType<ChapterService>().As<IChapterService>().InstancePerLifetimeScope();
             builder.RegisterType<NovelRepository>().As<INovelRepository>();
+            builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
 
             builder.Register(c =>
             {
@@ -57,6 +55,15 @@ namespace Benny_Scraper
             //needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
             builder.Register(c => Options.Create(c.Resolve<NovelScraperSettings>())).As<IOptions<NovelScraperSettings>>().SingleInstance();
 
+            // register EpuTemplates.cs
+            builder.Register(c =>
+            {
+                var config = c.Resolve<IConfiguration>();
+                var settings = new EpubTemplates();
+                config.GetSection("EpubTemplates").Bind(settings);
+                return settings;
+            }).SingleInstance();
+            builder.Register(c => Options.Create(c.Resolve<EpubTemplates>())).As<IOptions<EpubTemplates>>().SingleInstance();
 
             // register the factory
             builder.Register<Func<string, INovelScraper>>(c =>

@@ -37,7 +37,7 @@ namespace Benny_Scraper
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
                 // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-                Uri novelTableOfContentUri = new Uri("https://novelfull.com/paragon-of-sin.html");
+                Uri novelTableOfContentUri = new Uri("https://novelfull.com/supremacy-games.html");
 
                 try
                 {

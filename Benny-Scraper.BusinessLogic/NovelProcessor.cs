@@ -6,6 +6,8 @@ using Benny_Scraper.BusinessLogic.Validators;
 using Benny_Scraper.Models;
 using Microsoft.Extensions.Options;
 using NLog;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Benny_Scraper.BusinessLogic
 {
@@ -16,13 +18,19 @@ namespace Benny_Scraper.BusinessLogic
         private readonly IChapterService _chapterService;
         private readonly INovelScraperFactory _novelScraper;
         private readonly NovelScraperSettings _novelScraperSettings;
+        private readonly IEpubGenerator _epubGenerator;
 
-        public NovelProcessor(INovelService novelService, IChapterService chapterService, INovelScraperFactory novelScraper, IOptions<NovelScraperSettings> novelScraperSettings)
+        public NovelProcessor(INovelService novelService,
+            IChapterService chapterService,
+            INovelScraperFactory novelScraper,
+            IOptions<NovelScraperSettings> novelScraperSettings,
+            IEpubGenerator epubGenerator)
         {
             _novelService = novelService;
             _chapterService = chapterService;
             _novelScraper = novelScraper;
             _novelScraperSettings = novelScraperSettings.Value;
+            _epubGenerator = epubGenerator;
         }
 
         public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
@@ -123,24 +131,39 @@ namespace Benny_Scraper.BusinessLogic
             }
 
             IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
-            
-            //var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novel.CurrentChapter);
-            //IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.RecentChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novel.Title);
 
-            //List<Models.Chapter> newChapters = chapterData.Select(data => new Models.Chapter
-            //{
-            //    Url = data.Url ?? "",
-            //    Content = data.Content ?? "",
-            //    Title = data.Title ?? "",
-            //    DateCreated = DateTime.UtcNow,
-            //    DateLastModified = DateTime.UtcNow,
-            //    Number = data.Number,
+            List<Models.Chapter> newChapters = chapterDatas.Select(data => new Models.Chapter
+            {
+                Url = data.Url ?? "",
+                Content = data.Content ?? "",
+                Title = data.Title ?? "",
+                DateCreated = DateTime.Now,
+                DateLastModified = DateTime.Now,
+                Number = data.Number,
 
-            //}).ToList();
-            //novel.LastTableOfContentsPageUrl = latestChapterData.LastTableOfContentsPageUrl;
-            //novel.NovelStatus = latestChapterData.NovelStatus;
+            }).ToList();
 
-            //novel.Chapters.AddRange(newChapters);
+            novel.Chapters.AddRange(newChapters);
+            novel.LastTableOfContentsUrl = (!string.IsNullOrEmpty(novelData.LastTableOfContentsPageUrl)) ? novelData.LastTableOfContentsPageUrl : novel.LastTableOfContentsUrl;
+            novel.Status = (!string.IsNullOrEmpty(novelData.NovelStatus)) ? novelData.NovelStatus : novel.Status;
+            novel.LastChapter = novelData.IsNovelCompleted;
+            novel.DateLastModified = DateTime.Now;
+            novel.TotalChapters = novel.Chapters.Count;
+            novel.CurrentChapter = novel.Chapters.LastOrDefault().Title;
+
+            string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            //create directory BennyScrapedNovels that will contain all the novels, then a folder for the novel title
+
+            string fileRegex = @"[^a-zA-Z0-9-\s]";
+            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+            var chapterFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novel.Title, fileRegex, " ").ToLower());
+            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novel.Title, $"Read {chapterFileSafeTitle}");
+            Directory.CreateDirectory(documentsFolder);
+
+            string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
+
+            _epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
+
             //await _novelService.UpdateAndAddChapters(novel, newChapters);
         }
 
@@ -170,7 +193,6 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info($"{novel.Title} does not have a LastTableOfContentsPageUrl.\nCurrent Saved: {novel.LastTableOfContentsUrl}");
                 return 1;
             }
-
 
             string pageString = novelTableOfContentsUrl.Query.Replace(siteConfig.PaginationQueryPartial, ""); //ex: page="2" so we remove page=
             int.TryParse(pageString, out int page);

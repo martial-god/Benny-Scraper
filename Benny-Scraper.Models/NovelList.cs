@@ -19,7 +19,7 @@ namespace Benny_Scraper.Models
         public int TotalChapters;
         public bool Completed { get; set; } // may need to create enumarable for Completed, Haitus,
         public DateTime DateCreated { get; set; }
-        public DateTime DateLastModified { get { return DateTime.UtcNow; } }
+        public DateTime DateLastModified { get { return DateTime.Now; } }
 
     }
 }
