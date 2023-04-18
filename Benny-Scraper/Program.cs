@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Microsoft.Extensions.Configuration;
 using NLog;
@@ -22,17 +23,17 @@ namespace Benny_Scraper
             startUp.ConfigureServices(builder);
 
             Container = builder.Build();
-            var config = new NLog.Config.LoggingConfiguration();
 
-            // Targets where to log to: Console
-            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
+            SetupLogger();
 
-            // Rules for mapping loggers to targets
-            config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
-            // Apply config
-            NLog.LogManager.Configuration = config;
-
-            await RunAsync();
+            if (args.Length > 0)
+            {
+                await RunAsync(args);
+            }
+            else
+            {
+                await RunAsync();
+            }
         }
 
         private static async Task RunAsync()
@@ -62,6 +63,34 @@ namespace Benny_Scraper
             }
         }
 
+        // create private RunAsync that accepts args and then call it from Main, also make it so that args are used, accepting multiple arguments 'clear_database' should be an argument that will clear the database using the removeall method. Case statement should be used to check for the argument and then call the removeall method.
+        private static async Task RunAsync(string[] args)
+        {
+            using (var scope = Container.BeginLifetimeScope())
+            {
+                var logger = NLog.LogManager.GetCurrentClassLogger();
+                switch (args[0])
+                {
+                    case "clear_database":
+                        INovelService novelService = scope.Resolve<INovelService>();
+                        await novelService.RemoveAllAsync();
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        private static void SetupLogger()
+        {
+            var config = new NLog.Config.LoggingConfiguration();
+            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = @"C:\logs\BennyScraper.log" };
+            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
+            config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
+            config.AddRule(LogLevel.Info, LogLevel.Fatal, logfile);
+            NLog.LogManager.Configuration = config;
+        }
+
         private static IConfigurationRoot BuildConfiguration()
         {
             // Build the configuration
@@ -72,5 +101,4 @@ namespace Benny_Scraper
             return configuration;
         }
     }
-
 }
