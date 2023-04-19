@@ -4,6 +4,6 @@ namespace Benny_Scraper.BusinessLogic.Factory.Interfaces
 {
     public interface INovelScraperFactory
     {
-        INovelScraper CreateSeleniumOrHttpScraper(Uri novelTableOfContentsUri);
+        INovelScraper CreateScraper(Uri novelTableOfContentsUri);
     }
 }

@@ -25,7 +25,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
         /// </summary>
         /// <param name="novelTableOfContentsUri"></param>
         /// <returns>Scraper instance that implemnts INovelService </returns>
-        public INovelScraper CreateSeleniumOrHttpScraper(Uri novelTableOfContentsUri)
+        public INovelScraper CreateScraper(Uri novelTableOfContentsUri)
         {
             bool isSeleniumUrl = _novelScraperSettings.SeleniumSites.Any(x => novelTableOfContentsUri.Host.Contains(x));
 

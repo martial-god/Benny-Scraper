@@ -46,7 +46,7 @@ namespace Benny_Scraper.BusinessLogic
             ValidateObject validator = new ValidateObject();
             var errors = validator.Validate(novel);
 
-            INovelScraper scraper = _novelScraper.CreateSeleniumOrHttpScraper(novelTableOfContentsUri);
+            INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri);
 
             if (novel == null) // Novel is not in database so add it
             {
@@ -127,7 +127,7 @@ namespace Benny_Scraper.BusinessLogic
                 Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
 
                 int pageToStartAt = GetTableOfContentsPageToStartAt(lastTableOfContentsUrl, novel, siteConfig);
-                novelData = await scraper.BuildNovelDataFromTableOfContentUsingPaginationAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
+                novelData = await scraper.RequestPaginatedDataAsync(pageToStartAt, novelTableOfContentsUri, siteConfig, lastSavedChapterUrl);
             }
 
             IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);

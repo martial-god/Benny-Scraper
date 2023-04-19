@@ -70,7 +70,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteConfig"></param>
         /// <param name="lastSavedChapterUrl"></param>
         /// <returns></returns>
-        public async Task<NovelData> BuildNovelDataFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl)
+        public async Task<NovelData> RequestPaginatedDataAsync(int pageToStartAt, Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl)
         {
             List<string> chapterUrls = new List<string>();
 

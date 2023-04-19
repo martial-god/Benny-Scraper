@@ -1,4 +1,5 @@
 ﻿using Autofac;
+using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.DbInitializer;
@@ -46,6 +47,9 @@ namespace Benny_Scraper
                 IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
                 dbInitializer.Initialize();
                 Logger.Info("Database Initialized");
+
+                IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
+                //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");
 
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 

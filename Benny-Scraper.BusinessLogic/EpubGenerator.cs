@@ -2,6 +2,7 @@
 using Benny_Scraper.Models;
 using Microsoft.Extensions.Options;
 using NLog;
+using NLog.Fluent;
 using System.IO.Compression;
 using System.Xml;
 
@@ -98,16 +99,21 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info("nav.xhtml saved");
 
                 Logger.Info("Compressing everything into an epub file");
+                
                 // Compress everything into an epub file
                 using (FileStream fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
                 {
                     using (ZipArchive zip = new ZipArchive(fs, ZipArchiveMode.Create))
                     {
                         // Add mimetype file
-                        zip.CreateEntryFromFile(mimetypeFilePath, "mimetype", CompressionLevel.NoCompression);
+                        AddDirectoryToZip(zip, Path.GetDirectoryName(mimetypeFilePath), "", new HashSet<string> { mimetypeFilePath }, CompressionLevel.NoCompression);
+
+                        // Add META-INF/container.xml
+                        string containerXmlPath = Path.Combine(metaInfDirectory, "container.xml");
+                        zip.CreateEntryFromFile(containerXmlPath, "META-INF/container.xml");
 
                         // Add other files
-                        AddDirectoryToZip(zip, metaInfDirectory, "META-INF");
+                        AddDirectoryToZip(zip, metaInfDirectory, "META-INF", new HashSet<string> { containerXmlPath });
                         AddDirectoryToZip(zip, oebpsDirectory, "OEBPS");
                     }
                 }
@@ -125,21 +131,116 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info($"Deleted temporary directory: {tempDirectory}");
             }
         }
+        //private void AddDirectoryToZip(ZipArchive zip, string directoryPath, string entryPath)
+        //{
+        //    foreach (string filePath in Directory.GetFiles(directoryPath))
+        //    {
+        //        string entryName = Path.Combine(entryPath, Path.GetFileName(filePath));
+        //        zip.CreateEntryFromFile(filePath, entryName, CompressionLevel.Fastest);
+        //    }
 
+        //    foreach (string subDirectoryPath in Directory.GetDirectories(directoryPath))
+        //    {
+        //        string subEntryPath = Path.Combine(entryPath, Path.GetFileName(subDirectoryPath));
+        //        AddDirectoryToZip(zip, subDirectoryPath, subEntryPath);
+        //    }
+        //}
 
         private void AddDirectoryToZip(ZipArchive zip, string directoryPath, string entryPath)
         {
+            AddDirectoryToZip(zip, directoryPath, entryPath, new HashSet<string>());
+        }
+
+        private void AddDirectoryToZip(ZipArchive zip, string directoryPath, string entryPath, HashSet<string> exclusions, CompressionLevel compressionLevel = CompressionLevel.Fastest)
+        {
+            Logger.Info($"Adding directory to zip: {directoryPath} with entry path: {entryPath}");
             foreach (string filePath in Directory.GetFiles(directoryPath))
             {
+                if (exclusions.Contains(filePath))
+                {
+                    Logger.Info($"Skipping excluded file: {filePath}");
+                    continue; // Skip the excluded files
+                }
+
                 string entryName = Path.Combine(entryPath, Path.GetFileName(filePath));
-                zip.CreateEntryFromFile(filePath, entryName, CompressionLevel.Fastest);
+                Logger.Info($"Adding file to zip: {filePath} as entry: {entryName}");
+                zip.CreateEntryFromFile(filePath, entryName, compressionLevel);
             }
 
             foreach (string subDirectoryPath in Directory.GetDirectories(directoryPath))
             {
                 string subEntryPath = Path.Combine(entryPath, Path.GetFileName(subDirectoryPath));
-                AddDirectoryToZip(zip, subDirectoryPath, subEntryPath);
+                Logger.Info($"Adding subdirectory to zip: {subDirectoryPath} with entry path: {subEntryPath}");
+                AddDirectoryToZip(zip, subDirectoryPath, subEntryPath, exclusions, compressionLevel);
+            }
+        }
+
+
+        //create a method to open an epub and validate it, it should be very robust on the problems
+        public void ValidateEpub(string epubFilePath)
+        {
+            //check if the file exists
+            if (!File.Exists(epubFilePath))
+            {
+                throw new FileNotFoundException($"Epub file not found: {epubFilePath}");
+            }
+
+            //check if the file is a valid epub
+            using (FileStream fs = new FileStream(epubFilePath, FileMode.Open, FileAccess.Read))
+            {
+                using (ZipArchive zip = new ZipArchive(fs, ZipArchiveMode.Read))
+                {
+                    //check if the mimetype file exists
+                    var mimetypeEntry = zip.Entries.FirstOrDefault(x => x.FullName == "mimetype");
+                    if (mimetypeEntry == null)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is missing.");
+                    }
+
+                    //check if the mimetype file is the first file in the zip
+                    if (zip.Entries.IndexOf(mimetypeEntry) != 0)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is not the first file in the zip.");
+                    }
+
+                    //check if the mimetype file is uncompressed, do not use mimetypeEntry.CompressionLevel as it is not supported in .net core
+                    if (mimetypeEntry.CompressedLength != mimetypeEntry.Length)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is compressed.");
+                    }
+
+                    //check if the mimetype file is not empty
+                    if (mimetypeEntry.Length == 0)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is empty.");
+                    }
+
+                    //check if the mimetype file is not empty
+                    if (mimetypeEntry.Length > 100)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is too big.");
+                    }
+
+                    //check if the mimetype file is not empty
+                    if (mimetypeEntry.Length < 20)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is too small.");
+                    }
+
+                    //check if the mimetype file is not empty
+                    if (mimetypeEntry.Length != 20)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is not 20 bytes.");
+                    }
+
+                    //check if the mimetype file is not empty
+                    if (mimetypeEntry.Length != 20)
+                    {
+                        throw new Exception("Epub file is not valid. Mimetype file is not 20 bytes.");
+                    }
+                }
             }
         }
     }
 }
+

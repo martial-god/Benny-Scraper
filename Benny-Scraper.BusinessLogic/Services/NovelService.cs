@@ -15,7 +15,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         }
         #endregion
 
-        // CreateSeleniumOrHttpScraper new novel with a passed in novel
+        // CreateScraper new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
             novel.DateLastModified = DateTime.Now;
