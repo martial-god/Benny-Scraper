@@ -8,6 +8,9 @@
         public string TocXhtml { get; set; }
         public string NavXhtml { get; set; }
         public string ChapterContent { get; set; }
+        public string ChapterCss { get; set; }
+        public string NavCss { get; set; }
+        public string TocCss { get; set; }
         public XmlSelectors XmlSelectors { get; set; }
     }
 }

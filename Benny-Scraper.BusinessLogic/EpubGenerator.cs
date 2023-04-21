@@ -28,18 +28,22 @@ namespace Benny_Scraper.BusinessLogic
             Logger.Info("Temp directory: {0}", tempDirectory);
             Directory.CreateDirectory(tempDirectory);
             Logger.Info("Temp directory created");
+
             try
             {
                 string mimetypeFilePath = Path.Combine(tempDirectory, "mimetype");
                 File.WriteAllText(mimetypeFilePath, "application/epub+zip");
 
+                // used templates from https://github.com/IDPF/epub3-samples
                 string metaInfDirectory = Path.Combine(tempDirectory, "META-INF");
                 string oebpsDirectory = Path.Combine(tempDirectory, "OEBPS");
                 string textDirectory = Path.Combine(oebpsDirectory, "Text");
-                Logger.Info("Creating directories: {0}, {1}, {2}", metaInfDirectory, oebpsDirectory, textDirectory);
+                string cssDirectory = Path.Combine(oebpsDirectory, "css");
+                Logger.Info("Creating directories: {0}, {1}, {2}, {3}", metaInfDirectory, oebpsDirectory, textDirectory, cssDirectory);
                 Directory.CreateDirectory(metaInfDirectory);
                 Directory.CreateDirectory(oebpsDirectory);
                 Directory.CreateDirectory(textDirectory);
+                Directory.CreateDirectory(cssDirectory);
                 Logger.Info("Directories created");
 
                 XmlDocument containerXml = new XmlDocument();
@@ -56,17 +60,22 @@ namespace Benny_Scraper.BusinessLogic
                 foreach (var chapter in chapters)
                 {
                     string chapterFileName = $"chapter{chapterIndex}.xhtml";
-                    string chapterFilePath = Path.Combine(oebpsDirectory, chapterFileName);
+                    string chapterFilePath = Path.Combine(textDirectory, chapterFileName);
 
-                    string chapterContent = string.Format(_epubTemplates.ChapterContent, chapter.Title, chapter.Content, "Missing Item chapterContent");
+                    string chapterContent = string.Format(_epubTemplates.ChapterContent, chapter.Title, chapter.Content);
                     File.WriteAllText(chapterFilePath, chapterContent);
 
-                    manifestItems += $"<item id=\"chapter{chapterIndex}\" href=\"{chapterFileName}\" media-type=\"application/xhtml+xml\"/>";
+                    manifestItems += $"<item id=\"chapter{chapterIndex}\" href=\"Text/{chapterFileName}\" media-type=\"application/xhtml+xml\"/>";
                     spineItems += $"<itemref idref=\"chapter{chapterIndex}\"/>";
 
                     chapterIndex++;
                 }
                 Logger.Info("Chapters created and added to manifest and spine");
+                manifestItems += "<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>";
+                manifestItems += "<item id=\"css_chapter\" href=\"css/chapter.css\" media-type=\"text/css\"/>";
+                manifestItems += "<item id=\"css_nav\" href=\"css/nav.css\" media-type=\"text/css\"/>";
+                manifestItems += "<item id=\"css_toc\" href=\"css/toc.css\" media-type=\"text/css\"/>";
+
                 string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, Guid.NewGuid(), novel.Title, novel.Author, manifestItems, spineItems);
 
                 XmlDocument contentOpf = new XmlDocument();
@@ -75,19 +84,18 @@ namespace Benny_Scraper.BusinessLogic
                 contentOpf.Save(Path.Combine(oebpsDirectory, "content.opf"));
                 Logger.Info("content.opf saved");
 
+                // Create nav.xhtml
                 XmlDocument navXhtml = new XmlDocument();
                 navXhtml.LoadXml(_epubTemplates.NavXhtml);
                 var navList = navXhtml.SelectSingleNode("//*[local-name()='ol']");
-
                 chapterIndex = 1;
-                Logger.Info("Creating chapters and adding to nav.xhtml");
                 foreach (var chapter in chapters)
                 {
                     string chapterFileName = $"chapter{chapterIndex}.xhtml";
 
                     XmlElement navItem = navXhtml.CreateElement("li");
                     XmlElement navLink = navXhtml.CreateElement("a");
-                    navLink.SetAttribute("href", chapterFileName);
+                    navLink.SetAttribute("href", $"Text/{chapterFileName}");
                     navLink.InnerText = chapter.Title;
                     navItem.AppendChild(navLink);
                     navList.AppendChild(navItem);
@@ -98,23 +106,25 @@ namespace Benny_Scraper.BusinessLogic
                 navXhtml.Save(Path.Combine(oebpsDirectory, "nav.xhtml"));
                 Logger.Info("nav.xhtml saved");
 
+                // Add CSS files
+                File.WriteAllText(Path.Combine(cssDirectory, "chapter.css"), _epubTemplates.ChapterCss);
+                File.WriteAllText(Path.Combine(cssDirectory, "nav.css"), _epubTemplates.NavCss);
+                File.WriteAllText(Path.Combine(cssDirectory, "toc.css"), _epubTemplates.TocCss);
+
                 Logger.Info("Compressing everything into an epub file");
-                
+
                 // Compress everything into an epub file
                 using (FileStream fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
                 {
                     using (ZipArchive zip = new ZipArchive(fs, ZipArchiveMode.Create))
                     {
                         // Add mimetype file
-                        AddDirectoryToZip(zip, Path.GetDirectoryName(mimetypeFilePath), "", new HashSet<string> { mimetypeFilePath }, CompressionLevel.NoCompression);
+                        zip.CreateEntryFromFile(mimetypeFilePath, "mimetype", CompressionLevel.NoCompression);
 
-                        // Add META-INF/container.xml
-                        string containerXmlPath = Path.Combine(metaInfDirectory, "container.xml");
-                        zip.CreateEntryFromFile(containerXmlPath, "META-INF/container.xml");
-
-                        // Add other files
-                        AddDirectoryToZip(zip, metaInfDirectory, "META-INF", new HashSet<string> { containerXmlPath });
+                        // Add META-INF and OEBPS files
+                        AddDirectoryToZip(zip, metaInfDirectory, "META-INF");
                         AddDirectoryToZip(zip, oebpsDirectory, "OEBPS");
+
                     }
                 }
                 Logger.Info("Epub file created at: {0}", outputFilePath);
@@ -131,20 +141,8 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info($"Deleted temporary directory: {tempDirectory}");
             }
         }
-        //private void AddDirectoryToZip(ZipArchive zip, string directoryPath, string entryPath)
-        //{
-        //    foreach (string filePath in Directory.GetFiles(directoryPath))
-        //    {
-        //        string entryName = Path.Combine(entryPath, Path.GetFileName(filePath));
-        //        zip.CreateEntryFromFile(filePath, entryName, CompressionLevel.Fastest);
-        //    }
 
-        //    foreach (string subDirectoryPath in Directory.GetDirectories(directoryPath))
-        //    {
-        //        string subEntryPath = Path.Combine(entryPath, Path.GetFileName(subDirectoryPath));
-        //        AddDirectoryToZip(zip, subDirectoryPath, subEntryPath);
-        //    }
-        //}
+
 
         private void AddDirectoryToZip(ZipArchive zip, string directoryPath, string entryPath)
         {
