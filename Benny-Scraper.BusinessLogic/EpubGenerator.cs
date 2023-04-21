@@ -1,9 +1,11 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.Models;
+using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Fluent;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using System.Xml;
 
 namespace Benny_Scraper.BusinessLogic
@@ -59,7 +61,11 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info("Creating chapters and adding to manifest and spine");
                 foreach (var chapter in chapters)
                 {
-                    string chapterFileName = $"chapter{chapterIndex}.xhtml";
+                    // create variable to save chapter name replace invalid characters with _ and remove spaces
+                    // use regex to replace invalid characters
+
+                    string safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
+                    string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
                     string chapterFilePath = Path.Combine(textDirectory, chapterFileName);
 
                     string chapterContent = string.Format(_epubTemplates.ChapterContent, chapter.Title, chapter.Content);
@@ -76,7 +82,7 @@ namespace Benny_Scraper.BusinessLogic
                 manifestItems += "<item id=\"css_nav\" href=\"css/nav.css\" media-type=\"text/css\"/>";
                 manifestItems += "<item id=\"css_toc\" href=\"css/toc.css\" media-type=\"text/css\"/>";
 
-                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, Guid.NewGuid(), novel.Title, novel.Author, manifestItems, spineItems);
+                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, novel.Title, novel.Title, novel.Author, manifestItems, spineItems);
 
                 XmlDocument contentOpf = new XmlDocument();
                 contentOpf.LoadXml(updatedContentOpf);
@@ -116,15 +122,19 @@ namespace Benny_Scraper.BusinessLogic
                 // Compress everything into an epub file
                 using (FileStream fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
                 {
-                    using (ZipArchive zip = new ZipArchive(fs, ZipArchiveMode.Create))
+                    using (ZipOutputStream zipStream = new ZipOutputStream(fs))
                     {
                         // Add mimetype file
-                        zip.CreateEntryFromFile(mimetypeFilePath, "mimetype", CompressionLevel.NoCompression);
+                        ZipEntry mimetypeEntry = new ZipEntry("mimetype");
+                        mimetypeEntry.CompressionMethod = CompressionMethod.Stored; // No compression for mimetype file
+                        zipStream.PutNextEntry(mimetypeEntry);
+                        byte[] mimetypeBuffer = File.ReadAllBytes(mimetypeFilePath);
+                        zipStream.Write(mimetypeBuffer, 0, mimetypeBuffer.Length);
+                        zipStream.CloseEntry();
 
                         // Add META-INF and OEBPS files
-                        AddDirectoryToZip(zip, metaInfDirectory, "META-INF");
-                        AddDirectoryToZip(zip, oebpsDirectory, "OEBPS");
-
+                        AddDirectoryToZip(zipStream, metaInfDirectory, "META-INF", tempDirectory);
+                        AddDirectoryToZip(zipStream, oebpsDirectory, "OEBPS", tempDirectory);
                     }
                 }
                 Logger.Info("Epub file created at: {0}", outputFilePath);
@@ -144,34 +154,35 @@ namespace Benny_Scraper.BusinessLogic
 
 
 
-        private void AddDirectoryToZip(ZipArchive zip, string directoryPath, string entryPath)
+        private void AddDirectoryToZip(ZipOutputStream zip, string directoryPath, string entryPath)
         {
-            AddDirectoryToZip(zip, directoryPath, entryPath, new HashSet<string>());
+            AddDirectoryToZip(zip, directoryPath, entryPath);
         }
 
-        private void AddDirectoryToZip(ZipArchive zip, string directoryPath, string entryPath, HashSet<string> exclusions, CompressionLevel compressionLevel = CompressionLevel.Fastest)
+        private void AddDirectoryToZip(ZipOutputStream zipStream, string sourceDirectory, string targetDirectory, string baseDirectory)
         {
-            Logger.Info($"Adding directory to zip: {directoryPath} with entry path: {entryPath}");
-            foreach (string filePath in Directory.GetFiles(directoryPath))
-            {
-                if (exclusions.Contains(filePath))
-                {
-                    Logger.Info($"Skipping excluded file: {filePath}");
-                    continue; // Skip the excluded files
-                }
+            DirectoryInfo diSource = new DirectoryInfo(sourceDirectory);
 
-                string entryName = Path.Combine(entryPath, Path.GetFileName(filePath));
-                Logger.Info($"Adding file to zip: {filePath} as entry: {entryName}");
-                zip.CreateEntryFromFile(filePath, entryName, compressionLevel);
+            foreach (FileInfo fileInfo in diSource.GetFiles())
+            {
+                string entryName = Path.Combine(targetDirectory, fileInfo.Name).Replace("\\", "/");
+                ZipEntry entry = new ZipEntry(entryName);
+                entry.CompressionMethod = CompressionMethod.Deflated;
+                zipStream.PutNextEntry(entry);
+                byte[] buffer = File.ReadAllBytes(fileInfo.FullName);
+                zipStream.Write(buffer, 0, buffer.Length);
+                zipStream.CloseEntry();
             }
 
-            foreach (string subDirectoryPath in Directory.GetDirectories(directoryPath))
+            foreach (DirectoryInfo sourceSubDir in diSource.GetDirectories())
             {
-                string subEntryPath = Path.Combine(entryPath, Path.GetFileName(subDirectoryPath));
-                Logger.Info($"Adding subdirectory to zip: {subDirectoryPath} with entry path: {subEntryPath}");
-                AddDirectoryToZip(zip, subDirectoryPath, subEntryPath, exclusions, compressionLevel);
+                string nextTargetSubDir = Path.Combine(targetDirectory, sourceSubDir.Name);
+                AddDirectoryToZip(zipStream, sourceSubDir.FullName, nextTargetSubDir, baseDirectory);
             }
         }
+
+
+
 
 
         //create a method to open an epub and validate it, it should be very robust on the problems

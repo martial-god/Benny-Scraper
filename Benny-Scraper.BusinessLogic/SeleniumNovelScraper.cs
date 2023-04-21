@@ -49,5 +49,10 @@ namespace Benny_Scraper.BusinessLogic
         {
             throw new NotImplementedException();
         }
+
+        public Task<NovelData> GetNovelDataAsync(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -43,8 +43,12 @@ namespace Benny_Scraper.BusinessLogic
 
             Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
 
-            ValidateObject validator = new ValidateObject();
-            var errors = validator.Validate(novel);
+            if (novel != null)
+            {
+                ValidateObject validator = new ValidateObject();
+                var errors = validator.Validate(novel);
+            }
+            
 
             INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri);
 
@@ -71,14 +75,53 @@ namespace Benny_Scraper.BusinessLogic
 
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper)
         {
-            //IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-            //Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
-            //NovelPage novelPage = new NovelPage(driver.Result);
-            //Novel novelToAdd = await novelPage.BuildNovelAsync(novelTableOfContentsUri);
-            //await _novelService.CreateAsync(novelToAdd);
-            //driverFactory.DisposeAllDrivers();
-            return;
+            SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
+                                                                                          // Retrieve novel information
+            NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
+            if (novelData == null)
+            {
+                Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
+                return;
+            }
+
+            // Create a new Novel object and populate its properties
+            Novel novelToAdd = new Novel
+            {
+                Title = novelData.Title,
+                Author = novelData.Author,
+                Url = novelTableOfContentsUri.ToString(),
+                Genre = string.Join(", ", novelData.Genres),
+                Description = string.Join(" ", novelData.Description),
+                DateCreated = DateTime.Now,
+                DateLastModified = DateTime.Now,
+                Status = novelData.NovelStatus,
+                LastTableOfContentsUrl = novelData.LastTableOfContentsPageUrl
+            };
+
+            // Retrieve chapter information
+            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
+
+            // Create Chapter objects and populate their properties
+            List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter
+            {
+                NovelId = novelToAdd.Id,
+                Url = data.Url ?? "",
+                Content = data.Content ?? "",
+                Title = data.Title ?? "",
+                Number = data.Number,
+                DateCreated = DateTime.Now,
+                DateLastModified = data.DateLastModified
+            }).ToList();
+
+            // Add chapters to the novel
+            novelToAdd.Chapters = chaptersToAdd;
+
+            // Add the novel and its chapters to the database
+            await _novelService.CreateAsync(novelToAdd);
         }
+
+
+
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper)
         {

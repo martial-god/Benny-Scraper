@@ -6,6 +6,7 @@ namespace Benny_Scraper.Models
     /// </summary>
     public class NovelData
     {
+        public string Title { get; set; }
         public List<string> RecentChapterUrls { get; set; }
         public string NovelStatus { get; set; }
         public string LastTableOfContentsPageUrl { get; set; }

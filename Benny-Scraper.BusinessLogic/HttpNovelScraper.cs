@@ -129,6 +129,42 @@ namespace Benny_Scraper.BusinessLogic
                 throw;
             }
         }
+
+        public async Task<NovelData> GetNovelDataAsync(Uri uri, SiteConfiguration siteConfig)
+        {
+            Logger.Info("Getting novel data");
+            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
+
+            if (htmlDocument == null)
+            {
+                Logger.Debug($"Error while trying to get the novel data. \n");
+                return null;
+            }
+
+            try
+            {
+                NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument, siteConfig);
+
+                HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
+
+                if (latestChapterNode == null)
+                {
+                    Logger.Debug($"Error while trying to get the latest chapter node. \n");
+                    return null;
+                }
+
+                string latestChapterUrl = latestChapterNode.Attributes["href"].Value;
+                string fullUrl = new Uri(uri, latestChapterUrl.TrimStart('/')).ToString();
+                novelData.RecentChapterUrls.Add(fullUrl);
+
+                return novelData;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error while getting novel data. {ex}");
+                throw;
+            }
+        }
         #endregion
 
         #region Private Methods
