@@ -156,7 +156,10 @@ namespace Benny_Scraper.BusinessLogic
 
                 string latestChapterUrl = latestChapterNode.Attributes["href"].Value;
                 string fullUrl = new Uri(uri, latestChapterUrl.TrimStart('/')).ToString();
+                string fullThumbnailUrl = new Uri(uri, novelData.ThumbnailUrl.TrimStart('/')).ToString();
+
                 novelData.RecentChapterUrls.Add(fullUrl);
+                novelData.ThumbnailUrl = fullThumbnailUrl;
 
                 return novelData;
             }
@@ -185,7 +188,6 @@ namespace Benny_Scraper.BusinessLogic
                 novelData.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
 
                 HtmlNodeCollection descriptionNode = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelDescription);
-                var foo = descriptionNode[0].InnerText.Trim();
                 novelData.Description = descriptionNode.Select(description => description.InnerText.Trim()).ToList();
 
                 HtmlNodeCollection genreNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelGenres);

@@ -6,6 +6,14 @@ namespace Benny_Scraper.Models
     /// </summary>
     public class NovelData
     {
+        public NovelData() 
+        {
+            RecentChapterUrls = new List<string>();
+            Description = new List<string>();
+            Genres = new List<string>();
+            AlternativeNames = new List<string>();
+        }
+
         public string Title { get; set; }
         public List<string> RecentChapterUrls { get; set; }
         public string NovelStatus { get; set; }

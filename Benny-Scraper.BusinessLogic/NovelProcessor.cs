@@ -43,13 +43,6 @@ namespace Benny_Scraper.BusinessLogic
 
             Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
 
-            if (novel != null)
-            {
-                ValidateObject validator = new ValidateObject();
-                var errors = validator.Validate(novel);
-            }
-            
-
             INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri);
 
             if (novel == null) // Novel is not in database so add it
@@ -59,6 +52,8 @@ namespace Benny_Scraper.BusinessLogic
             }
             else // make changes or update novelToAdd and newChapters
             {
+                ValidateObject validator = new ValidateObject();
+                var errors = validator.Validate(novel);
                 Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
                 await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraper);
             }
@@ -199,8 +194,8 @@ namespace Benny_Scraper.BusinessLogic
 
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var chapterFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novel.Title, fileRegex, " ").ToLower());
-            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novel.Title, $"Read {chapterFileSafeTitle}");
+            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novel.Title, fileRegex, " ").ToLower());
+            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
             Directory.CreateDirectory(documentsFolder);
 
             string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
