@@ -98,7 +98,8 @@ namespace Benny_Scraper.BusinessLogic
                 chapterIndex = 1;
                 foreach (var chapter in chapters)
                 {
-                    string chapterFileName = $"chapter{chapterIndex}.xhtml";
+                    string safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
+                    string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
 
                     XmlElement navItem = navXhtml.CreateElement("li");
                     XmlElement navLink = navXhtml.CreateElement("a");
