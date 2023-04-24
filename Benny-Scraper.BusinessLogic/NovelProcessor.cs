@@ -205,7 +205,10 @@ namespace Benny_Scraper.BusinessLogic
 
             string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
 
-            _epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
+            //_epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
+
+            // call createepub, but only pass newest
+            _epubGenerator.CreateEpub(novel, newChapters, epubFile);
 
             //await _novelService.UpdateAndAddChapters(novel, newChapters);
         }

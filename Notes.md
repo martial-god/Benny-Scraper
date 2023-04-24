@@ -53,6 +53,7 @@ public INovelScraper CreateSeleniumOrHttpScraper(Uri novelTableOfContentsUri)
 04/01/2023 - 04/16/2023
 * General change from `DateTime.UTCNow` to `DataTime.Now`, better for the future UI to display date add/last modified
 * Changes to `NovelData` and `ChapterData` models
+* Validated chapter xhtml using https://validator.w3.org/
 ### appsettings.json
 * Removed most of the hardcoded strings to this file, the choice came about whether to use this or to create a `Configuration` table that would be used in the database ( benefit of easier to update without a need to build)
 * Setup in a way that each site config can be added easily, classes will need to be craeated passed into the dependency injection.
@@ -81,3 +82,8 @@ builder.Register(c => Options.Create(c.Resolve<EpubTemplates>())).As<IOptions<Ep
 ### EpubGenerator.cs
 FINALLY ABLE TO GENERATE AN EPUB FILE. Still a work in progress, as @Voice will not open it.
 * Ran into an `UnauthorizedAccessException` it had to do with not have a file name passed into the `CreateEpub()` method, instead it was the path to a directory.
+* Changed chapter content recieved from the scraper to only contain `<p>` tags and `title` tags. This was done to make the xhtml valid. Added method to build and xhtml document from the chapter content.
+### HttpNovelScraper.cs
+* Fixed bug that would not get chapters from pages newer than the last saved page when updating a novel.
+
+

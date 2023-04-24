@@ -82,13 +82,14 @@ namespace Benny_Scraper.BusinessLogic
             for (int i = pageToStartAt; i <= lastPage; i++)
             {
                 string tableOfContentUrl = string.Format(baseTableOfContentUrl, i);
+                bool isPageNew = i > pageToStartAt;
                 try
                 {
                     Logger.Info($"Navigating to {tableOfContentUrl}");
                     HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(tableOfContentUrl));
 
-                    List<string> chapterUrlsOnContentPage = GetLatestChapterUrls(htmlDocument, siteConfig, lastSavedChapterUrl, siteUri);
-                    if (chapterUrlsOnContentPage != null)
+                    List<string> chapterUrlsOnContentPage = GetLatestChapterUrls(htmlDocument, siteConfig, lastSavedChapterUrl, siteUri, isPageNew);
+                    if (chapterUrlsOnContentPage.Any())
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
                     }
@@ -218,9 +219,9 @@ namespace Benny_Scraper.BusinessLogic
                 HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.ChapterTitle);
                 chapterData.Title = titleNode.InnerText.Trim();
 
-                HtmlNodeCollection contentNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.ChapterContent);
-                List<string> htmlContent = contentNodes.Select(paragraph => paragraph.OuterHtml.Trim()).ToList();
-                chapterData.Content = string.Join("\n", htmlContent);
+                HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.ChapterContent);
+                List<string> paragraphs = paragraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+                chapterData.Content = string.Join("\n", paragraphs);
 
                 chapterData.Url = url;
                 chapterData.DateLastModified = DateTime.Now;
@@ -328,7 +329,7 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        private List<string> GetLatestChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChapterUrl, Uri siteUri)
+        private List<string> GetLatestChapterUrls(HtmlDocument htmlDocument, SiteConfiguration siteConfig, string lastSavedChapterUrl, Uri siteUri, bool isPageNew)
         {
             Logger.Info($"Getting chapter urls from table of contents");
             try
@@ -348,11 +349,11 @@ namespace Benny_Scraper.BusinessLogic
                 {
                     string chapterUrl = link.Attributes["href"]?.Value;
 
-                    if (!foundLastSavedChapter && chapterUrl == lastSavedChapterUrl) // only add chapters after last saved chapter
+                    if (!foundLastSavedChapter && chapterUrl == lastSavedChapterUrl) // only add chapters after last saved chapter, new page means all new chapters
                     {
                         foundLastSavedChapter = true;
                     }
-                    else if (foundLastSavedChapter && !string.IsNullOrEmpty(chapterUrl))
+                    else if ((foundLastSavedChapter || isPageNew) && !string.IsNullOrEmpty(chapterUrl))
                     {
                         string fullUrl = new Uri(siteUri, chapterUrl.TrimStart('/')).ToString();
                         chapterUrls.Add(fullUrl);

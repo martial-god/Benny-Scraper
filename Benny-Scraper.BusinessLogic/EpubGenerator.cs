@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Fluent;
 using System.IO.Compression;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 
@@ -68,7 +69,7 @@ namespace Benny_Scraper.BusinessLogic
                     string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
                     string chapterFilePath = Path.Combine(textDirectory, chapterFileName);
 
-                    string chapterContent = string.Format(_epubTemplates.ChapterContent, chapter.Title, chapter.Content);
+                    string chapterContent = BuildXhtmlContent(chapter.Title, chapter.Content);
                     File.WriteAllText(chapterFilePath, chapterContent);
 
                     manifestItems += $"<item id=\"chapter{chapterIndex}\" href=\"Text/{chapterFileName}\" media-type=\"application/xhtml+xml\"/>";
@@ -181,7 +182,23 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
+        private string BuildXhtmlContent(string title, string content)
+        {
+            StringBuilder xhtmlContentBuilder = new StringBuilder();
 
+            xhtmlContentBuilder.AppendLine("<div>");
+            xhtmlContentBuilder.AppendFormat("<h2>{0}</h2>", title);
+
+            string[] paragraphs = content.Split(new[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string paragraph in paragraphs)
+            {
+                xhtmlContentBuilder.AppendFormat("<p>{0}</p>", paragraph.Trim());
+            }
+
+            xhtmlContentBuilder.AppendLine("</div>");
+
+            return string.Format(_epubTemplates.ChapterContent, title, xhtmlContentBuilder.ToString());
+        }
 
 
 
