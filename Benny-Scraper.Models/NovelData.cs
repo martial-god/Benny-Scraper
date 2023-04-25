@@ -26,13 +26,8 @@ namespace Benny_Scraper.Models
         public string Author { get; set; }
         public List<string> Genres { get; set; }
         public List<string> AlternativeNames { get; set; }
-
-        public string MostRecentChapterUrl
-        {
-            get 
-            { 
-                return RecentChapterUrls.Last();
-            }
-        }
+        public string MostRecentChapterTitle { get; set; }
+        public string CurrentChapterUrl { get; set; }
+        public string FirstChapter { get; set; }
     }
 }

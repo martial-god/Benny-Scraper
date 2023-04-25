@@ -19,7 +19,9 @@ namespace Benny_Scraper.BusinessLogic.Services
         public async Task CreateAsync(Novel novel)
         {
             novel.DateLastModified = DateTime.Now;
+            novel.TotalChapters = novel.Chapters.Count;
             await _unitOfWork.Novel.AddAsync(novel);
+            
             //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
         }

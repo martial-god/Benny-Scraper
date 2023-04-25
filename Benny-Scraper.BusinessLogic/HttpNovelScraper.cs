@@ -70,7 +70,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteConfig"></param>
         /// <param name="lastSavedChapterUrl"></param>
         /// <returns></returns>
-        public async Task<NovelData> RequestPaginatedDataAsync(int pageToStartAt, Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl)
+        public async Task<NovelData> RequestPaginatedDataAsync(Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
 
@@ -92,6 +92,11 @@ namespace Benny_Scraper.BusinessLogic
                     if (chapterUrlsOnContentPage.Any())
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
+                    }
+
+                    if (!getAllChapters && !isPageNew)
+                    {
+                        break;
                     }
 
                 }
@@ -155,11 +160,17 @@ namespace Benny_Scraper.BusinessLogic
                 }
 
                 string latestChapterUrl = latestChapterNode.Attributes["href"].Value;
-                string fullUrl = new Uri(uri, latestChapterUrl.TrimStart('/')).ToString();
+                string latestChapterName = latestChapterNode.InnerText;
+                string fullLatestChapterUrl = new Uri(uri, latestChapterUrl.TrimStart('/')).ToString();
                 string fullThumbnailUrl = new Uri(uri, novelData.ThumbnailUrl.TrimStart('/')).ToString();
+                string fullTableOfContentUrl = new Uri(uri, novelData.LastTableOfContentsPageUrl.TrimStart('/')).ToString();
+                string firstChapterUrl = new Uri(uri, novelData.FirstChapter.TrimStart('/')).ToString();
 
-                novelData.RecentChapterUrls.Add(fullUrl);
+                novelData.CurrentChapterUrl = latestChapterUrl;
                 novelData.ThumbnailUrl = fullThumbnailUrl;
+                novelData.LastTableOfContentsPageUrl = fullLatestChapterUrl;
+                novelData.MostRecentChapterTitle = latestChapterName;
+                novelData.FirstChapter = firstChapterUrl;
 
                 return novelData;
             }
@@ -180,10 +191,16 @@ namespace Benny_Scraper.BusinessLogic
             {
                 HtmlNode authorNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelAuthor);
                 novelData.Author = authorNode.InnerText.Trim();
+                
+                HtmlNodeCollection novelTitleNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelTitle);
+                if (novelTitleNodes.Any())
+                {
+                    novelData.Title = novelTitleNodes.First().InnerText.Trim();
+                }                
 
                 HtmlNode novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelRating);
                 novelData.Rating = double.Parse(novelRatingNode.InnerText.Trim());
-
+                
                 HtmlNode totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.TotalRatings);
                 novelData.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
 
@@ -201,6 +218,15 @@ namespace Benny_Scraper.BusinessLogic
 
                 HtmlNode thumbnailUrlNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelThumbnailUrl);
                 novelData.ThumbnailUrl = thumbnailUrlNode.Attributes["src"].Value;
+
+                HtmlNode lastTableOfContentsPageUrl = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LastTableOfContentsPage);
+                novelData.LastTableOfContentsPageUrl = lastTableOfContentsPageUrl.Attributes["href"].Value;
+
+                HtmlNodeCollection chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.ChapterLinks);
+                if (chapterLinkNodes.Any())
+                {
+                    novelData.FirstChapter = chapterLinkNodes.First().InnerText.Trim();
+                }
 
                 novelData.IsNovelCompleted = novelData.NovelStatus.ToLower().Contains(siteConfig.CompletedStatus);
             }

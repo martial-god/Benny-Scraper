@@ -54,5 +54,10 @@ namespace Benny_Scraper.BusinessLogic
         {
             throw new NotImplementedException();
         }
+
+        public Task<NovelData> RequestPaginatedDataAsync(Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
