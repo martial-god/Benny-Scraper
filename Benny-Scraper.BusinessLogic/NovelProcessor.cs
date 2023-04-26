@@ -129,7 +129,7 @@ namespace Benny_Scraper.BusinessLogic
             Directory.CreateDirectory(documentsFolder);
 
             string epubFile = Path.Combine(documentsFolder, $"{novelToAdd.Title}.epub");
-
+            novelToAdd.SaveLocation = epubFile;
             //_epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
 
             // call createepub, but only pass newest

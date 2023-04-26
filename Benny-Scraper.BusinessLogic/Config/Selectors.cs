@@ -17,7 +17,6 @@
         public string NovelThumbnailUrl { get; set; }
         public string ChapterTitle { get; set; }
         public string ChapterContent { get; set; }
-
-        // Add more selectors as needed
+        public string AlternativeChapterContent { get; set; }
     }
 }

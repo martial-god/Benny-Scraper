@@ -119,6 +119,7 @@ namespace Benny_Scraper.BusinessLogic
         {
             try
             {
+                Logger.Info("Getting chapters data");
                 List<Task<ChapterData>> tasks = new List<Task<ChapterData>>();
                 foreach (var url in chapterUrls)
                 {
@@ -127,6 +128,7 @@ namespace Benny_Scraper.BusinessLogic
                 }
 
                 ChapterData[] chapterData = await Task.WhenAll(tasks);
+                Logger.Info("Finished getting chapters data");
                 return chapterData.ToList();
             }
             catch (Exception ex)
@@ -191,16 +193,16 @@ namespace Benny_Scraper.BusinessLogic
             {
                 HtmlNode authorNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelAuthor);
                 novelData.Author = authorNode.InnerText.Trim();
-                
+
                 HtmlNodeCollection novelTitleNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelTitle);
                 if (novelTitleNodes.Any())
                 {
                     novelData.Title = novelTitleNodes.First().InnerText.Trim();
-                }                
+                }
 
                 HtmlNode novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelRating);
                 novelData.Rating = double.Parse(novelRatingNode.InnerText.Trim());
-                
+
                 HtmlNode totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.TotalRatings);
                 novelData.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
 
@@ -241,15 +243,40 @@ namespace Benny_Scraper.BusinessLogic
         private async Task<ChapterData> GetChapterDataAsync(string url, SiteConfiguration siteConfig)
         {
             ChapterData chapterData = new ChapterData();
+            Logger.Info($"Navigating to {url}");
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(url));
+            Logger.Info($"Finished navigating to {url}");
             try
             {
                 HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.ChapterTitle);
                 chapterData.Title = titleNode.InnerText.Trim();
+                Logger.Debug($"Chapter title: {chapterData.Title}");
 
                 HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.ChapterContent);
                 List<string> paragraphs = paragraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+
+                if (paragraphs.Count < 5)
+                {
+                    Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
+                    HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.AlternativeChapterContent);
+                    List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+                    Logger.Info($"Alternate paragraphs count: {alternateParagraphs.Count}");
+
+                    if (alternateParagraphs.Count > paragraphs.Count)
+                    {
+                        Logger.Info($"Alternate paragraphs count is greater than paragraphs count. Using alternate paragraphs");
+                        paragraphs = alternateParagraphs;
+                    }
+                }
+
                 chapterData.Content = string.Join("\n", paragraphs);
+                int contentCount = chapterData.Content.Count(c => c == '\n');
+
+                if (string.IsNullOrWhiteSpace(chapterData.Content) || contentCount < 5)
+                {
+                    Logger.Debug($"No content found found for {url}");
+                    chapterData.Content = "No content found";
+                }
 
                 chapterData.Url = url;
                 chapterData.DateLastModified = DateTime.Now;

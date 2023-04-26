@@ -11,6 +11,7 @@ namespace Benny_Scraper
     internal class Program
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+        private readonly INovelScraper _novelScraper;
         private static IContainer Container { get; set; }
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
@@ -54,7 +55,7 @@ namespace Benny_Scraper
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
                 // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-                Uri novelTableOfContentUri = new Uri("https://novelfull.com/paragon-of-sin.html");
+                Uri novelTableOfContentUri = new Uri("https://novelfull.com/i-might-be-a-fake-cultivator.html");
 
                 try
                 {
@@ -76,8 +77,20 @@ namespace Benny_Scraper
                 switch (args[0])
                 {
                     case "clear_database":
-                        INovelService novelService = scope.Resolve<INovelService>();
-                        await novelService.RemoveAllAsync();
+                        {
+                            logger.Info("Clearing all novels and chapter from database");
+                            INovelService novelService = scope.Resolve<INovelService>();
+                            await novelService.RemoveAllAsync();
+                        }
+                        break;
+                    //create case "delete_novel_by_id" that will delete a novel by id which is the second argument
+                    case "delete_novel_by_id":
+                        {
+                            logger.Info($"Deleting novel with id {args[1]}");
+                            INovelService novelService = scope.Resolve<INovelService>();
+                            Guid.TryParse(args[1], out Guid novelId);
+                            await novelService.RemoveByIdAsync(novelId);
+                        }
                         break;
                     default:
                         break;
@@ -88,7 +101,8 @@ namespace Benny_Scraper
         private static void SetupLogger()
         {
             var config = new NLog.Config.LoggingConfiguration();
-            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = @"C:\logs\BennyScraper.log" };
+            //write log file using date as day-month-year
+            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = $"C:\\logs\\BennyScraper {DateTime.Now.ToString("MM-dd-yyyy")}.log" };
             var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
             config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
             config.AddRule(LogLevel.Info, LogLevel.Fatal, logfile);
