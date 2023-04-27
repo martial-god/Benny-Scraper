@@ -5,13 +5,13 @@ using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Microsoft.Extensions.Configuration;
 using NLog;
+using System.Diagnostics;
 
 namespace Benny_Scraper
 {
     internal class Program
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
-        private readonly INovelScraper _novelScraper;
         private static IContainer Container { get; set; }
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
@@ -26,7 +26,7 @@ namespace Benny_Scraper
 
             Container = builder.Build();
 
-            SetupLogger();
+            
 
             if (args.Length > 0)
             {
@@ -35,7 +35,7 @@ namespace Benny_Scraper
             else
             {
                 await RunAsync();
-            }
+            }            
         }
 
         private static async Task RunAsync()
@@ -47,7 +47,7 @@ namespace Benny_Scraper
                 Logger.Info("Initializing Database");
                 IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
                 dbInitializer.Initialize();
-                Logger.Info("Database Initialized");
+                Logger.Info("Database Initialized");                
 
                 IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
                 //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");
@@ -55,8 +55,11 @@ namespace Benny_Scraper
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
                 // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-                Uri novelTableOfContentUri = new Uri("https://novelfull.com/i-might-be-a-fake-cultivator.html");
+                Uri novelTableOfContentUri = new Uri("https://novelfull.com/martial-god-asura.html");
 
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+                SetupLogger();
                 try
                 {
                     await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
@@ -65,6 +68,9 @@ namespace Benny_Scraper
                 {
                     Logger.Error($"Exception when trying to process novel. {ex}");
                 }
+                stopwatch.Stop();
+                TimeSpan elapsedTime = stopwatch.Elapsed;
+                Logger.Info($"Elapsed time: {elapsedTime}");
             }
         }
 

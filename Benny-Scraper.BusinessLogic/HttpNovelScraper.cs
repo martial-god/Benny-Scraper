@@ -16,7 +16,7 @@ namespace Benny_Scraper.BusinessLogic
     {
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
-        private static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(5); // limit the number of concurrent requests, prevent posssible rate limiting
+        private static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(7); // limit the number of concurrent requests, prevent posssible rate limiting
 
         #region Public Methods
         /// <summary>
