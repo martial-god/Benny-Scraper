@@ -21,7 +21,7 @@ namespace BennyScraper.DataAccess.Migrations
                 newName: "title");
 
             migrationBuilder.RenameColumn(
-                name: "Status",
+                name: "NovelStatus",
                 table: "novel",
                 newName: "status");
 
@@ -61,7 +61,7 @@ namespace BennyScraper.DataAccess.Migrations
                 newName: "save_location");
 
             migrationBuilder.RenameColumn(
-                name: "LastChapter",
+                name: "IsNovelCompleted",
                 table: "novel",
                 newName: "last_chapter");
 
@@ -97,7 +97,7 @@ namespace BennyScraper.DataAccess.Migrations
             migrationBuilder.RenameColumn(
                 name: "status",
                 table: "novel",
-                newName: "Status");
+                newName: "NovelStatus");
 
             migrationBuilder.RenameColumn(
                 name: "genre",
@@ -137,7 +137,7 @@ namespace BennyScraper.DataAccess.Migrations
             migrationBuilder.RenameColumn(
                 name: "last_chapter",
                 table: "novel",
-                newName: "LastChapter");
+                newName: "IsNovelCompleted");
 
             migrationBuilder.RenameColumn(
                 name: "first_chapter",

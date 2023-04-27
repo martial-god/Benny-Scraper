@@ -96,7 +96,7 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("NovelStatus")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 

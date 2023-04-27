@@ -13,7 +13,7 @@ namespace Benny_Scraper.Models
         [StringLength(255)]
         public string? Title { get; set; }
         public string Url { get; set; }
-        public string? Content { get; set; }
+        public string Content { get; set; }
         public string Number { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }

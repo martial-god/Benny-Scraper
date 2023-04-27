@@ -87,7 +87,7 @@ namespace BennyScraper.DataAccess.Migrations
                     b.Property<string>("Genre")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("LastChapter")
+                    b.Property<bool>("IsNovelCompleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("SaveLocation")
@@ -99,7 +99,7 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("NovelStatus")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 

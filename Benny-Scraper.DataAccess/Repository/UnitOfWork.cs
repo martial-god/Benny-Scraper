@@ -10,7 +10,7 @@ namespace Benny_Scraper.DataAccess.Repository
         public UnitOfWork(ApplicationDbContext db)
         {
             _db = db;
-            Chapter = new ChapterRespository(_db);
+            Chapter = new ChapterRepository(_db);
             Novel = new NovelRepository(_db);
             NovelList = new NovelListRepository(_db);
 

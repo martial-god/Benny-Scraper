@@ -1,8 +1,8 @@
-﻿using Benny_Scraper.DataAccess.Repository.IRepository;
+﻿using Benny_Scraper.BusinessLogic.Services.Interface;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
-using Benny_Scraper.Services.Interface;
 
-namespace Benny_Scraper.Services
+namespace Benny_Scraper.BusinessLogic.Services
 {
     public class NovelService : INovelService
     {
@@ -15,11 +15,13 @@ namespace Benny_Scraper.Services
         }
         #endregion
 
-        // Create new novel with a passed in novel
+        // CreateScraper new novel with a passed in novel
         public async Task CreateAsync(Novel novel)
         {
-            novel.DateLastModified = DateTime.UtcNow;
+            novel.DateLastModified = DateTime.Now;
+            novel.TotalChapters = novel.Chapters.Count;
             await _unitOfWork.Novel.AddAsync(novel);
+            
             //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
         }
@@ -31,10 +33,7 @@ namespace Benny_Scraper.Services
         /// <param name="newChapters"></param>
         /// <returns></returns>
         public async Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> newChapters)
-        {
-            novel.DateLastModified = DateTime.UtcNow;
-            novel.TotalChapters = novel.Chapters.Count;
-            novel.CurrentChapter = novel.Chapters.LastOrDefault().Title;
+        {            
             _unitOfWork.Novel.Update(novel); //update existing
 
             _unitOfWork.Chapter.AddRange(newChapters);

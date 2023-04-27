@@ -1,143 +1,128 @@
-﻿using Benny_Scraper.DataAccess.DbInitializer;
-using Benny_Scraper.DataAccess.Repository.IRepository;
-using Benny_Scraper.Interfaces;
-using Benny_Scraper.Models;
-using Benny_Scraper.Services;
-using Benny_Scraper.Services.Interface;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using OpenQA.Selenium;
-
-//[assembly: log4net.Config.XmlConfigurator(ConfigFile = "log4net.config", Watch = true)]
-
+﻿using Autofac;
+using Benny_Scraper.BusinessLogic;
+using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Services.Interface;
+using Benny_Scraper.DataAccess.DbInitializer;
+using Microsoft.Extensions.Configuration;
+using NLog;
+using System.Diagnostics;
 
 namespace Benny_Scraper
 {
     internal class Program
     {
-        //private static readonly ILog logger = LogManager.GetLogger(typeof(Program));
-        //private const string _connectionString = "Server=localhost;Database=Test;TrustServerCertificate=True;Trusted_Connection=True;";
-
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+        private static IContainer Container { get; set; }
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
-            // Database Injections https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage
-            using IHost host = Host.CreateDefaultBuilder(args)
-               .ConfigureServices(services =>
-               {
-                   // Services here
-                   new Startup().ConfigureServices(services);
-               }).Build();
+            var configuration = BuildConfiguration();
+            // Pass the built configuration to the StartUp class
+            var startUp = new StartUp(configuration);
 
-            // run database initializer
-            IDbInitializer dbInitializer = host.Services.GetRequiredService<IDbInitializer>();
-            dbInitializer.Initialize();
+            // Database Injections
+            var builder = new ContainerBuilder();
+            startUp.ConfigureServices(builder);
 
-            INovelService novelService = host.Services.GetRequiredService<INovelService>();
+            Container = builder.Build();
 
-            // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-            Uri novelTableOfContentUri = new Uri("https://novelfull.com/paragon-of-sin.html");
-            var novelContext = await novelService.GetByUrlAsync(novelTableOfContentUri);            
+            
 
-            if (novelContext == null) // Novel is not in database so add it
+            if (args.Length > 0)
             {
-                IDriverFactory driverFactory = new DriverFactory(); // Instantiating an interface https://softwareengineering.stackexchange.com/questions/167808/instantiating-interfaces-in-c
-                Task<IWebDriver> driver = driverFactory.CreateDriverAsync(1, true, "https://google.com");
-                NovelPage novelPage = new NovelPage(driver.Result);
-                Novel novel = await novelPage.BuildNovelAsync(novelTableOfContentUri);
-                await novelService.CreateAsync(novel);
-                driverFactory.DisposeAllDrivers();
+                await RunAsync(args);
             }
-            else // make changes or update novel and newChapters
+            else
             {
-                var currentChapter = novelContext?.CurrentChapter;
-                var chapterContext = novelContext?.Chapters;
+                await RunAsync();
+            }            
+        }
 
-                if (currentChapter == null || chapterContext == null)
-                    return;
+        private static async Task RunAsync()
+        {
+            using (var scope = Container.BeginLifetimeScope())
+            {
+                var logger = NLog.LogManager.GetCurrentClassLogger();
+                logger.Info("Hello from NLog!");
+                Logger.Info("Initializing Database");
+                IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
+                dbInitializer.Initialize();
+                Logger.Info("Database Initialized");                
 
+                IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
+                //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");
 
-                INovelPageScraper novelPageScraper = new NovelPageScraper();
-                var latestChapter = await novelPageScraper.GetLatestChapterAsync("//ul[@class='l-chapters']//a", novelTableOfContentUri);
-                bool isCurrentChapterNewest = string.Equals(currentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
+                INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
-                if (isCurrentChapterNewest)
+                // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
+                Uri novelTableOfContentUri = new Uri("https://novelfull.com/martial-god-asura.html");
+
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+                SetupLogger();
+                try
                 {
-                    Logger.Log.Info($"{novelContext.Title} is currently at the latest chapter.\nCurrent Saved: {novelContext.CurrentChapter}");
-                    return;
+                    await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
                 }
-
-
-                // get all newChapters after the current chapter up to the latest
-                if (string.IsNullOrEmpty(novelContext.LastTableOfContentsUrl))
+                catch (Exception ex)
                 {
-                    Logger.Log.Info($"{novelContext.Title} does not have a LastTableOfContentsUrl.\nCurrent Saved: {novelContext.LastTableOfContentsUrl}");
-                    return;
+                    Logger.Error($"Exception when trying to process novel. {ex}");
                 }
-
-                Uri lastTableOfContentsUrl = new Uri(novelContext.LastTableOfContentsUrl);
-                var latestChapterData = await novelPageScraper.GetChaptersFromCheckPointAsync("//ul[@class='list-chapter']//a/@href", lastTableOfContentsUrl, novelContext.CurrentChapter);
-                IEnumerable<ChapterData> chapterData = await novelPageScraper.GetChaptersDataAsync(latestChapterData.LatestChapterUrls, "//span[@class='chapter-text']", "//div[@id='chapter']", novelContext.Title);
-
-                List<Chapter> newChapters = chapterData.Select(data => new Chapter
-                {
-                    Url = data.Url ?? "",
-                    Content = data.Content ?? "",
-                    Title = data.Title ?? "",
-                    DateCreated = DateTime.UtcNow,
-                    DateLastModified = DateTime.UtcNow,
-                    Number = data.Number,
-
-                }).ToList();
-                novelContext.LastTableOfContentsUrl = latestChapterData.LastTableOfContentsUrl;
-                novelContext.Status = latestChapterData.Status;
-
-                novelContext.Chapters.AddRange(newChapters);
-                await novelService.UpdateAndAddChapters(novelContext, newChapters);
+                stopwatch.Stop();
+                TimeSpan elapsedTime = stopwatch.Elapsed;
+                Logger.Info($"Elapsed time: {elapsedTime}");
             }
         }
 
-        private static void ConfigureLogger()
+        // create private RunAsync that accepts args and then call it from Main, also make it so that args are used, accepting multiple arguments 'clear_database' should be an argument that will clear the database using the removeall method. Case statement should be used to check for the argument and then call the removeall method.
+        private static async Task RunAsync(string[] args)
         {
-            var builder = new HostBuilder()
-                .ConfigureServices((hostContext, services) =>
+            using (var scope = Container.BeginLifetimeScope())
+            {
+                var logger = NLog.LogManager.GetCurrentClassLogger();
+                switch (args[0])
                 {
-                    services.AddTransient<Program>();
-
-                })
-                .ConfigureLogging(logBuilder =>
-                {
-                    logBuilder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
-                    logBuilder.AddLog4Net("log4net.config");
-
-                }).UseConsoleLifetime();
+                    case "clear_database":
+                        {
+                            logger.Info("Clearing all novels and chapter from database");
+                            INovelService novelService = scope.Resolve<INovelService>();
+                            await novelService.RemoveAllAsync();
+                        }
+                        break;
+                    //create case "delete_novel_by_id" that will delete a novel by id which is the second argument
+                    case "delete_novel_by_id":
+                        {
+                            logger.Info($"Deleting novel with id {args[1]}");
+                            INovelService novelService = scope.Resolve<INovelService>();
+                            Guid.TryParse(args[1], out Guid novelId);
+                            await novelService.RemoveByIdAsync(novelId);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
         }
 
-        static void ExemplifyServiceLifetime(IServiceProvider hostProvider, string lifetime)
+        private static void SetupLogger()
         {
-            using IServiceScope serviceScope = hostProvider.CreateScope();
+            var config = new NLog.Config.LoggingConfiguration();
+            //write log file using date as day-month-year
+            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = $"C:\\logs\\BennyScraper {DateTime.Now.ToString("MM-dd-yyyy")}.log" };
+            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
+            config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
+            config.AddRule(LogLevel.Info, LogLevel.Fatal, logfile);
+            NLog.LogManager.Configuration = config;
+        }
 
-            IServiceProvider provider = serviceScope.ServiceProvider;
-            IUnitOfWork unitOfWork = provider.GetRequiredService<IUnitOfWork>();
-            IDbInitializer dbInitializer = provider.GetRequiredService<IDbInitializer>();
-            dbInitializer.Initialize();
-            INovelService startUp1 = provider.GetRequiredService<INovelService>();
-
-            //startUp.ReportServiceLifetimeDetails(
-            //    $"{lifetime}: Call 1 to provider.GetRequiredService<ServiceLifetimeLogger>()");
-
-            Console.WriteLine("...");
-            var novel = new Novel
-            {
-                Title = "Test2",
-                Url = @"https://novelfull.com",
-                DateCreated = DateTime.Now,
-                SiteName = "novelfull",
-            };
-
-            INovelService startUp = new NovelService(unitOfWork);
-            startUp1.CreateAsync(novel);
+        private static IConfigurationRoot BuildConfiguration()
+        {
+            // Build the configuration
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+            return configuration;
         }
     }
 }

@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace Benny_Scraper
 {
-    internal class NovelPage
+    public class NovelPage
     {
         private string _fileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.html";
         private string _pdfFileSavePath = @"H:\Projects\Novels\{0}\Read {1} - {2}.pdf";
@@ -68,8 +68,8 @@ namespace Benny_Scraper
                     Url = data.Url ?? "",
                     Content = data.Content ?? "",
                     Title = data.Title ?? "",
-                    DateCreated = DateTime.UtcNow,
-                    DateLastModified = DateTime.UtcNow,
+                    DateCreated = DateTime.Now,
+                    DateLastModified = DateTime.Now,
                     Number = data.Number,
 
                 }).ToList();
@@ -87,7 +87,7 @@ namespace Benny_Scraper
                     SaveLocation = saveFolder,
                     Chapters = chapters,
                     LastChapter = lastChapter,
-                    DateCreated = DateTime.UtcNow,
+                    DateCreated = DateTime.Now,
                     Status = status,
                     LastTableOfContentsUrl = lastPageUrl,
                 };

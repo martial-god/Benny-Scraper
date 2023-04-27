@@ -31,6 +31,7 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnOrder(0);
 
                     b.Property<string>("Content")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("content")
                         .HasColumnOrder(7);
@@ -89,9 +90,14 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.Property<string>("CurrentChapter")
                         .IsRequired()
-                        .HasMaxLength(144)
-                        .HasColumnType("nvarchar(144)")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("current_chapter");
+
+                    b.Property<string>("CurrentChapterUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("current_chapter_url");
 
                     b.Property<DateTime>("DateCreated")
                         .HasColumnType("datetime2")
@@ -107,19 +113,19 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.Property<string>("FirstChapter")
                         .IsRequired()
-                        .HasMaxLength(144)
-                        .HasColumnType("nvarchar(144)")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("first_chapter");
 
                     b.Property<string>("Genre")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("genre");
 
-                    b.Property<bool>("LastChapter")
+                    b.Property<bool>("IsNovelCompleted")
                         .HasColumnType("bit")
                         .HasColumnName("last_chapter");
 
-                    b.Property<string>("LastTableOfContentsUrl")
+                    b.Property<string>("LastTableOfContentsPageUrl")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("last_table_of_contents_url");
 
@@ -134,7 +140,7 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("site_name");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("NovelStatus")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("status");
