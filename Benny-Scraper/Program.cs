@@ -24,9 +24,7 @@ namespace Benny_Scraper
             var builder = new ContainerBuilder();
             startUp.ConfigureServices(builder);
 
-            Container = builder.Build();
-
-            
+            Container = builder.Build();            
 
             if (args.Length > 0)
             {
@@ -89,8 +87,7 @@ namespace Benny_Scraper
                             await novelService.RemoveAllAsync();
                         }
                         break;
-                    //create case "delete_novel_by_id" that will delete a novel by id which is the second argument
-                    case "delete_novel_by_id":
+                    case "delete_novel_by_id": // only way to resovle the same variable, in the case novelService is to surround the case statement in curly braces
                         {
                             logger.Info($"Deleting novel with id {args[1]}");
                             INovelService novelService = scope.Resolve<INovelService>();
