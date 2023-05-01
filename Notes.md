@@ -1,3 +1,15 @@
+- [Creating EPUB](#creating-epub)
+  - [Changed Dependency Injection to `Autofac`](#changed-dependency-injection-to-autofac)
+    - [Problem](#problem)
+    - [Solution](#solution)
+    - [Resolving service](#resolving-service)
+  - [April Update](#april-update)
+    - [appsettings.json](#appsettingsjson)
+    - [EpubGenerator.cs](#epubgeneratorcs)
+    - [HttpNovelScraper.cs](#httpnovelscrapercs)
+  - [May Update](#may-update)
+    - [Changing HttpNovelScraper.cs and SeleniumNovelScraper.cs to be base classes for the specific site scrapers / Goals for this month](#changing-httpnovelscrapercs-and-seleniumnovelscrapercs-to-be-base-classes-for-the-specific-site-scrapers--goals-for-this-month)
+
 # Creating EPUB
 [Html to make an epub](https://www.thoughtco.com/create-epub-file-from-html-and-xml-3467282)
 1. HTML => XML Collection => EPUB
