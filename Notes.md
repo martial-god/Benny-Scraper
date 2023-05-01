@@ -91,7 +91,7 @@ FINALLY ABLE TO GENERATE AN EPUB FILE. Still a work in progress, as @Voice will 
 ### Changing HttpNovelScraper.cs and SeleniumNovelScraper.cs to be base classes for the specific site scrapers / Goals for this month
 1. I tried to avoid this, but it seems like the best way to go about it. The base classes will contain the common methods and properties that are used by the specific site scrapers. The specific site scrapers will contain the methods and properties that are unique to the site.
 The only question now, is whether to use `abstract` or `virtual` methods.
-2. I was finally able to get the EPUB generated with no errors, and resolved the navigation issues. 
+2. Last week, I was finally able to get the EPUB generated with no errors, and resolved the navigation issues. 
 3. A problem with the html nodes I get back from Novelfull, had me make an `if` statement to check if there was enough content to make a chapter. If not, then I would just grab all the `<p>` tags and make a chapter out of that.
 4. Need to delete the `RemoveAllAsync()` method from the `NovelService` class, as it shouldn't be something a user should be able to do.
 5. Share this on reddit, and how it goes.
