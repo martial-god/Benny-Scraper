@@ -12,7 +12,7 @@ namespace Benny_Scraper.BusinessLogic
     /// <summary>
     /// A http implementation of the INovelScraper interface. Use this for sites that don't require login-in to get the chapter contents like novelupdates.com
     /// </summary>
-    public class HttpNovelScraper : INovelScraper
+    public abstract class HttpNovelScraperBase : INovelScraper
     {
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
@@ -25,7 +25,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="uri">The URL of the web page to scrape.</param>
         /// <param name="siteConfig">The site configuration containing the selectors for scraping.</param>
         /// <returns>The latest chapter's name, or an empty string if an error occurs.</returns>
-        public async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
+        public virtual async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
         {
             Logger.Info("Getting latest chapter name");
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
@@ -36,29 +36,16 @@ namespace Benny_Scraper.BusinessLogic
                 return string.Empty;
             }
 
-            try
-            {
-                HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
+            HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
 
-                if (latestChapterNode == null)
-                {
-                    Logger.Debug($"Error while trying to get the latest chapter node. \n");
-                    return string.Empty;
-                }
-
-                string latestChapterName = latestChapterNode.InnerText;
-                if (latestChapterName == null)
-                {
-                    Logger.Debug($"Error while trying to get the latest chapter name form the node. \n");
-                    return string.Empty;
-                }
-                return latestChapterName;
-            }
-            catch (Exception ex)
+            if (latestChapterNode == null)
             {
-                Logger.Error($"Error while getting latest chapter name. {ex}");
-                throw;
+                Logger.Debug($"Error while trying to get the latest chapter node. \n");
+                return string.Empty;
             }
+
+            string latestChapterName = latestChapterNode.InnerText?.Trim() ?? string.Empty;
+            return latestChapterName;
         }
 
 
@@ -70,7 +57,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteConfig"></param>
         /// <param name="lastSavedChapterUrl"></param>
         /// <returns></returns>
-        public async Task<NovelData> RequestPaginatedDataAsync(Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
+        public virtual async Task<NovelData> RequestPaginatedDataAsync(Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
 
@@ -98,7 +85,6 @@ namespace Benny_Scraper.BusinessLogic
                     {
                         break;
                     }
-
                 }
                 catch (HttpRequestException e)
                 {

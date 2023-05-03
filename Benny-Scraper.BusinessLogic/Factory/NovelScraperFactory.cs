@@ -21,11 +21,11 @@ namespace Benny_Scraper.BusinessLogic.Factory
         }
 
         /// <summary>
-        /// Creates an instance of either a SeleniumNovelScraper or HttpNovelScraper depending on the url.
+        /// Creates an instance of either a SeleniumNovelScraper or HttpNovelScraperBase depending on the url.
         /// </summary>
         /// <param name="novelTableOfContentsUri"></param>
         /// <returns>Scraper instance that implemnts INovelService </returns>
-        public INovelScraper CreateScraper(Uri novelTableOfContentsUri)
+        public INovelScraper CreateScraper(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
             bool isSeleniumUrl = _novelScraperSettings.SeleniumSites.Any(x => novelTableOfContentsUri.Host.Contains(x));
 
@@ -42,14 +42,28 @@ namespace Benny_Scraper.BusinessLogic.Factory
                 }
             }
 
-            try
+            switch (siteConfig.Name.ToLower())
             {
-                return _novelScraperResolver("Http");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error when getting HttpNovelScraper. {ex}");
-                throw;
+                case "webtoepub":
+                    try
+                    {
+                        return _novelScraperResolver("WebToEpub");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error when resolving WebToEpubScraper. {ex}");
+                        throw;
+                    }
+                default:
+                    try
+                    {
+                        return _novelScraperResolver("Http");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error when getting HttpNovelScraperBase. {ex}");
+                        throw;
+                    }
             }
         }
 

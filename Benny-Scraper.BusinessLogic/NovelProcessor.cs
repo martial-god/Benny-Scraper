@@ -35,6 +35,7 @@ namespace Benny_Scraper.BusinessLogic
 
         public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
         {
+
             if (!IsThereConfigurationForSite(novelTableOfContentsUri))
             {
                 Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Stopping application.");
@@ -43,7 +44,9 @@ namespace Benny_Scraper.BusinessLogic
 
             Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
 
-            INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri);
+            SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
+                                                                                          // Retrieve novel information
+            INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
 
             if (novel == null) // Novel is not in database so add it
             {

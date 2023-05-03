@@ -4,6 +4,7 @@ using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers;
 using Benny_Scraper.BusinessLogic.Services;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.Data;
@@ -74,7 +75,8 @@ namespace Benny_Scraper
 
             builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
             builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
-            builder.RegisterType<HttpNovelScraper>().Named<INovelScraper>("Http").InstancePerDependency();
+            builder.RegisterType<NovelFullScraper>().Named<INovelScraper>("Http").InstancePerDependency();
+            builder.RegisterType<WebToEpubScraper>().Named<INovelScraper>("WebToEpub").InstancePerDependency();
         }
 
         private static string GetConnectionString()
