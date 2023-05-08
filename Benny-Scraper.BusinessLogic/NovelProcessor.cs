@@ -38,7 +38,7 @@ namespace Benny_Scraper.BusinessLogic
 
             if (!IsThereConfigurationForSite(novelTableOfContentsUri))
             {
-                Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Stopping application.");
+                Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. an Stopping application.");
                 return;
             }
 
@@ -51,14 +51,15 @@ namespace Benny_Scraper.BusinessLogic
             if (novel == null) // Novel is not in database so add it
             {
                 Logger.Info($"Novel with url {novelTableOfContentsUri} is not in database, adding it now.");
-                await AddNewNovelAsync(novelTableOfContentsUri, scraper);
+                await AddNewNovelAsync(novelTableOfContentsUri, scraper, siteConfig);
+                Logger.Info($"Added novel with url {novelTableOfContentsUri} to database.");
             }
             else // make changes or update novelToAdd and newChapters
             {
                 ValidateObject validator = new ValidateObject();
                 var errors = validator.Validate(novel);
                 Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
-                await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraper);
+                await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraper, siteConfig);
             }
 
         }
@@ -71,10 +72,8 @@ namespace Benny_Scraper.BusinessLogic
             return null;
         }
 
-        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper)
+        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper, SiteConfiguration siteConfig)
         {
-            SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
-                                                                                          // Retrieve novel information
             NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
             if (novelData == null)
             {
@@ -147,9 +146,8 @@ namespace Benny_Scraper.BusinessLogic
 
 
 
-        private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper)
+        private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper, SiteConfiguration siteConfig)
         {
-            SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
             string lastSavedChapterUrl = string.Empty;
 
             string latestChapter = await scraper.GetLatestChapterNameAsync(novelTableOfContentsUri, siteConfig);

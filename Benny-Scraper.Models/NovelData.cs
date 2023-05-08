@@ -22,7 +22,7 @@ namespace Benny_Scraper.Models
         public string ThumbnailUrl { get; set; }
         public double Rating { get; set; }
         public int TotalRatings { get; set; }
-        public List<string> Description { get; set; }
+        public List<string>? Description { get; set; }
         public string Author { get; set; }
         public List<string> Genres { get; set; }
         public List<string> AlternativeNames { get; set; }

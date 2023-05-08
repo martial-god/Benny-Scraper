@@ -36,16 +36,20 @@ namespace Benny_Scraper.BusinessLogic
                 return string.Empty;
             }
 
-            HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
+            return GetInnerText(htmlDocument, siteConfig.Selectors.LatestChapterLink);
+        }
 
-            if (latestChapterNode == null)
+        protected string GetInnerText(HtmlDocument htmlDocument, string selector)
+        {
+            HtmlNode node = htmlDocument.DocumentNode.SelectSingleNode(selector);
+
+            if (node == null)
             {
-                Logger.Debug($"Error while trying to get the latest chapter node. \n");
-                return string.Empty;
+                Logger.Debug($"Error while trying to get the inner text of {selector}. \n");
             }
 
-            string latestChapterName = latestChapterNode.InnerText?.Trim() ?? string.Empty;
-            return latestChapterName;
+            string innerText = node?.InnerText?.Trim() ?? string.Empty;
+            return innerText;
         }
 
 
@@ -127,11 +131,16 @@ namespace Benny_Scraper.BusinessLogic
         public async Task<NovelData> GetNovelDataAsync(Uri uri, SiteConfiguration siteConfig)
         {
             Logger.Info("Getting novel data");
+
+            if (siteConfig.HasNovelInfoOnDifferentPage)
+            {
+                uri = GetAlternateTableOfContentsPageUri(uri);
+            }
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
 
             if (htmlDocument == null)
             {
-                Logger.Debug($"Error while trying to get the novel data. \n");
+                Logger.Debug($"Error while trying to load HtmlDocument. \n");
                 return null;
             }
 
@@ -168,6 +177,14 @@ namespace Benny_Scraper.BusinessLogic
                 throw;
             }
         }
+        
+        protected virtual Uri GetAlternateTableOfContentsPageUri(Uri siteUri)
+        {
+            Uri baseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
+            string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate((a, b) => a + b);
+            return new Uri(baseUri, allSegementsButLast);
+        }
+
         #endregion
 
         #region Private Methods
@@ -177,8 +194,7 @@ namespace Benny_Scraper.BusinessLogic
 
             try
             {
-                HtmlNode authorNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelAuthor);
-                novelData.Author = authorNode.InnerText.Trim();
+                novelData.Author = GetInnerText(htmlDocument, siteConfig.Selectors.NovelAuthor);
 
                 HtmlNodeCollection novelTitleNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelTitle);
                 if (novelTitleNodes.Any())
@@ -186,23 +202,34 @@ namespace Benny_Scraper.BusinessLogic
                     novelData.Title = novelTitleNodes.First().InnerText.Trim();
                 }
 
-                HtmlNode novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelRating);
-                novelData.Rating = double.Parse(novelRatingNode.InnerText.Trim());
-
-                HtmlNode totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.TotalRatings);
-                novelData.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
+                if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelRating))
+                {
+                    novelData.Rating = double.Parse(GetInnerText(htmlDocument, siteConfig.Selectors.NovelRating));
+                }
 
                 HtmlNodeCollection descriptionNode = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelDescription);
-                novelData.Description = descriptionNode.Select(description => description.InnerText.Trim()).ToList();
+                novelData.Description = descriptionNode?.Select(description => description.InnerText.Trim()).ToList();
+
+                // need to find a better way to get the description for other sites
+                if ((novelData.Description != null) && novelData.Description.All(string.IsNullOrEmpty))
+                {
+                    HtmlNode altDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelDescription);
+                    var altDescription = altDescriptionNode.Attributes["content"].Value;
+                    novelData.Description = new List<string> { altDescription };
+                }
+                
 
                 HtmlNodeCollection genreNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelGenres);
                 novelData.Genres = genreNodes.Select(genre => genre.InnerText.Trim()).ToList();
 
-                HtmlNodeCollection alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelAlternativeNames);
-                novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
+                if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelAlternativeNames))
+                {
+                    HtmlNodeCollection alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelAlternativeNames);
+                    novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
+                }                
 
                 HtmlNode novelStatusNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelStatus);
-                novelData.NovelStatus = novelStatusNode.InnerText.Trim();
+                novelData.NovelStatus = novelStatusNode?.InnerText.Trim();
 
                 HtmlNode thumbnailUrlNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelThumbnailUrl);
                 novelData.ThumbnailUrl = thumbnailUrlNode.Attributes["src"].Value;
