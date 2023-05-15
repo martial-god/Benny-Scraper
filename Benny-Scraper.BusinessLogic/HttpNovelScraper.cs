@@ -1,5 +1,6 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
@@ -12,20 +13,57 @@ namespace Benny_Scraper.BusinessLogic
     /// <summary>
     /// A http implementation of the INovelScraper interface. Use this for sites that don't require login-in to get the chapter contents like novelupdates.com
     /// </summary>
-    public abstract class HttpNovelScraperBase : INovelScraper
+    public class HttpNovelScraper : INovelScraper
     {
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         private static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(7); // limit the number of concurrent requests, prevent posssible rate limiting
+        private ScraperStrategy _scraperStrategy;
+        private Dictionary<string, ScraperStrategy> _websiteMap = new Dictionary<string, ScraperStrategy>();
 
-        #region Public Methods
+        public HttpNovelScraper()
+        {
+            AddSupportForWebsite();
+        }
+
+        #region setup maps
+        public void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy)
+        {
+            _websiteMap.Add(siteName, scraperStrategy);
+        }
+
+        void AddSupportForWebsite()
+        {
+            AddSiteToMap("https://www.webnovelpub.com", new WebNovelPubStrategy());
+            AddSiteToMap("https://novelfull.com", new NovelFullScraperStrategy());
+        }
+        #endregion
+
+
+
+        #region Public Methods    
+        public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
+        {
+            string baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
+            
+            if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))
+            {
+                return this._scraperStrategy;
+            }
+            else
+            {
+                Logger.Error($"No scraper strategy found for {baseUrl}");
+                return null;
+            }
+        }
+
         /// <summary>
         /// Retrieves the latest chapter's name from the provided URL using the site configuration.
         /// </summary>
         /// <param name="uri">The URL of the web page to scrape.</param>
         /// <param name="siteConfig">The site configuration containing the selectors for scraping.</param>
         /// <returns>The latest chapter's name, or an empty string if an error occurs.</returns>
-        public virtual async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
+        public async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
         {
             Logger.Info("Getting latest chapter name");
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
@@ -61,7 +99,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteConfig"></param>
         /// <param name="lastSavedChapterUrl"></param>
         /// <returns></returns>
-        public virtual async Task<NovelData> RequestPaginatedDataAsync(Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
+        public async Task<NovelData> RequestPaginatedDataAsync(Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
 
@@ -228,6 +266,10 @@ namespace Benny_Scraper.BusinessLogic
                     novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
                 }                
 
+                if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelStatus))
+                {
+
+                }
                 HtmlNode novelStatusNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelStatus);
                 novelData.NovelStatus = novelStatusNode?.InnerText.Trim();
 

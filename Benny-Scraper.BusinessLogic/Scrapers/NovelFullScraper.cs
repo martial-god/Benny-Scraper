@@ -1,6 +1,6 @@
 ﻿ namespace Benny_Scraper.BusinessLogic.Scrapers
 {
-    public class NovelFullScraper : HttpNovelScraperBase
+    public class NovelFullScraper : HttpNovelScraper
     {
     }
 }

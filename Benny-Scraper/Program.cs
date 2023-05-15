@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Microsoft.Extensions.Configuration;
@@ -24,7 +25,7 @@ namespace Benny_Scraper
             var builder = new ContainerBuilder();
             startUp.ConfigureServices(builder);
 
-            Container = builder.Build();            
+            Container = builder.Build();
 
             if (args.Length > 0)
             {
@@ -33,7 +34,7 @@ namespace Benny_Scraper
             else
             {
                 await RunAsync();
-            }            
+            }
         }
 
         private static async Task RunAsync()
@@ -45,7 +46,7 @@ namespace Benny_Scraper
                 Logger.Info("Initializing Database");
                 IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
                 dbInitializer.Initialize();
-                Logger.Info("Database Initialized");                
+                Logger.Info("Database Initialized");
 
                 IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
                 //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");

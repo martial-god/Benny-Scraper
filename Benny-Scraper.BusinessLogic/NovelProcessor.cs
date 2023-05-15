@@ -1,6 +1,7 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.BusinessLogic.Validators;
 using Benny_Scraper.Models;
@@ -31,7 +32,7 @@ namespace Benny_Scraper.BusinessLogic
             _novelScraper = novelScraper;
             _novelScraperSettings = novelScraperSettings.Value;
             _epubGenerator = epubGenerator;
-        }
+        }        
 
         public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
         {
@@ -47,11 +48,12 @@ namespace Benny_Scraper.BusinessLogic
             SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
                                                                                           // Retrieve novel information
             INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
+            ScraperStrategy scraperStrategy = scraper.GetScraperStrategy(novelTableOfContentsUri, siteConfig);
 
             if (novel == null) // Novel is not in database so add it
             {
                 Logger.Info($"Novel with url {novelTableOfContentsUri} is not in database, adding it now.");
-                await AddNewNovelAsync(novelTableOfContentsUri, scraper, siteConfig);
+                await AddNewNovelAsync(novelTableOfContentsUri, scraper, scraperStrategy, siteConfig);
                 Logger.Info($"Added novel with url {novelTableOfContentsUri} to database.");
             }
             else // make changes or update novelToAdd and newChapters
@@ -72,8 +74,10 @@ namespace Benny_Scraper.BusinessLogic
             return null;
         }
 
-        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper, SiteConfiguration siteConfig)
+        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper, ScraperStrategy scraperStrategy, SiteConfiguration siteConfig)
         {
+            NovelData novel = scraperStrategy.Scrape();
+
             NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
             if (novelData == null)
             {

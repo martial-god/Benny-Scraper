@@ -76,7 +76,6 @@ namespace Benny_Scraper
             builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
             builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
             builder.RegisterType<NovelFullScraper>().Named<INovelScraper>("Http").InstancePerDependency();
-            builder.RegisterType<WebToEpubScraper>().Named<INovelScraper>("WebToEpub").InstancePerDependency();
         }
 
         private static string GetConnectionString()

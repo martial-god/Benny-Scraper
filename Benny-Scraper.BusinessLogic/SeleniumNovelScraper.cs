@@ -1,5 +1,6 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.Models;
 
 namespace Benny_Scraper.BusinessLogic
@@ -56,6 +57,11 @@ namespace Benny_Scraper.BusinessLogic
         }
 
         public Task<NovelData> RequestPaginatedDataAsync(Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ScraperStrategy GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
             throw new NotImplementedException();
         }
