@@ -50,6 +50,8 @@ namespace Benny_Scraper.BusinessLogic
             INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
             ScraperStrategy scraperStrategy = scraper.GetScraperStrategy(novelTableOfContentsUri, siteConfig);
 
+            scraperStrategy.SetSiteConfiguration(siteConfig);
+
             if (novel == null) // Novel is not in database so add it
             {
                 Logger.Info($"Novel with url {novelTableOfContentsUri} is not in database, adding it now.");
