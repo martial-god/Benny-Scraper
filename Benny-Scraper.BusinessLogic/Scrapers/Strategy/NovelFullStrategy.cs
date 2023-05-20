@@ -6,12 +6,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
     public class NovelFullStrategy : ScraperStrategy
     {
-        public override NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
+        public override NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument)
         {
             throw new NotImplementedException();
         }
 
-        public override NovelData Scrape()
+        public override Task<NovelData> ScrapeAsync()
         {
             throw new NotImplementedException();
         }

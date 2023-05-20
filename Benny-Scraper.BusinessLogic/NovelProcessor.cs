@@ -50,7 +50,7 @@ namespace Benny_Scraper.BusinessLogic
             INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
             ScraperStrategy scraperStrategy = scraper.GetScraperStrategy(novelTableOfContentsUri, siteConfig);
 
-            scraperStrategy.SetSiteConfiguration(siteConfig);
+            scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri);
 
             if (novel == null) // Novel is not in database so add it
             {
@@ -78,7 +78,7 @@ namespace Benny_Scraper.BusinessLogic
 
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper, ScraperStrategy scraperStrategy, SiteConfiguration siteConfig)
         {
-            NovelData novel = scraperStrategy.Scrape();
+            NovelData novel = await scraperStrategy.ScrapeAsync();
 
             NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
             if (novelData == null)

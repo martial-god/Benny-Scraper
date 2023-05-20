@@ -35,7 +35,7 @@ namespace Benny_Scraper.BusinessLogic
         void AddSupportForWebsite()
         {
             AddSiteToMap("https://www.webnovelpub.com", new WebNovelPubStrategy());
-            AddSiteToMap("https://novelfull.com", new NovelFullScraperStrategy());
+            AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
         }
         #endregion
 
@@ -219,7 +219,8 @@ namespace Benny_Scraper.BusinessLogic
         protected virtual Uri GetAlternateTableOfContentsPageUri(Uri siteUri)
         {
             Uri baseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
-            string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate((a, b) => a + b);
+            string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate(
+                (segment1, segmenet2) => segment1 + segmenet2);
             return new Uri(baseUri, allSegementsButLast);
         }
 
