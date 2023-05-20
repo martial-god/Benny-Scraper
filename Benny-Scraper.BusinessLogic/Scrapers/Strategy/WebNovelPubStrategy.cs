@@ -32,6 +32,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument);
 
+            htmlDocument = await LoadHtmlDocumentFromUrlAsync(this.SiteTableOfContents);
+
+            // To Do: Get all chapter urls from table of contents page. Figure out the rest later
+
             novelData.Genres = new List<string>();
 
             return novelData;
