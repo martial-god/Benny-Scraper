@@ -4,23 +4,26 @@ using HtmlAgilityPack;
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
+using System.Net;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
     public class WebNovelPubStrategy : ScraperStrategy
     {
-        // create _alternateTableOfContentsUri that will be passed a value in Scraper method, give it a default value
         private Uri? _alternateTableOfContentsUri;
 
         public override async Task<NovelData> ScrapeAsync()
         {
             Logger.Info("Starting scraper for Web");
 
-            _alternateTableOfContentsUri = GetAlternateTableOfContentsPageUri(this.SiteTableOfContents);
+            _alternateTableOfContentsUri = GetAlternateTableOfContentsPageUri(this.SiteTableOfContents); // sets BaseUri as well
 
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(_alternateTableOfContentsUri);
 
@@ -34,12 +37,53 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             htmlDocument = await LoadHtmlDocumentFromUrlAsync(this.SiteTableOfContents);
 
-            // To Do: Get all chapter urls from table of contents page. Figure out the rest later
+            // Decode obfuscated HTML entities since this site obfuscates them, might need to use Selenium to get around this
+            string decodedHtml = WebUtility.HtmlDecode(htmlDocument.DocumentNode.OuterHtml);
 
+            HtmlDocument decodedHtmlDocument = new HtmlDocument();
+            decodedHtmlDocument.LoadHtml(decodedHtml);
+
+            HtmlNodeCollection paginationNodes = decodedHtmlDocument.DocumentNode.SelectNodes("//div[@class='pagination-container']/ul/li");
+            int paginationCount = paginationNodes.Count;
+
+            int pageToStopAt = 1;
+            if (paginationCount > 1)
+            {
+                HtmlNode lastPageNode = null;
+                if (paginationCount == 6)
+                {
+                    lastPageNode = decodedHtmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
+                }
+                else
+                {
+                    lastPageNode = paginationNodes[paginationCount - 2]; // Get the second last node which is the last page number
+                    lastPageNode = lastPageNode.SelectSingleNode("a");
+                }
+
+                string lastPageUrl = lastPageNode.Attributes["href"].Value;
+
+                Uri lastPageUri = new Uri(lastPageUrl, UriKind.RelativeOrAbsolute);
+
+                // If the URL is relative, make sure to add a scheme and host
+                if (!lastPageUri.IsAbsoluteUri)
+                {
+                    lastPageUri = new Uri(this.BaseUri.ToString() + lastPageUrl);
+                }
+
+                NameValueCollection query = HttpUtility.ParseQueryString(lastPageUri.Query);
+
+                string pageNumber = query["page"];
+                int.TryParse(pageNumber, out pageToStopAt);
+            }
+
+            NovelData tempNovelData = await RequestPaginatedDataAsync(this.SiteTableOfContents, true, pageToStopAt);
+
+            novelData.RecentChapterUrls = tempNovelData.RecentChapterUrls;
             novelData.Genres = new List<string>();
 
             return novelData;
         }
+
 
         public override NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument)
         {
@@ -58,5 +102,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             throw new NotImplementedException();
         }
+
+
     }
 }

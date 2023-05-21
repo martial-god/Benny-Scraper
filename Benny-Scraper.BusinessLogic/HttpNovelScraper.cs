@@ -403,14 +403,30 @@ namespace Benny_Scraper.BusinessLogic
         private static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            var response = await _client.GetAsync(uri);
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
+            int retryCount = 0;
+            while (retryCount < 3) // Maximum of 3 retries
+            {
+                try
+                {
+                    var response = await _client.GetAsync(uri);
+                    response.EnsureSuccessStatusCode(); // Throws an exception if the status code is not successful
+                    var content = await response.Content.ReadAsStringAsync();
 
-            var htmlDocument = new HtmlDocument();
-            htmlDocument.LoadHtml(content);
-            return htmlDocument;
+                    var htmlDocument = new HtmlDocument();
+                    htmlDocument.LoadHtml(content);
+
+                    return htmlDocument;
+                }
+                catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
+                {
+                    retryCount++;
+                    Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
+                    await Task.Delay(TimeSpan.FromSeconds(5)); // Wait for 5 seconds before retrying
+                }
+            }
+            throw new HttpRequestException($"Failed to load HTML document from {uri} after 3 attempts.");
         }
+
 
         private string GetNovelStatus(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
         {

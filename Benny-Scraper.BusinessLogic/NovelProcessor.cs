@@ -78,17 +78,17 @@ namespace Benny_Scraper.BusinessLogic
 
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper, ScraperStrategy scraperStrategy, SiteConfiguration siteConfig)
         {
-            NovelData novel = await scraperStrategy.ScrapeAsync();
+            NovelData novelData = await scraperStrategy.ScrapeAsync();
 
-            NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
+            //NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
             if (novelData == null)
             {
                 Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
                 return;
             }
 
-            NovelData paginatedData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl: null, true);
-            novelData.RecentChapterUrls = paginatedData.RecentChapterUrls;
+            //NovelData paginatedData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl: null, true);
+            //novelData.RecentChapterUrls = paginatedData.RecentChapterUrls;
 
             // Create a new Novel object and populate its properties
             Novel novelToAdd = new Novel
@@ -136,14 +136,11 @@ namespace Benny_Scraper.BusinessLogic
             documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
             Directory.CreateDirectory(documentsFolder);
 
-            string epubFile = Path.Combine(documentsFolder, $"{novelToAdd.Title}.epub");
+            string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
             novelToAdd.SaveLocation = epubFile;
-            //_epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
 
             // call createepub, but only pass newest
             _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile);
-
-            //await _novelService.UpdateAndAddChapters(novel, newChapters);
 
             // Add the novel and its chapters to the database
             await _novelService.CreateAsync(novelToAdd);
