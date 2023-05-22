@@ -15,9 +15,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected Uri SiteTableOfContents { get; private set; }
         protected Uri BaseUri { get; private set; }
 
+        public const int MaxRetries = 3;
+        public const int MinimumParagraphThreshold = 5;
+        protected const int TotalPossiblePaginationTabs = 6;
+        protected const int ConCurrentRequestsLimit = 7;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
-        protected static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(7); // limit the number of concurrent requests, prevent posssible rate limiting
+        protected static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(ConCurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
         
         public abstract Task<NovelData> ScrapeAsync();
         public abstract NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument);
@@ -58,7 +62,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
             int retryCount = 0;
-            while (retryCount < 3) // Maximum of 3 retries
+            while (retryCount < MaxRetries)
             {
                 try
                 {
@@ -78,7 +82,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     await Task.Delay(TimeSpan.FromSeconds(5)); // Wait for 5 seconds before retrying
                 }
             }
-            throw new HttpRequestException($"Failed to load HTML document from {uri} after 3 attempts.");
+            throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");
         }
 
         protected virtual Uri GetAlternateTableOfContentsPageUri(Uri siteUri)
@@ -207,7 +211,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             if (paginationCount > 1)
             {
                 HtmlNode lastPageNode = null;
-                if (paginationCount == 6)
+                if (paginationCount == TotalPossiblePaginationTabs)
                 {
                     lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
                 }
@@ -286,7 +290,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.ChapterContent);
                 List<string> paragraphs = paragraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
 
-                if (paragraphs.Count < 5)
+                if (paragraphs.Count < MinimumParagraphThreshold)
                 {
                     Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
                     HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.AlternativeChapterContent);
