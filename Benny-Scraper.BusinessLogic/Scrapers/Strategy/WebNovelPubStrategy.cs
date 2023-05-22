@@ -36,45 +36,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument);
 
             htmlDocument = await LoadHtmlDocumentFromUrlAsync(this.SiteTableOfContents);
+            
+            HtmlDocument decodedHtmlDocument = DecodeHtml(htmlDocument);
 
-            // Decode obfuscated HTML entities since this site obfuscates them, might need to use Selenium to get around this
-            string decodedHtml = WebUtility.HtmlDecode(htmlDocument.DocumentNode.OuterHtml);
-
-            HtmlDocument decodedHtmlDocument = new HtmlDocument();
-            decodedHtmlDocument.LoadHtml(decodedHtml);
-
-            HtmlNodeCollection paginationNodes = decodedHtmlDocument.DocumentNode.SelectNodes("//div[@class='pagination-container']/ul/li");
-            int paginationCount = paginationNodes.Count;
-
-            int pageToStopAt = 1;
-            if (paginationCount > 1)
-            {
-                HtmlNode lastPageNode = null;
-                if (paginationCount == 6)
-                {
-                    lastPageNode = decodedHtmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
-                }
-                else
-                {
-                    lastPageNode = paginationNodes[paginationCount - 2]; // Get the second last node which is the last page number
-                    lastPageNode = lastPageNode.SelectSingleNode("a");
-                }
-
-                string lastPageUrl = lastPageNode.Attributes["href"].Value;
-
-                Uri lastPageUri = new Uri(lastPageUrl, UriKind.RelativeOrAbsolute);
-
-                // If the URL is relative, make sure to add a scheme and host
-                if (!lastPageUri.IsAbsoluteUri)
-                {
-                    lastPageUri = new Uri(this.BaseUri.ToString() + lastPageUrl);
-                }
-
-                NameValueCollection query = HttpUtility.ParseQueryString(lastPageUri.Query);
-
-                string pageNumber = query["page"];
-                int.TryParse(pageNumber, out pageToStopAt);
-            }
+            int pageToStopAt = GetLastPageNumber(decodedHtmlDocument);
 
             NovelData tempNovelData = await RequestPaginatedDataAsync(this.SiteTableOfContents, true, pageToStopAt);
 

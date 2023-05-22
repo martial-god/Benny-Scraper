@@ -109,8 +109,9 @@ namespace Benny_Scraper.BusinessLogic
                 CurrentChapterUrl = novelData.CurrentChapterUrl
             };
 
+            IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.RecentChapterUrls);
             // Retrieve chapter information
-            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
+            //IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
 
             // Create Chapter objects and populate their properties
             List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter

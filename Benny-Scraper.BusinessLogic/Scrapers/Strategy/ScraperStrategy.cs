@@ -2,8 +2,10 @@
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Net;
+using System.Web;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -25,17 +27,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             SetSiteConfiguration(siteConfig);
             SetSiteTableOfContents(siteTableOfContents);
-        }
-
-        private void SetSiteConfiguration(SiteConfiguration siteConfig)
-        {
-            SiteConfig = siteConfig;
-        }
-
-        private void SetSiteTableOfContents(Uri siteTableOfContents)
-        {
-            SiteTableOfContents = siteTableOfContents;
-        }
+        }        
 
         protected virtual int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
         {
@@ -65,14 +57,30 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            var response = await _client.GetAsync(uri);
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
+            int retryCount = 0;
+            while (retryCount < 3) // Maximum of 3 retries
+            {
+                try
+                {
+                    var response = await _client.GetAsync(uri);
+                    response.EnsureSuccessStatusCode(); // Throws an exception if the status code is not successful
+                    var content = await response.Content.ReadAsStringAsync();
 
-            var htmlDocument = new HtmlDocument();
-            htmlDocument.LoadHtml(content);
-            return htmlDocument;
+                    var htmlDocument = new HtmlDocument();
+                    htmlDocument.LoadHtml(content);
+
+                    return htmlDocument;
+                }
+                catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
+                {
+                    retryCount++;
+                    Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
+                    await Task.Delay(TimeSpan.FromSeconds(5)); // Wait for 5 seconds before retrying
+                }
+            }
+            throw new HttpRequestException($"Failed to load HTML document from {uri} after 3 attempts.");
         }
+
         protected virtual Uri GetAlternateTableOfContentsPageUri(Uri siteUri)
         {
             Uri baseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
@@ -127,6 +135,29 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
+        public virtual async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls)
+        {
+            try
+            {
+                Logger.Info("Getting chapters data");
+                List<Task<ChapterData>> tasks = new List<Task<ChapterData>>();
+                foreach (var url in chapterUrls)
+                {
+                    await _semaphonreSlim.WaitAsync();
+                    tasks.Add(GetChapterDataAsync(url));
+                }
+
+                ChapterData[] chapterData = await Task.WhenAll(tasks);
+                Logger.Info("Finished getting chapters data");
+                return chapterData.ToList();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error while getting chapters data. {ex}");
+                throw;
+            }
+        }
+
 
         protected virtual List<string> GetChapterUrlsInRange(HtmlDocument htmlDocument, Uri baseSiteUri, int? startChapter = null, int? endChapter = null)
         {
@@ -166,6 +197,133 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 throw;
             }
         }
+
+        protected virtual int GetLastPageNumber(HtmlDocument htmlDocument)
+        {
+            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes("//div[@class='pagination-container']/ul/li");
+            int paginationCount = paginationNodes.Count;
+
+            int pageToStopAt = 1;
+            if (paginationCount > 1)
+            {
+                HtmlNode lastPageNode = null;
+                if (paginationCount == 6)
+                {
+                    lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
+                }
+                else
+                {
+                    lastPageNode = paginationNodes[paginationCount - 2]; // Get the second last node which is the last page number
+                    lastPageNode = lastPageNode.SelectSingleNode("a");
+                }
+
+                string lastPageUrl = lastPageNode.Attributes["href"].Value;
+
+                Uri lastPageUri = new Uri(lastPageUrl, UriKind.RelativeOrAbsolute);
+
+                // If the URL is relative, make sure to add a scheme and host
+                if (!lastPageUri.IsAbsoluteUri) // like this: /novel/the-authors-pov-14051336/chapters?page=9
+                {
+                    lastPageUri = new Uri(this.BaseUri.ToString() + lastPageUrl);
+                }
+
+                NameValueCollection query = HttpUtility.ParseQueryString(lastPageUri.Query);
+
+                string pageNumber = query["page"];
+                int.TryParse(pageNumber, out pageToStopAt);                
+            }
+
+            return pageToStopAt;
+        }
+
+        /// <summary>
+        /// Decodes sites that uses HTML encoded characters like class="&#x70;&#x61;&#x67;&#x69;&#x6E;&#x61;&#x74;&#x69;
+        /// </summary>
+        /// <param name="htmlDocument"></param>
+        /// <returns>Decoded HtmlDocument</returns>
+        protected virtual HtmlDocument DecodeHtml(HtmlDocument htmlDocument)
+        {
+            Logger.Debug("Decoding HTML - Start");
+            string decodedHtml = WebUtility.HtmlDecode(htmlDocument.DocumentNode.OuterHtml);
+            if (decodedHtml == null)
+            {
+                Logger.Error("Decoded HTML was null");
+                return htmlDocument;
+            }
+
+            Logger.Debug("Decoding HTML - End");
+            HtmlDocument decodedHtmlDocument = new HtmlDocument();
+            decodedHtmlDocument.LoadHtml(decodedHtml);
+            Logger.Debug("Decoded HTML loaded into HtmlDocument");
+
+            return decodedHtmlDocument;
+        }
+
+
+        #region Private Methods
+        private void SetSiteConfiguration(SiteConfiguration siteConfig)
+        {
+            SiteConfig = siteConfig;
+        }
+
+        private void SetSiteTableOfContents(Uri siteTableOfContents)
+        {
+            SiteTableOfContents = siteTableOfContents;
+        }
+
+        private async Task<ChapterData> GetChapterDataAsync(string url)
+        {
+            ChapterData chapterData = new ChapterData();
+            Logger.Info($"Navigating to {url}");
+            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(url));
+            Logger.Info($"Finished navigating to {url}");
+            try
+            {
+                HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.ChapterTitle);
+                chapterData.Title = titleNode.InnerText.Trim();
+                Logger.Debug($"Chapter title: {chapterData.Title}");
+
+                HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.ChapterContent);
+                List<string> paragraphs = paragraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+
+                if (paragraphs.Count < 5)
+                {
+                    Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
+                    HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.AlternativeChapterContent);
+                    List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+                    Logger.Info($"Alternate paragraphs count: {alternateParagraphs.Count}");
+
+                    if (alternateParagraphs.Count > paragraphs.Count)
+                    {
+                        Logger.Info($"Alternate paragraphs count is greater than paragraphs count. Using alternate paragraphs");
+                        paragraphs = alternateParagraphs;
+                    }
+                }
+
+                chapterData.Content = string.Join("\n", paragraphs);
+                int contentCount = chapterData.Content.Count(c => c == '\n');
+
+                if (string.IsNullOrWhiteSpace(chapterData.Content) || contentCount < 5)
+                {
+                    Logger.Debug($"No content found found for {url}");
+                    chapterData.Content = "No content found";
+                }
+
+                chapterData.Url = url;
+                chapterData.DateLastModified = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+            }
+            finally
+            {
+                _semaphonreSlim.Release();
+            }
+
+            return chapterData;
+        }
+        #endregion
 
     }
 }
