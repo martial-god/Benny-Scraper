@@ -5,6 +5,7 @@ using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Microsoft.Extensions.Configuration;
 using NLog;
+using NLog.Targets;
 using System.Diagnostics;
 
 namespace Benny_Scraper
@@ -106,11 +107,32 @@ namespace Benny_Scraper
         private static void SetupLogger()
         {
             var config = new NLog.Config.LoggingConfiguration();
+
             //write log file using date as day-month-year
             var logfile = new NLog.Targets.FileTarget("logfile") { FileName = $"C:\\logs\\BennyScraper {DateTime.Now.ToString("MM-dd-yyyy")}.log" };
-            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
+
+            var logconsole = new NLog.Targets.ColoredConsoleTarget("logconsole")
+            {
+                Layout = @"${date:format=HH\:mm\:ss} ${level} ${message} ${exception}"
+            };
+
+            // Set up colors
+            logconsole.RowHighlightingRules.Add(new NLog.Targets.ConsoleRowHighlightingRule(
+                NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Info"),
+                ConsoleOutputColor.Green, ConsoleOutputColor.Black));
+            logconsole.RowHighlightingRules.Add(new NLog.Targets.ConsoleRowHighlightingRule(
+                NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Warn"),
+                ConsoleOutputColor.Yellow, ConsoleOutputColor.Black));
+            logconsole.RowHighlightingRules.Add(new NLog.Targets.ConsoleRowHighlightingRule(
+                NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Error"),
+                ConsoleOutputColor.Red, ConsoleOutputColor.Black));
+            logconsole.RowHighlightingRules.Add(new NLog.Targets.ConsoleRowHighlightingRule(
+                NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Fatal"),
+                ConsoleOutputColor.White, ConsoleOutputColor.Red));
+
             config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
             config.AddRule(LogLevel.Info, LogLevel.Fatal, logfile);
+
             NLog.LogManager.Configuration = config;
         }
 
