@@ -144,7 +144,7 @@ namespace Benny_Scraper.BusinessLogic
             _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile);
 
             // Add the novel and its chapters to the database
-            await _novelService.CreateAsync(novelToAdd);
+            //await _novelService.CreateAsync(novelToAdd);
         }
 
 

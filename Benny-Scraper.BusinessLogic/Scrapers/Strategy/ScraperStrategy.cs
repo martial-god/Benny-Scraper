@@ -3,6 +3,7 @@ using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Web;
@@ -21,7 +22,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected const int ConCurrentRequestsLimit = 7;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
-        protected static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(ConCurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
+        protected static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(ConCurrentRequestsLimit, ConCurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
         
         public abstract Task<NovelData> ScrapeAsync();
         public abstract NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument);
@@ -277,10 +278,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private async Task<ChapterData> GetChapterDataAsync(string url)
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             ChapterData chapterData = new ChapterData();
             Logger.Info($"Navigating to {url}");
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(url));
-            Logger.Info($"Finished navigating to {url}");
+            Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
+
             try
             {
                 HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.ChapterTitle);
@@ -304,6 +310,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     }
                 }
 
+                Logger.Info($"Finished retrieving chapter content. Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                stopwatch.Restart();
+
                 chapterData.Content = string.Join("\n", paragraphs);
                 int contentCount = chapterData.Content.Count(c => c == '\n');
 
@@ -315,6 +324,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 chapterData.Url = url;
                 chapterData.DateLastModified = DateTime.Now;
+
+                Logger.Info($"Finished processing chapter data. Time taken: {stopwatch.ElapsedMilliseconds} ms");
             }
             catch (Exception ex)
             {
