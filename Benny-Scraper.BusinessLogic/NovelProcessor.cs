@@ -133,7 +133,7 @@ namespace Benny_Scraper.BusinessLogic
 
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, "").ToLower()).ToLowerInvariant();
+            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, "").ToLower().ToLowerInvariant());
             documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
             Directory.CreateDirectory(documentsFolder);
 
