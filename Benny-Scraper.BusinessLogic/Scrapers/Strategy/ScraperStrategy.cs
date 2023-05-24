@@ -19,7 +19,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public const int MaxRetries = 3;
         public const int MinimumParagraphThreshold = 5;
         protected const int TotalPossiblePaginationTabs = 6;
-        protected const int ConCurrentRequestsLimit = 7;
+        protected const int ConCurrentRequestsLimit = 12;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         protected static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(ConCurrentRequestsLimit, ConCurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
