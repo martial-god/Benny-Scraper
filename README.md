@@ -21,5 +21,5 @@ Webscraper that sets out make listening to webnovels easier for myself. Creates 
 7. ![msedge_eLDuuUmL96](https://github.com/feahnthor/Benny-Scraper/assets/8980094/37383a6d-db9d-41fb-86bb-b674f0524b0d)
 
 
-## Erros
+## Errors
 So long as the error isn't highlighted while the application is running, they are just Warnings or Errors. Nothing Fatal
