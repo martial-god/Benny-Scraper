@@ -41,7 +41,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             int pageToStopAt = GetLastPageNumber(decodedHtmlDocument);
 
-            NovelData tempNovelData = await RequestPaginatedDataAsync(SiteTableOfContents, true, pageToStopAt);
+            NovelData tempNovelData = await GetPaginatedChapterUrls(SiteTableOfContents, true, pageToStopAt);
 
             novelData.RecentChapterUrls = tempNovelData.RecentChapterUrls;
             novelData.Genres = new List<string>();

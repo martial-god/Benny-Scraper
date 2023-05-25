@@ -94,7 +94,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return new Uri(baseUri, allSegementsButLast);
         }
 
-        protected async Task<NovelData> RequestPaginatedDataAsync(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt, int pageToStartAt = 1)
+        protected async Task<NovelData> GetPaginatedChapterUrls(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
 

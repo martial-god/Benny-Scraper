@@ -87,8 +87,8 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            //NovelData paginatedData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl: null, true);
-            //novelData.RecentChapterUrls = paginatedData.RecentChapterUrls;
+            NovelData paginatedData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl: null, true);
+            novelData.RecentChapterUrls = paginatedData.RecentChapterUrls;
 
             // Create a new Novel object and populate its properties
             Novel novelToAdd = new Novel
