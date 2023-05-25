@@ -80,7 +80,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     retryCount++;
                     Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
-                    await Task.Delay(TimeSpan.FromSeconds(5)); // Wait for 5 seconds before retrying
                 }
             }
             throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");

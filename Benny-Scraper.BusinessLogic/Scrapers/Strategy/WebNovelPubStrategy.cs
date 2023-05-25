@@ -23,7 +23,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             Logger.Info("Starting scraper for Web");
 
-            _alternateTableOfContentsUri = GetAlternateTableOfContentsPageUri(this.SiteTableOfContents); // sets BaseUri as well
+            _alternateTableOfContentsUri = GetAlternateTableOfContentsPageUri(SiteTableOfContents); // sets BaseUri as well
 
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(_alternateTableOfContentsUri);
 
@@ -35,13 +35,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument);
 
-            htmlDocument = await LoadHtmlDocumentFromUrlAsync(this.SiteTableOfContents);
+            htmlDocument = await LoadHtmlDocumentFromUrlAsync(SiteTableOfContents);
             
             HtmlDocument decodedHtmlDocument = DecodeHtml(htmlDocument);
 
             int pageToStopAt = GetLastPageNumber(decodedHtmlDocument);
 
-            NovelData tempNovelData = await RequestPaginatedDataAsync(this.SiteTableOfContents, true, pageToStopAt);
+            NovelData tempNovelData = await RequestPaginatedDataAsync(SiteTableOfContents, true, pageToStopAt);
 
             novelData.RecentChapterUrls = tempNovelData.RecentChapterUrls;
             novelData.Genres = new List<string>();
