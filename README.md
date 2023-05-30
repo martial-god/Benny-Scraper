@@ -14,7 +14,7 @@ Webscraper that sets out make listening to webnovels easier for myself. Creates 
 - [ ] make changes to database, use ints instead of unique identifiers as Shane mentioned. Guid should be used from the outside in, where someone wants to get data through an api, for that having the main id be a int and having a column like UUID which is the guid that will be used to find the item.
 
 ## Getting Started
-1. Make sure you have an SQL server installed on your machine
+1. Make sure you have an SQL server installed on your machine **NO LONGER REQUIRED**
 2. At this moment, the master branch only works for novels on https://novelfull.com/. To try the other site I am currently working on, switch to the dev branch. The site will be https://www.webnovelpub.com/
 3. For both sites, the url for the `Table of Contents` page is needed to work, that is the page that has all the chapters listed.
 4. *Note* : all epubs will be stored in you Documents folder BennyScrapedNovels/{Novel Name} . Get an epub reader to read the contents, chrome extensions are available like `EPUB Reader`
