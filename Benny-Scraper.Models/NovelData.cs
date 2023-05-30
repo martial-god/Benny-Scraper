@@ -8,21 +8,21 @@ namespace Benny_Scraper.Models
     {
         public NovelData() 
         {
-            RecentChapterUrls = new List<string>();
+            ChapterUrls = new List<string>();
             Description = new List<string>();
             Genres = new List<string>();
             AlternativeNames = new List<string>();
         }
 
         public string Title { get; set; }
-        public List<string> RecentChapterUrls { get; set; }
+        public List<string> ChapterUrls { get; set; }
         public string NovelStatus { get; set; }
         public string LastTableOfContentsPageUrl { get; set; }
         public bool IsNovelCompleted { get; set; }
         public string ThumbnailUrl { get; set; }
         public double Rating { get; set; }
         public int TotalRatings { get; set; }
-        public List<string> Description { get; set; }
+        public List<string>? Description { get; set; }
         public string Author { get; set; }
         public List<string> Genres { get; set; }
         public List<string> AlternativeNames { get; set; }

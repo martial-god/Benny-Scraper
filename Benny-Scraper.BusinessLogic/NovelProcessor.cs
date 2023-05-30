@@ -1,6 +1,7 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.BusinessLogic.Validators;
 using Benny_Scraper.Models;
@@ -31,14 +32,14 @@ namespace Benny_Scraper.BusinessLogic
             _novelScraper = novelScraper;
             _novelScraperSettings = novelScraperSettings.Value;
             _epubGenerator = epubGenerator;
-        }
+        }        
 
         public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
         {
 
             if (!IsThereConfigurationForSite(novelTableOfContentsUri))
             {
-                Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Stopping application.");
+                Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. an Stopping application.");
                 return;
             }
 
@@ -47,18 +48,22 @@ namespace Benny_Scraper.BusinessLogic
             SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
                                                                                           // Retrieve novel information
             INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
+            ScraperStrategy scraperStrategy = scraper.GetScraperStrategy(novelTableOfContentsUri, siteConfig);
+
+            scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri);
 
             if (novel == null) // Novel is not in database so add it
             {
                 Logger.Info($"Novel with url {novelTableOfContentsUri} is not in database, adding it now.");
-                await AddNewNovelAsync(novelTableOfContentsUri, scraper);
+                await AddNewNovelAsync(novelTableOfContentsUri, scraper, scraperStrategy, siteConfig);
+                Logger.Info($"Added novel with url {novelTableOfContentsUri} to database.");
             }
             else // make changes or update novelToAdd and newChapters
             {
                 ValidateObject validator = new ValidateObject();
                 var errors = validator.Validate(novel);
                 Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
-                await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraper);
+                await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraper, siteConfig);
             }
 
         }
@@ -71,19 +76,16 @@ namespace Benny_Scraper.BusinessLogic
             return null;
         }
 
-        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper)
+        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper, ScraperStrategy scraperStrategy, SiteConfiguration siteConfig)
         {
-            SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
-                                                                                          // Retrieve novel information
-            NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
+            NovelData novelData = await scraperStrategy.ScrapeAsync();
+
+            //NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
             if (novelData == null)
             {
                 Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
                 return;
             }
-
-            NovelData paginatedData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl: null, true);
-            novelData.RecentChapterUrls = paginatedData.RecentChapterUrls;
 
             // Create a new Novel object and populate its properties
             Novel novelToAdd = new Novel
@@ -104,8 +106,9 @@ namespace Benny_Scraper.BusinessLogic
                 CurrentChapterUrl = novelData.CurrentChapterUrl
             };
 
+            IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
             // Retrieve chapter information
-            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
+            //IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.ChapterUrls, siteConfig);
 
             // Create Chapter objects and populate their properties
             List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter
@@ -127,18 +130,15 @@ namespace Benny_Scraper.BusinessLogic
 
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, " ").ToLower());
+            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, "").ToLower().ToLowerInvariant());
             documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
             Directory.CreateDirectory(documentsFolder);
 
-            string epubFile = Path.Combine(documentsFolder, $"{novelToAdd.Title}.epub");
+            string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
             novelToAdd.SaveLocation = epubFile;
-            //_epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
 
             // call createepub, but only pass newest
             _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile);
-
-            //await _novelService.UpdateAndAddChapters(novel, newChapters);
 
             // Add the novel and its chapters to the database
             await _novelService.CreateAsync(novelToAdd);
@@ -147,9 +147,8 @@ namespace Benny_Scraper.BusinessLogic
 
 
 
-        private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper)
+        private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper, SiteConfiguration siteConfig)
         {
-            SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
             string lastSavedChapterUrl = string.Empty;
 
             string latestChapter = await scraper.GetLatestChapterNameAsync(novelTableOfContentsUri, siteConfig);
@@ -197,7 +196,7 @@ namespace Benny_Scraper.BusinessLogic
                 novelData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl, false, pageToStartAt);
             }
 
-            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
+            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.ChapterUrls, siteConfig);
 
             List<Models.Chapter> newChapters = chapterDatas.Select(data => new Models.Chapter
             {
@@ -223,18 +222,18 @@ namespace Benny_Scraper.BusinessLogic
 
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novel.Title, fileRegex, " ").ToLower());
+            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novel.Title, fileRegex, " ").ToLower().ToLowerInvariant());
             documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
             Directory.CreateDirectory(documentsFolder);
 
-            string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
+            string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
 
             //_epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
 
             // call createepub, but only pass newest
             _epubGenerator.CreateEpub(novel, newChapters, epubFile);
 
-            //await _novelService.UpdateAndAddChapters(novel, newChapters);
+            await _novelService.UpdateAndAddChapters(novel, newChapters);
         }
 
         private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)

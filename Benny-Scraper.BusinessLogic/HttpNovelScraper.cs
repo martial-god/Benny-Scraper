@@ -1,5 +1,6 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
@@ -13,20 +14,57 @@ namespace Benny_Scraper.BusinessLogic
     /// <summary>
     /// A http implementation of the INovelScraper interface. Use this for sites that don't require login-in to get the chapter contents like novelupdates.com
     /// </summary>
-    public abstract class HttpNovelScraperBase : INovelScraper
+    public class HttpNovelScraper : INovelScraper
     {
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
-        private static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(12); // limit the number of concurrent requests, prevent posssible rate limiting
+        private static readonly SemaphoreSlim _semaphonreSlim = new SemaphoreSlim(7); // limit the number of concurrent requests, prevent posssible rate limiting
+        private ScraperStrategy _scraperStrategy;
+        private Dictionary<string, ScraperStrategy> _websiteMap = new Dictionary<string, ScraperStrategy>();
 
-        #region Public Methods
+        public HttpNovelScraper()
+        {
+            AddSupportForWebsite();
+        }
+
+        #region setup maps
+        public void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy)
+        {
+            _websiteMap.Add(siteName, scraperStrategy);
+        }
+
+        void AddSupportForWebsite()
+        {
+            AddSiteToMap("https://www.webnovelpub.com", new WebNovelPubStrategy());
+            AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
+        }
+        #endregion
+
+
+
+        #region Public Methods    
+        public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
+        {
+            string baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
+            
+            if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))
+            {
+                return this._scraperStrategy;
+            }
+            else
+            {
+                Logger.Error($"No scraper strategy found for {baseUrl}");
+                return null;
+            }
+        }
+
         /// <summary>
         /// Retrieves the latest chapter's name from the provided URL using the site configuration.
         /// </summary>
         /// <param name="uri">The URL of the web page to scrape.</param>
         /// <param name="siteConfig">The site configuration containing the selectors for scraping.</param>
         /// <returns>The latest chapter's name, or an empty string if an error occurs.</returns>
-        public virtual async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
+        public async Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
         {
             Logger.Info("Getting latest chapter name");
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
@@ -37,16 +75,20 @@ namespace Benny_Scraper.BusinessLogic
                 return string.Empty;
             }
 
-            HtmlNode latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
+            return GetInnerText(htmlDocument, siteConfig.Selectors.LatestChapterLink);
+        }
 
-            if (latestChapterNode == null)
+        protected string GetInnerText(HtmlDocument htmlDocument, string selector)
+        {
+            HtmlNode node = htmlDocument.DocumentNode.SelectSingleNode(selector);
+
+            if (node == null)
             {
-                Logger.Debug($"Error while trying to get the latest chapter node. \n");
-                return string.Empty;
+                Logger.Debug($"Error while trying to get the inner text of {selector}. \n");
             }
 
-            string latestChapterName = latestChapterNode.InnerText?.Trim() ?? string.Empty;
-            return latestChapterName;
+            string innerText = node?.InnerText?.Trim() ?? string.Empty;
+            return innerText;
         }
 
 
@@ -58,7 +100,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="siteConfig"></param>
         /// <param name="lastSavedChapterUrl"></param>
         /// <returns></returns>
-        public virtual async Task<NovelData> RequestPaginatedDataAsync(Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
+        public async Task<NovelData> RequestPaginatedDataAsync(Uri siteUri, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
 
@@ -96,7 +138,7 @@ namespace Benny_Scraper.BusinessLogic
             HtmlDocument html = await LoadHtmlDocumentFromUrlAsync(new Uri(baseTableOfContentUrl));
             NovelData novelData = GetNovelDataFromTableOfContent(html, siteConfig);
             novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
-            novelData.RecentChapterUrls = chapterUrls;
+            novelData.ChapterUrls = chapterUrls;
             novelData.ThumbnailUrl = new Uri(siteUri, novelData.ThumbnailUrl.TrimStart('/')).ToString();
 
             return novelData;
@@ -128,11 +170,16 @@ namespace Benny_Scraper.BusinessLogic
         public async Task<NovelData> GetNovelDataAsync(Uri uri, SiteConfiguration siteConfig)
         {
             Logger.Info("Getting novel data");
+
+            if (siteConfig.HasNovelInfoOnDifferentPage)
+            {
+                uri = GetAlternateTableOfContentsPageUri(uri);
+            }
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(uri);
 
             if (htmlDocument == null)
             {
-                Logger.Debug($"Error while trying to get the novel data. \n");
+                Logger.Debug($"Error while trying to load HtmlDocument. \n");
                 return null;
             }
 
@@ -169,6 +216,15 @@ namespace Benny_Scraper.BusinessLogic
                 throw;
             }
         }
+        
+        protected virtual Uri GetAlternateTableOfContentsPageUri(Uri siteUri)
+        {
+            Uri baseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
+            string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate(
+                (segment1, segmenet2) => segment1 + segmenet2);
+            return new Uri(baseUri, allSegementsButLast);
+        }
+
         #endregion
 
         #region Private Methods
@@ -178,8 +234,7 @@ namespace Benny_Scraper.BusinessLogic
 
             try
             {
-                HtmlNode authorNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelAuthor);
-                novelData.Author = authorNode.InnerText.Trim();
+                novelData.Author = GetInnerText(htmlDocument, siteConfig.Selectors.NovelAuthor);
 
                 HtmlNodeCollection novelTitleNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelTitle);
                 if (novelTitleNodes.Any())
@@ -187,23 +242,38 @@ namespace Benny_Scraper.BusinessLogic
                     novelData.Title = novelTitleNodes.First().InnerText.Trim();
                 }
 
-                HtmlNode novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelRating);
-                novelData.Rating = double.Parse(novelRatingNode.InnerText.Trim());
-
-                HtmlNode totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.TotalRatings);
-                novelData.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
+                if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelRating))
+                {
+                    novelData.Rating = double.Parse(GetInnerText(htmlDocument, siteConfig.Selectors.NovelRating));
+                }
 
                 HtmlNodeCollection descriptionNode = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelDescription);
-                novelData.Description = descriptionNode.Select(description => description.InnerText.Trim()).ToList();
+                novelData.Description = descriptionNode?.Select(description => description.InnerText.Trim()).ToList();
+
+                // need to find a better way to get the description for other sites
+                if ((novelData.Description != null) && novelData.Description.All(string.IsNullOrEmpty))
+                {
+                    HtmlNode altDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelDescription);
+                    var altDescription = altDescriptionNode.Attributes["content"].Value;
+                    novelData.Description = new List<string> { altDescription };
+                }
+                
 
                 HtmlNodeCollection genreNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelGenres);
                 novelData.Genres = genreNodes.Select(genre => genre.InnerText.Trim()).ToList();
 
-                HtmlNodeCollection alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelAlternativeNames);
-                novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
+                if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelAlternativeNames))
+                {
+                    HtmlNodeCollection alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelAlternativeNames);
+                    novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
+                }                
 
+                if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelStatus))
+                {
+
+                }
                 HtmlNode novelStatusNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelStatus);
-                novelData.NovelStatus = novelStatusNode.InnerText.Trim();
+                novelData.NovelStatus = novelStatusNode?.InnerText.Trim();
 
                 HtmlNode thumbnailUrlNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelThumbnailUrl);
                 novelData.ThumbnailUrl = thumbnailUrlNode.Attributes["src"].Value;
@@ -345,14 +415,30 @@ namespace Benny_Scraper.BusinessLogic
         private static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            var response = await _client.GetAsync(uri);
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
+            int retryCount = 0;
+            while (retryCount < 3) // Maximum of 3 retries
+            {
+                try
+                {
+                    var response = await _client.GetAsync(uri);
+                    response.EnsureSuccessStatusCode(); // Throws an exception if the status code is not successful
+                    var content = await response.Content.ReadAsStringAsync();
 
-            var htmlDocument = new HtmlDocument();
-            htmlDocument.LoadHtml(content);
-            return htmlDocument;
+                    var htmlDocument = new HtmlDocument();
+                    htmlDocument.LoadHtml(content);
+
+                    return htmlDocument;
+                }
+                catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
+                {
+                    retryCount++;
+                    Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
+                    await Task.Delay(TimeSpan.FromSeconds(5)); // Wait for 5 seconds before retrying
+                }
+            }
+            throw new HttpRequestException($"Failed to load HTML document from {uri} after 3 attempts.");
         }
+
 
         private string GetNovelStatus(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
         {

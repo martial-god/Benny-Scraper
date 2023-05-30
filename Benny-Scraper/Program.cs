@@ -17,6 +17,7 @@ namespace Benny_Scraper
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
+            SQLitePCL.Batteries.Init();
             var configuration = BuildConfiguration();
             // Pass the built configuration to the StartUp class
             var startUp = new StartUp(configuration);
@@ -25,7 +26,7 @@ namespace Benny_Scraper
             var builder = new ContainerBuilder();
             startUp.ConfigureServices(builder);
 
-            Container = builder.Build();            
+            Container = builder.Build();
 
             if (args.Length > 0)
             {
@@ -34,46 +35,67 @@ namespace Benny_Scraper
             else
             {
                 await RunAsync();
-            }            
+            }
         }
 
         private static async Task RunAsync()
         {
             using (var scope = Container.BeginLifetimeScope())
             {
+                SetupLogger();
                 var logger = NLog.LogManager.GetCurrentClassLogger();
-                logger.Info("Hello from NLog!");
                 Logger.Info("Initializing Database");
                 IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
                 dbInitializer.Initialize();
-                Logger.Info("Database Initialized");                
+                Logger.Info("Database Initialized");
 
                 IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
                 //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");
 
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
-                // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-                Console.WriteLine("Enter the novel table of content url for Novelfull.com");
-                string novelTableOfContentUrl = Console.ReadLine();
-                Uri novelTableOfContentUri = new Uri(novelTableOfContentUrl);
+                bool isApplicationRunning = true;
+                while (isApplicationRunning)
+                {
+                    // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
+                    Console.WriteLine("Enter the site url (or 'exit' to quit): ");
+                    string siteUrl = Console.ReadLine();
 
-                Stopwatch stopwatch = new Stopwatch();
-                stopwatch.Start();
-                SetupLogger();
-                try
-                {
-                    await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
+                    if (string.IsNullOrWhiteSpace(siteUrl))
+                    {
+                        Console.WriteLine("Invalid input. Please enter a valid URL.");
+                        continue;
+                    }
+
+                    if (siteUrl.ToLower() == "exit")
+                    {
+                        isApplicationRunning = false;
+                        continue;
+                    }
+
+                    if (!Uri.TryCreate(siteUrl, UriKind.Absolute, out Uri novelTableOfContentUri))
+                    {
+                        Console.WriteLine("Invalid URL. Please enter a valid URL.");
+                        continue;
+                    }
+
+                    Stopwatch stopwatch = new Stopwatch();
+                    stopwatch.Start();
+                    try
+                    {
+                        await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Exception when trying to process novel. {ex}");
+                    }
+                    stopwatch.Stop();
+                    TimeSpan elapsedTime = stopwatch.Elapsed;
+                    Logger.Info($"Elapsed time: {elapsedTime}");
                 }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Exception when trying to process novel. {ex}");
-                }
-                stopwatch.Stop();
-                TimeSpan elapsedTime = stopwatch.Elapsed;
-                Logger.Info($"Elapsed time: {elapsedTime}");
             }
         }
+
 
         // create private RunAsync that accepts args and then call it from Main, also make it so that args are used, accepting multiple arguments 'clear_database' should be an argument that will clear the database using the removeall method. Case statement should be used to check for the argument and then call the removeall method.
         private static async Task RunAsync(string[] args)
@@ -109,6 +131,10 @@ namespace Benny_Scraper
             var config = new NLog.Config.LoggingConfiguration();
 
             //write log file using date as day-month-year
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
+
+            string logPath = Path.Combine(directoryPath, $"log-book {DateTime.Now.ToString("MM-dd-yyyy")}.log");
             var logfile = new NLog.Targets.FileTarget("logfile") { FileName = $"C:\\logs\\BennyScraper {DateTime.Now.ToString("MM-dd-yyyy")}.log" };
 
             var logconsole = new NLog.Targets.ColoredConsoleTarget("logconsole")
@@ -135,6 +161,7 @@ namespace Benny_Scraper
 
             NLog.LogManager.Configuration = config;
         }
+
 
         private static IConfigurationRoot BuildConfiguration()
         {

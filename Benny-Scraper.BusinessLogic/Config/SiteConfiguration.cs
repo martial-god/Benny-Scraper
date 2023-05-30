@@ -17,5 +17,6 @@ namespace Benny_Scraper.BusinessLogic.Config
         public int ChaptersPerPage { get; set; }
         public int PageOffSet { get; set; }
         public string CompletedStatus { get; set; }
+        public bool HasNovelInfoOnDifferentPage { get; set; }
     }
 }

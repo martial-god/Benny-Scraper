@@ -21,7 +21,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
         }
 
         /// <summary>
-        /// Creates an instance of either a SeleniumNovelScraper or HttpNovelScraperBase depending on the url.
+        /// Creates an instance of either a SeleniumNovelScraper or HttpNovelScraper depending on the url.
         /// </summary>
         /// <param name="novelTableOfContentsUri"></param>
         /// <returns>Scraper instance that implemnts INovelService </returns>
@@ -51,7 +51,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error($"Error when resolving WebToEpubScraper. {ex}");
+                        Logger.Error($"Error when resolving WebNovelPubScraper. {ex}");
                         throw;
                     }
                 default:
@@ -61,7 +61,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error($"Error when getting HttpNovelScraperBase. {ex}");
+                        Logger.Error($"Error when getting HttpNovelScraper. {ex}");
                         throw;
                     }
             }
