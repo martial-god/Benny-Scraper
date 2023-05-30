@@ -1,7 +1,7 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using System;
+using System.Globalization;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -11,6 +11,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             Logger.Info("Getting novel data");
 
+            SetBaseUri(SiteTableOfContents);
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(SiteTableOfContents);
 
             if (htmlDocument == null)
@@ -21,7 +22,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
-                NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument);
+                NovelData novelData = await BuildNovelDataAsync(htmlDocument);
 
                 return novelData;
             }
@@ -31,10 +32,25 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 throw;
             }
         }
+
+        private async Task<NovelData> BuildNovelDataAsync(HtmlDocument htmlDocument)
+        {
+            NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument);
+
+            int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
+            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(SiteTableOfContents, true, pageToStopAt);
+
+            novelData.ChapterUrls = chapterUrls;
+            novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+
+            return novelData;
+        }
+
+
         public override NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument)
         {
             NovelData novelData = new NovelData();
-
+            
             try
             {
                 HtmlNode authorNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.NovelAuthor);
@@ -107,6 +123,31 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             return novelData;
+        }
+
+        private int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
+        {
+            Logger.Info($"Getting last table of contents page number at {SiteConfig.Selectors.LastTableOfContentsPage}");
+            try
+            {
+                HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
+                string lastPage = lastPageNode.Attributes[SiteConfig.Selectors.LastTableOfContentPageNumberAttribute].Value;
+
+                int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
+
+                if (SiteConfig.PageOffSet > 0)
+                {
+                    lastPageNumber += SiteConfig.PageOffSet;
+                }
+
+                Logger.Info($"Last table of contents page number is {lastPage}");
+                return lastPageNumber;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error when getting last page table of contents page number. {ex}");
+                throw;
+            }
         }
 
     }

@@ -16,7 +16,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected Uri SiteTableOfContents { get; private set; }
         protected Uri BaseUri { get; private set; }
 
-        public const int MaxRetries = 3;
+        public const int MaxRetries = 4 ;
         public const int MinimumParagraphThreshold = 5;
         protected const int TotalPossiblePaginationTabs = 6;
         protected const int ConCurrentRequestsLimit = 12;
@@ -33,31 +33,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetSiteConfiguration(siteConfig);
             SetSiteTableOfContents(siteTableOfContents);
         }        
-
-        protected virtual int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
-        {
-            Logger.Info($"Getting last table of contents page number at {SiteConfig.Selectors.LastTableOfContentsPage}");
-            try
-            {
-                HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
-                string lastPage = lastPageNode.Attributes[SiteConfig.Selectors.LastTableOfContentPageNumberAttribute].Value;
-
-                int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
-
-                if (SiteConfig.PageOffSet > 0)
-                {
-                    lastPageNumber += SiteConfig.PageOffSet;
-                }
-
-                Logger.Info($"Last table of contents page number is {lastPage}");
-                return lastPageNumber;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error when getting last page table of contents page number. {ex}");
-                throw;
-            }
-        }
 
         protected static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
@@ -87,14 +62,26 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         protected virtual Uri GetAlternateTableOfContentsPageUri(Uri siteUri)
         {
-            Uri baseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
-            BaseUri = baseUri;
             string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate(
                 (segment1, segmenet2) => segment1 + segmenet2);
-            return new Uri(baseUri, allSegementsButLast);
+            return new Uri(BaseUri, allSegementsButLast);
         }
 
-        protected async Task<NovelData> GetPaginatedChapterUrls(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt, int pageToStartAt = 1)
+        protected void SetBaseUri(Uri siteUri)
+        {
+            Uri baseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
+            BaseUri = baseUri;
+        }
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="tableOfContentUri"></param>
+        /// <param name="getAllChapters"></param>
+        /// <param name="pageToStopAt"></param>
+        /// <param name="pageToStartAt"></param>
+        /// <returns>Returns a ValueTuple that contains all the chapter urls and the url for the last page of the table of contents</returns>
+        protected virtual async Task<(List<string> ChapterUrls, string LastTableOfContentsUrl)> GetPaginatedChapterUrlsAsync(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
 
@@ -128,16 +115,43 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
             }
 
-            HtmlDocument html = await LoadHtmlDocumentFromUrlAsync(new Uri(baseTableOfContentUrl));
-            //NovelData novelData = GetNovelDataFromTableOfContent(html, siteConfig);
-
-            NovelData novelData = new NovelData();
-            novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
-            novelData.RecentChapterUrls = chapterUrls;
-            //novelData.ThumbnailUrl = new Uri(siteUri, novelData.ThumbnailUrl.TrimStart('/')).ToString();
-
-            return novelData;
+            return (chapterUrls, lastTableOfContentsUrl);
         }
+
+        protected virtual async Task<List<string>> GetChapterUrls(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt, int pageToStartAt = 1)
+        {
+            List<string> chapterUrls = new List<string>();
+            string baseTableOfContentUrl = tableOfContentUri + SiteConfig.PaginationType;
+
+            for (int i = pageToStartAt; i <= pageToStopAt; i++)
+            {
+                string tableOfContentUrl = string.Format(baseTableOfContentUrl, i);
+                bool isPageNew = i > pageToStartAt;
+                try
+                {
+                    Logger.Info($"Navigating to {tableOfContentUrl}");
+                    HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(new Uri(tableOfContentUrl));
+
+                    List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, BaseUri, 1);
+                    if (chapterUrlsOnContentPage.Any())
+                    {
+                        chapterUrls.AddRange(chapterUrlsOnContentPage);
+                    }
+
+                    if (!getAllChapters && !isPageNew)
+                    {
+                        break;
+                    }
+                }
+                catch (HttpRequestException e)
+                {
+                    Logger.Error($"Error occurred while navigating to {tableOfContentUrl}. Error: {e}");
+                }
+            }
+
+            return chapterUrls;
+        }
+
 
         public virtual async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls)
         {
@@ -200,45 +214,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Error($"Error getting chapter urls from table of contents. {ex}");
                 throw;
             }
-        }
-
-        protected virtual int GetLastPageNumber(HtmlDocument htmlDocument)
-        {
-            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes("//div[@class='pagination-container']/ul/li");
-            int paginationCount = paginationNodes.Count;
-
-            int pageToStopAt = 1;
-            if (paginationCount > 1)
-            {
-                HtmlNode lastPageNode = null;
-                if (paginationCount == TotalPossiblePaginationTabs)
-                {
-                    lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
-                }
-                else
-                {
-                    lastPageNode = paginationNodes[paginationCount - 2]; // Get the second last node which is the last page number
-                    lastPageNode = lastPageNode.SelectSingleNode("a");
-                }
-
-                string lastPageUrl = lastPageNode.Attributes["href"].Value;
-
-                Uri lastPageUri = new Uri(lastPageUrl, UriKind.RelativeOrAbsolute);
-
-                // If the URL is relative, make sure to add a scheme and host
-                if (!lastPageUri.IsAbsoluteUri) // like this: /novel/the-authors-pov-14051336/chapters?page=9
-                {
-                    lastPageUri = new Uri(this.BaseUri.ToString() + lastPageUrl);
-                }
-
-                NameValueCollection query = HttpUtility.ParseQueryString(lastPageUri.Query);
-
-                string pageNumber = query["page"];
-                int.TryParse(pageNumber, out pageToStopAt);                
-            }
-
-            return pageToStopAt;
-        }
+        }        
 
         /// <summary>
         /// Decodes sites that uses HTML encoded characters like class="&#x70;&#x61;&#x67;&#x69;&#x6E;&#x61;&#x74;&#x69;

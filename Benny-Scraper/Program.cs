@@ -1,7 +1,6 @@
 ﻿using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Interfaces;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Microsoft.Extensions.Configuration;
@@ -18,6 +17,7 @@ namespace Benny_Scraper
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
+            SQLitePCL.Batteries.Init();
             var configuration = BuildConfiguration();
             // Pass the built configuration to the StartUp class
             var startUp = new StartUp(configuration);
@@ -54,28 +54,48 @@ namespace Benny_Scraper
 
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
-                // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-                // ask user for site url using Console
-                Console.WriteLine("Enter the site url: ");
-                string siteUrl = Console.ReadLine();
-
-                Uri novelTableOfContentUri = new Uri(siteUrl);
-
-                Stopwatch stopwatch = new Stopwatch();
-                stopwatch.Start();
-                try
+                bool isApplicationRunning = true;
+                while (isApplicationRunning)
                 {
-                    await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
+                    // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
+                    Console.WriteLine("Enter the site url (or 'exit' to quit): ");
+                    string siteUrl = Console.ReadLine();
+
+                    if (string.IsNullOrWhiteSpace(siteUrl))
+                    {
+                        Console.WriteLine("Invalid input. Please enter a valid URL.");
+                        continue;
+                    }
+
+                    if (siteUrl.ToLower() == "exit")
+                    {
+                        isApplicationRunning = false;
+                        continue;
+                    }
+
+                    if (!Uri.TryCreate(siteUrl, UriKind.Absolute, out Uri novelTableOfContentUri))
+                    {
+                        Console.WriteLine("Invalid URL. Please enter a valid URL.");
+                        continue;
+                    }
+
+                    Stopwatch stopwatch = new Stopwatch();
+                    stopwatch.Start();
+                    try
+                    {
+                        await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Exception when trying to process novel. {ex}");
+                    }
+                    stopwatch.Stop();
+                    TimeSpan elapsedTime = stopwatch.Elapsed;
+                    Logger.Info($"Elapsed time: {elapsedTime}");
                 }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Exception when trying to process novel. {ex}");
-                }
-                stopwatch.Stop();
-                TimeSpan elapsedTime = stopwatch.Elapsed;
-                Logger.Info($"Elapsed time: {elapsedTime}");
             }
         }
+
 
         // create private RunAsync that accepts args and then call it from Main, also make it so that args are used, accepting multiple arguments 'clear_database' should be an argument that will clear the database using the removeall method. Case statement should be used to check for the argument and then call the removeall method.
         private static async Task RunAsync(string[] args)
@@ -111,6 +131,10 @@ namespace Benny_Scraper
             var config = new NLog.Config.LoggingConfiguration();
 
             //write log file using date as day-month-year
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
+
+            string logPath = Path.Combine(directoryPath, $"log-book {DateTime.Now.ToString("MM-dd-yyyy")}.log");
             var logfile = new NLog.Targets.FileTarget("logfile") { FileName = $"C:\\logs\\BennyScraper {DateTime.Now.ToString("MM-dd-yyyy")}.log" };
 
             var logconsole = new NLog.Targets.ColoredConsoleTarget("logconsole")

@@ -137,7 +137,7 @@ namespace Benny_Scraper.BusinessLogic
             HtmlDocument html = await LoadHtmlDocumentFromUrlAsync(new Uri(baseTableOfContentUrl));
             NovelData novelData = GetNovelDataFromTableOfContent(html, siteConfig);
             novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
-            novelData.RecentChapterUrls = chapterUrls;
+            novelData.ChapterUrls = chapterUrls;
             novelData.ThumbnailUrl = new Uri(siteUri, novelData.ThumbnailUrl.TrimStart('/')).ToString();
 
             return novelData;

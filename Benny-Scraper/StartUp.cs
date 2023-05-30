@@ -34,7 +34,7 @@ namespace Benny_Scraper
             builder.RegisterInstance(Configuration).As<IConfiguration>();
 
             builder.Register(c => new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();
+                .UseSqlite(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();
 
 
             builder.RegisterType<DbInitializer>().As<IDbInitializer>();
@@ -80,13 +80,15 @@ namespace Benny_Scraper
 
         private static string GetConnectionString()
         {
-            // to resolve issue with the methods not being part of the ConfigurationBuilder() 
-            //https://stackoverflow.com/questions/57158388/configurationbuilder-does-not-contain-a-definition-for-addjsonfile
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile(_appSettings, optional: true, reloadOnChange: true);
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string directoryPath = Path.Combine(appDataPath, "BennyScraper", "Database");
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
 
-            string connectionString = builder.Build().GetConnectionString(_connectionType);
+            string dbPath = Path.Combine(directoryPath, "BennyTestDb.db");
+            var connectionString = $"Data Source={dbPath};";
             return connectionString;
         }
     }

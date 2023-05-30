@@ -3,7 +3,6 @@ using System;
 using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -12,51 +11,61 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20230126215836_ChaptersNotNullable")]
-    partial class ChaptersNotNullable
+    [Migration("20230530053656_InitalCreate")]
+    partial class InitalCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "7.0.1")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "7.0.1");
 
             modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("id");
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id")
+                        .HasColumnOrder(0);
 
                     b.Property<string>("Content")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("content");
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("content")
+                        .HasColumnOrder(7);
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("date_created");
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date_created")
+                        .HasColumnOrder(4);
+
+                    b.Property<DateTime>("DateLastModified")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date_last_modified")
+                        .HasColumnOrder(5);
 
                     b.Property<Guid>("NovelId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("novel_id");
+                        .HasColumnType("TEXT")
+                        .HasColumnName("novel_id")
+                        .HasColumnOrder(1);
 
-                    b.Property<int?>("Number")
-                        .HasColumnType("int")
-                        .HasColumnName("number");
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("number")
+                        .HasColumnOrder(6);
 
                     b.Property<string>("Title")
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("title");
+                        .HasColumnType("TEXT")
+                        .HasColumnName("title")
+                        .HasColumnOrder(2);
 
                     b.Property<string>("Url")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("url");
+                        .HasColumnType("TEXT")
+                        .HasColumnName("url")
+                        .HasColumnOrder(3);
 
                     b.HasKey("Id");
 
@@ -69,71 +78,84 @@ namespace BennyScraper.DataAccess.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<string>("Author")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("author");
 
                     b.Property<string>("CurrentChapter")
                         .IsRequired()
-                        .HasMaxLength(144)
-                        .HasColumnType("nvarchar(144)")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT")
                         .HasColumnName("current_chapter");
 
+                    b.Property<string>("CurrentChapterUrl")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("current_chapter_url");
+
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("TEXT")
                         .HasColumnName("date_created");
 
+                    b.Property<DateTime>("DateLastModified")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date_last_modified");
+
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<string>("FirstChapter")
                         .IsRequired()
-                        .HasMaxLength(144)
-                        .HasColumnType("nvarchar(144)")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT")
                         .HasColumnName("first_chapter");
 
                     b.Property<string>("Genre")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("genre");
 
-                    b.Property<bool>("IsNovelCompleted")
-                        .HasColumnType("bit")
+                    b.Property<bool>("LastChapter")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("last_chapter");
+
+                    b.Property<string>("LastTableOfContentsUrl")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("last_table_of_contents_url");
 
                     b.Property<string>("SaveLocation")
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("save_location");
 
                     b.Property<string>("SiteName")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("site_name");
 
-                    b.Property<string>("NovelStatus")
+                    b.Property<string>("Status")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("status");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("title");
 
                     b.Property<int?>("TotalChapters")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("total_chapters");
 
                     b.Property<string>("Url")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("url");
 
                     b.HasKey("Id");
@@ -145,24 +167,24 @@ namespace BennyScraper.DataAccess.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("Completed")
-                        .HasColumnType("bit");
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("NovelId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

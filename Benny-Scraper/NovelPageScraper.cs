@@ -194,7 +194,7 @@ namespace Benny_Scraper
 
                 NovelData novelData = new NovelData()
                 {
-                    RecentChapterUrls = lastestChapterUrlsToAdd,
+                    ChapterUrls = lastestChapterUrlsToAdd,
                     NovelStatus = novelInfo,
                     LastTableOfContentsPageUrl = (!string.IsNullOrEmpty(lastContentPage) ?
                         $"{novelTableOfContentLatestUri.Scheme}://{novelTableOfContentLatestUri.Host}{lastContentPage}" : novelTableOfContentLatestUri.ToString())

@@ -87,9 +87,6 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            NovelData paginatedData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl: null, true);
-            novelData.RecentChapterUrls = paginatedData.RecentChapterUrls;
-
             // Create a new Novel object and populate its properties
             Novel novelToAdd = new Novel
             {
@@ -109,9 +106,9 @@ namespace Benny_Scraper.BusinessLogic
                 CurrentChapterUrl = novelData.CurrentChapterUrl
             };
 
-            IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.RecentChapterUrls);
+            IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
             // Retrieve chapter information
-            //IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
+            //IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.ChapterUrls, siteConfig);
 
             // Create Chapter objects and populate their properties
             List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter
@@ -144,7 +141,7 @@ namespace Benny_Scraper.BusinessLogic
             _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile);
 
             // Add the novel and its chapters to the database
-            //await _novelService.CreateAsync(novelToAdd);
+            await _novelService.CreateAsync(novelToAdd);
         }
 
 
@@ -199,7 +196,7 @@ namespace Benny_Scraper.BusinessLogic
                 novelData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl, false, pageToStartAt);
             }
 
-            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.RecentChapterUrls, siteConfig);
+            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.ChapterUrls, siteConfig);
 
             List<Models.Chapter> newChapters = chapterDatas.Select(data => new Models.Chapter
             {
@@ -236,7 +233,7 @@ namespace Benny_Scraper.BusinessLogic
             // call createepub, but only pass newest
             _epubGenerator.CreateEpub(novel, newChapters, epubFile);
 
-            //await _novelService.UpdateAndAddChapters(novel, newChapters);
+            await _novelService.UpdateAndAddChapters(novel, newChapters);
         }
 
         private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)

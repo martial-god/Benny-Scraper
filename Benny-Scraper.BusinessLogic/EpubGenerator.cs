@@ -3,7 +3,6 @@ using Benny_Scraper.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Options;
 using NLog;
-using NLog.Fluent;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
