@@ -5,7 +5,9 @@ Webscraper that sets out make listening to webnovels easier for myself. Creates 
 - [x] Figure out how to properly construct an Epub. https://validator.w3.org/check for chapter validations
 - [x] Code rewrite so process from Scraper to Epub works
 - [x] Update code to accommodate more novel sites
-- [ ] Switch from SQL to MySql to embedd database
+- [x] Switch from SQL to MySql to embedd database
+- [ ] Test on computers without sql installed
+- [ ] Verify the update novel works
 - [ ] Finish up Selenium Scraper
 - [ ] Try Manga sites
 - [ ] Add UI
