@@ -6,7 +6,8 @@ Webscraper that sets out make listening to webnovels easier for myself. Creates 
 - [x] Code rewrite so process from Scraper to Epub works
 - [x] Update code to accommodate more novel sites
 - [x] Switch from SQL to MySql to embedd database
-- [ ] Test on computers without sql installed
+- [x] Test on computers without sql installed
+- [x] Test on Linux machine - in this Case Ubuntu 20.04-x64
 - [ ] Verify the update novel works
 - [ ] Finish up Selenium Scraper
 - [ ] Try Manga sites
@@ -25,3 +26,7 @@ Webscraper that sets out make listening to webnovels easier for myself. Creates 
 
 ## Errors
 So long as the error isn't highlighted while the application is running, they are just Warnings or Errors. Nothing Fatal
+
+## Publishing for linux and windows
+`dotnet publish -c Release --self-contained true -r ubuntu.20.04-x64 -o C:\Users\Mime\Downloads\BennyScraperLinux`
+`dotnet publish -c Release --self-contained true -r win-x64 -o C:\Users\Mime\Downloads\BennyScraper`
