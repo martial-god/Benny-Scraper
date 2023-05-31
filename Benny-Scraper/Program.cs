@@ -17,6 +17,8 @@ namespace Benny_Scraper
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
+            SetupLogger();
+            Logger.Info("Application Started");
             SQLitePCL.Batteries.Init();
             var configuration = BuildConfiguration();
             // Pass the built configuration to the StartUp class
@@ -42,7 +44,7 @@ namespace Benny_Scraper
         {
             using (var scope = Container.BeginLifetimeScope())
             {
-                SetupLogger();
+                
                 var logger = NLog.LogManager.GetCurrentClassLogger();
                 Logger.Info("Initializing Database");
                 IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
@@ -135,7 +137,7 @@ namespace Benny_Scraper
             string directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
 
             string logPath = Path.Combine(directoryPath, $"log-book {DateTime.Now.ToString("MM-dd-yyyy")}.log");
-            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = $"C:\\logs\\BennyScraper {DateTime.Now.ToString("MM-dd-yyyy")}.log" };
+            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = logPath };
 
             var logconsole = new NLog.Targets.ColoredConsoleTarget("logconsole")
             {

@@ -53,9 +53,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
                 catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
                 {
-                    retryCount++;
-                    await Task.Delay(3000);
+                    retryCount++;                    
                     Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
+                    await Task.Delay(3000);
                 }
             }
             throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");
