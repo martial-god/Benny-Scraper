@@ -90,9 +90,9 @@ namespace Benny_Scraper.BusinessLogic
             // Create a new Novel object and populate its properties
             Novel novelToAdd = new Novel
             {
-                Title = novelData.Title,
+                Title = novelData.Title ?? string.Empty,
                 Author = novelData.Author,
-                Url = novelTableOfContentsUri.ToString(),
+                Url = novelTableOfContentsUri.ToString() ?? string.Empty,
                 Genre = string.Join(", ", novelData.Genres),
                 Description = string.Join(" ", novelData.Description),
                 DateCreated = DateTime.Now,
@@ -100,10 +100,10 @@ namespace Benny_Scraper.BusinessLogic
                 Status = novelData.NovelStatus,
                 LastTableOfContentsUrl = novelData.LastTableOfContentsPageUrl,
                 LastChapter = novelData.IsNovelCompleted,
-                CurrentChapter = novelData.MostRecentChapterTitle,
-                SiteName = novelTableOfContentsUri.Host,
-                FirstChapter = novelData.FirstChapter,
-                CurrentChapterUrl = novelData.CurrentChapterUrl
+                CurrentChapter = novelData.MostRecentChapterTitle ?? string.Empty,
+                SiteName = novelTableOfContentsUri.Host ?? string.Empty,
+                FirstChapter = novelData.FirstChapter ?? string.Empty,
+                CurrentChapterUrl = novelData.CurrentChapterUrl ?? string.Empty
             };
 
             IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
@@ -114,9 +114,9 @@ namespace Benny_Scraper.BusinessLogic
             List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter
             {
                 NovelId = novelToAdd.Id,
-                Url = data.Url ?? "",
-                Content = data.Content ?? "",
-                Title = data.Title ?? "",
+                Url = data.Url ?? string.Empty,
+                Content = data.Content ?? string.Empty,
+                Title = data.Title ?? string.Empty,
                 Number = data.Number,
                 DateCreated = DateTime.Now,
                 DateLastModified = data.DateLastModified
@@ -130,7 +130,7 @@ namespace Benny_Scraper.BusinessLogic
 
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, "").ToLower().ToLowerInvariant());
+            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
             documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
             Directory.CreateDirectory(documentsFolder);
 
@@ -200,9 +200,9 @@ namespace Benny_Scraper.BusinessLogic
 
             List<Models.Chapter> newChapters = chapterDatas.Select(data => new Models.Chapter
             {
-                Url = data.Url ?? "",
-                Content = data.Content ?? "",
-                Title = data.Title ?? "",
+                Url = data.Url ?? string.Empty,
+                Content = data.Content ?? string.Empty,
+                Title = data.Title ?? string.Empty,
                 DateCreated = DateTime.Now,
                 DateLastModified = DateTime.Now,
                 Number = data.Number,
@@ -255,7 +255,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <param name="novel"></param>
         /// <param name="siteConfig"></param>
         /// <returns>int of the page number</returns>
-        private int GetTableOfContentsPageToStartAt(Uri novelTableOfContentsUrl, Novel novel, SiteConfiguration siteConfig)
+        private static int GetTableOfContentsPageToStartAt(Uri novelTableOfContentsUrl, Novel novel, SiteConfiguration siteConfig)
         {
             if (novelTableOfContentsUrl == null || string.IsNullOrEmpty(novelTableOfContentsUrl.ToString()))
             {
@@ -263,7 +263,7 @@ namespace Benny_Scraper.BusinessLogic
                 return 1;
             }
 
-            string pageString = novelTableOfContentsUrl.Query.Replace(siteConfig.PaginationQueryPartial, ""); //ex: page="2" so we remove page=
+            string pageString = novelTableOfContentsUrl.Query.Replace(siteConfig.PaginationQueryPartial, string.Empty); //ex: page="2" so we remove page=
             int.TryParse(pageString, out int page);
             Logger.Info($"Table of content page to start at is {page}");
             return page;

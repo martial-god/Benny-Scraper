@@ -34,7 +34,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetSiteTableOfContents(siteTableOfContents);
         }        
 
-        protected static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
+        public static async Task<HtmlDocument> LoadHtmlDocumentFromUrlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
             int retryCount = 0;
@@ -54,6 +54,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
                 {
                     retryCount++;
+                    await Task.Delay(3000);
                     Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
                 }
             }
