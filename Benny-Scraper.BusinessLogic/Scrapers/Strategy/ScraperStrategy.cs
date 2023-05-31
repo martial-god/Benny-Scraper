@@ -197,7 +197,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 foreach (var link in chapterLinks)
                 {
                     chapterIndex++;
-                    string chapterUrl = link.Attributes["href"]?.Value;
+                    string chapterUrl = link.Attributes["href"]?.Value ?? string.Empty;
 
                     if (!string.IsNullOrEmpty(chapterUrl) &&
                         (startChapter == null || chapterIndex >= startChapter) &&
