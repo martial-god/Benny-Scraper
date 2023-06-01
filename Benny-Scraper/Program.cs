@@ -50,6 +50,12 @@ namespace Benny_Scraper
                 IDbInitializer dbInitializer = scope.Resolve<IDbInitializer>();
                 dbInitializer.Initialize();
                 Logger.Info("Database Initialized");
+                
+                string instructions = GetInstructions();
+
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine(instructions);
+                Console.ResetColor();
 
                 IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
                 //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");
@@ -96,6 +102,31 @@ namespace Benny_Scraper
                     Logger.Info($"Elapsed time: {elapsedTime}");
                 }
             }
+        }
+
+        private static string GetInstructions()
+        {
+            List<string> supportedSites = new List<string>
+                {
+                    "\nWebnovel Pub (https://www.webnovelpub.com/)",
+                    "Novel Full (https://www.novelfull.com/)"
+                };
+
+            string instructions = "\n" + $@"Welcome to our novel scraper application!
+                Currently, we support the following websites:
+                {string.Join("\n", supportedSites)}
+
+                To use our application, please follow these steps:
+                1. Visit a supported website.
+                2. Choose a novel and navigate to its table of contents page.
+                3. Copy the URL of this page.
+                4. Paste the URL into our application when prompted.
+
+                Please ensure the URL is from the table of contents page of a novel.
+                Our application will then download the novel and convert it into an EPUB file.
+                Thank you for using our application! Enjoy your reading.";
+
+            return instructions;
         }
 
 

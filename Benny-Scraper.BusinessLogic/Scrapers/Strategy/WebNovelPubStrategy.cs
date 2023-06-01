@@ -24,7 +24,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info("Starting scraper for Web");
 
             SetBaseUri(SiteTableOfContents);
-            _alternateTableOfContentsUri = GetAlternateTableOfContentsPageUri(SiteTableOfContents); // sets BaseUri as well
+            _alternateTableOfContentsUri = GetAlternateTableOfContentsPageUri(SiteTableOfContents);
 
             HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(_alternateTableOfContentsUri);
 
