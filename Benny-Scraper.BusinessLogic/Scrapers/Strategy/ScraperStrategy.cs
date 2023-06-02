@@ -61,10 +61,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");
         }
 
-        protected virtual Uri GetAlternateTableOfContentsPageUri(Uri siteUri)
+        protected virtual Uri TrimLastUriSegment(Uri siteUri)
         {
             string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate(
-                (segment1, segmenet2) => segment1 + segmenet2);
+                (segment1, segment2) => segment1 + segment2);
             return new Uri(BaseUri, allSegementsButLast);
         }
 

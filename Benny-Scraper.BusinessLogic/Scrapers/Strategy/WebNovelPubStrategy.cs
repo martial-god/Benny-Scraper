@@ -1,32 +1,22 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using NLog;
-using System;
-using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Linq;
-using System.Net;
-using System.Reflection.Emit;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
     public class WebNovelPubStrategy : ScraperStrategy
     {
-        private Uri? _alternateTableOfContentsUri;
+        private Uri? _chaptersUri;
 
         public override async Task<NovelData> ScrapeAsync()
         {
             Logger.Info("Starting scraper for Web");
 
             SetBaseUri(SiteTableOfContents);
-            _alternateTableOfContentsUri = GetAlternateTableOfContentsPageUri(SiteTableOfContents);
 
-            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(_alternateTableOfContentsUri);
+            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(SiteTableOfContents);
 
             if (htmlDocument == null)
             {
@@ -36,13 +26,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument);
 
-            htmlDocument = await LoadHtmlDocumentFromUrlAsync(SiteTableOfContents);
-            
+            _chaptersUri = new Uri(SiteTableOfContents.ToString() + "/chapters");
+
+            htmlDocument = await LoadHtmlDocumentFromUrlAsync(_chaptersUri);
+
             HtmlDocument decodedHtmlDocument = DecodeHtml(htmlDocument);
 
             int pageToStopAt = GetLastTableOfContentsPageNumber(decodedHtmlDocument);
 
-            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(SiteTableOfContents, true, pageToStopAt);
+            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_chaptersUri, true, pageToStopAt);
 
             novelData.ChapterUrls = chapterUrls;
             novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
