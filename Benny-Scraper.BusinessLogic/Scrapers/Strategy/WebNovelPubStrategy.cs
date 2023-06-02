@@ -3,9 +3,27 @@ using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Collections.Specialized;
 using System.Web;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
+    namespace Impl
+    {
+        public class WebNovelPubInitializer : NovelDataInitializer
+        {
+            public static void FetchNovelContent(NovelData novelData, HtmlDocument htmlDocument, Uri tableOfContents, SiteConfiguration siteConfig)
+            {
+                var attributesToFetch = new List<Attr>()
+                {
+                    Attr.Title,
+                };
+                foreach(var attribute in attributesToFetch)
+                {
+                    FetchContentByAttribute(attribute, novelData, htmlDocument, siteConfig);
+                }
+            }
+        }
+    }
     public class WebNovelPubStrategy : ScraperStrategy
     {
         private Uri? _chaptersUri;
@@ -15,27 +33,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info("Starting scraper for Web");
 
             SetBaseUri(SiteTableOfContents);
+            
+            var htmlDocument = await LoadHtmlAsync(SiteTableOfContents);
+            var novelData = GetNovelDataFromTableOfContents(htmlDocument);
 
-            HtmlDocument htmlDocument = await LoadHtmlDocumentFromUrlAsync(SiteTableOfContents);
+            _chaptersUri = new Uri(SiteTableOfContents + "/chapters");
 
-            if (htmlDocument == null)
-            {
-                Logger.Debug($"Error while trying to load HtmlDocument. \n");
-                return null;
-            }
+            htmlDocument = await LoadHtmlAsync(_chaptersUri);
 
-            NovelData novelData = GetNovelDataFromTableOfContent(htmlDocument);
-
-            _chaptersUri = new Uri(SiteTableOfContents.ToString() + "/chapters");
-
-            htmlDocument = await LoadHtmlDocumentFromUrlAsync(_chaptersUri);
-
-            HtmlDocument decodedHtmlDocument = DecodeHtml(htmlDocument);
+            var decodedHtmlDocument = DecodeHtml(htmlDocument);
 
             int pageToStopAt = GetLastTableOfContentsPageNumber(decodedHtmlDocument);
 
             var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_chaptersUri, true, pageToStopAt);
-
             novelData.ChapterUrls = chapterUrls;
             novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
             novelData.Genres = new List<string>();
@@ -43,15 +53,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
-
-        public override NovelData GetNovelDataFromTableOfContent(HtmlDocument htmlDocument)
+        public override NovelData GetNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
-            NovelData novelData = new NovelData();
-
-            HtmlNodeCollection novelTitleNodes = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.NovelTitle);
-            if (novelTitleNodes.Any())
+            var novelData = new NovelData();
+            try
             {
-                novelData.Title = novelTitleNodes.First().InnerText.Trim();
+                WebNovelPubInitializer.FetchNovelContent(novelData, htmlDocument, SiteTableOfContents, SiteConfig);
+                return novelData;
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
             }
 
             return novelData;
@@ -70,7 +82,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             int pageToStopAt = 1;
             if (paginationCount > 1)
             {
-                HtmlNode lastPageNode = null;
+                HtmlNode lastPageNode;
                 if (paginationCount == TotalPossiblePaginationTabs)
                 {
                     lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
@@ -81,19 +93,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     lastPageNode = lastPageNode.SelectSingleNode("a");
                 }
 
-                string lastPageUrl = lastPageNode.Attributes["href"].Value;
-
-                Uri lastPageUri = new Uri(lastPageUrl, UriKind.RelativeOrAbsolute);
+                var lastPageUrl = lastPageNode.Attributes["href"].Value;
+                var lastPageUri = new Uri(lastPageUrl, UriKind.RelativeOrAbsolute);
 
                 // If the URL is relative, make sure to add a scheme and host
                 if (!lastPageUri.IsAbsoluteUri) // like this: /novel/the-authors-pov-14051336/chapters?page=9
                 {
-                    lastPageUri = new Uri(this.BaseUri.ToString() + lastPageUrl);
+                    lastPageUri = new Uri(BaseUri + lastPageUrl);
                 }
 
                 NameValueCollection query = HttpUtility.ParseQueryString(lastPageUri.Query);
 
-                string pageNumber = query["page"];
+                var pageNumber = query["page"];
                 int.TryParse(pageNumber, out pageToStopAt);
             }
 

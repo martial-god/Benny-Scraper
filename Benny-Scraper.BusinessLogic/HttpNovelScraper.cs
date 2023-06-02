@@ -49,13 +49,11 @@ namespace Benny_Scraper.BusinessLogic
             
             if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))
             {
-                return this._scraperStrategy;
+                return _scraperStrategy;
             }
-            else
-            {
-                Logger.Error($"No scraper strategy found for {baseUrl}");
-                return null;
-            }
+            
+            Logger.Error($"No scraper strategy found for {baseUrl}");
+            return null;
         }
 
         /// <summary>
