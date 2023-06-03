@@ -2,11 +2,9 @@
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
-using System.Collections.Specialized;
+using OpenQA.Selenium.DevTools;
 using System.Diagnostics;
-using System.Globalization;
 using System.Net;
-using System.Web;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -92,7 +90,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         novelData.NovelStatus = statusNode.InnerText.Trim();
                         novelData.IsNovelCompleted = novelData.NovelStatus.ToLower().Contains(siteConfig.CompletedStatus);
                         break;
-                    
+
                     case Attr.ThumbnailURL:
                         var urlNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelThumbnailUrl);
                         novelData.ThumbnailUrl = urlNode.Attributes["src"].Value;
@@ -132,41 +130,53 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
             }
         }
-    }//namespace Impl
-    
+    }
+
     public abstract class ScraperStrategy
     {
         protected static SiteConfiguration SiteConfig { get; private set; }
         protected Uri SiteTableOfContents { get; private set; }
         protected Uri BaseUri { get; private set; }
 
-        public const int MaxRetries = 4 ;
+        public const int MaxRetries = 4;
         public const int MinimumParagraphThreshold = 5;
+        public const int ConcurrentRequestsLimit = 2;
         protected const int TotalPossiblePaginationTabs = 6;
-        protected const int ConcurrentRequestsLimit = 12;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         protected static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit, ConcurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
+        private static readonly List<string> _userAgents = new List<string>
+            {
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 5.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
+            };
 
         public abstract Task<NovelData> ScrapeAsync();
-        public abstract NovelData GetNovelDataFromTableOfContents(HtmlDocument htmlDocument);
+        public abstract NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
 
         // create method that calls both SetSiteConfiguration and SetSiteTableOfContents
         public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents)
         {
             SetSiteConfiguration(siteConfig);
             SetSiteTableOfContents(siteTableOfContents);
-        }        
+        }
 
         protected static async Task<HtmlDocument> LoadHtmlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+
             int retryCount = 0;
             while (retryCount < MaxRetries)
             {
                 try
                 {
-                    var response = await _client.GetAsync(uri);
+                    var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
+                    var userAgent = UserAgents[++_userAgentIndex % _userAgents.Count];
+                    requestMessage.Headers.Add("User-Agent", "Other"); // some sites require a user agent to be set https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
+                    var response = await _client.SendAsync(requestMessage);
                     response.EnsureSuccessStatusCode(); // Throws an exception if the status code is not successful
                     var content = await response.Content.ReadAsStringAsync();
 
@@ -177,7 +187,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
                 catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
                 {
-                    retryCount++;                    
+                    retryCount++;
                     Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
                     await Task.Delay(3000);
                 }
@@ -196,7 +206,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             BaseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
         }
-        
+
         /// <summary>
         /// 
         /// </summary>
@@ -337,7 +347,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Error($"Error getting chapter urls from table of contents. {ex}");
                 throw;
             }
-        }        
+        }
 
         /// <summary>
         /// Decodes sites that use HTML encoded characters like class="&#x70;&#x61;&#x67;&#x69;&#x6E;&#x61;&#x74;&#x69;

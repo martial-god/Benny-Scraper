@@ -11,8 +11,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     {
         public class NovelFullInitializer : NovelDataInitializer
         {
-            private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-            
             //Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
             //child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
             //the implementation would require both.
@@ -52,7 +50,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 novelData.FirstChapter = firstChapterUrl;
             }
         }
-    }//namespace Impl
+    }
     
     public class NovelFullStrategy : ScraperStrategy
     {
@@ -78,9 +76,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private async Task<NovelData> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
-            var novelData = GetNovelDataFromTableOfContents(htmlDocument);
+            var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
 
-            int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
+            int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
             var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(SiteTableOfContents, true, pageToStopAt);
 
             novelData.ChapterUrls = chapterUrls;
@@ -89,7 +87,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
-        public override NovelData GetNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        public override NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             var novelData = new NovelData();
             try
@@ -105,7 +103,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
-        private int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
+        private int FetchLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
         {
             Logger.Info($"Getting last table of contents page number at {SiteConfig.Selectors.LastTableOfContentsPage}");
             try

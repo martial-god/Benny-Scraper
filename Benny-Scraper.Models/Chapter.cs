@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 
 namespace Benny_Scraper.Models
 {
@@ -16,6 +17,22 @@ namespace Benny_Scraper.Models
         public string Content { get; set; }
         public string Number { get; set; }
         public DateTime DateCreated { get; set; }
+        public DateTime DateLastModified { get; set; }
+    }
+
+    public class ChapterData
+    {
+        public string Url { get; set; }
+        public string Content { get; set; }
+        public string Title { get; set; }
+        public string Number
+        {
+            get
+            {
+                var digitMatch = Regex.Match(Title, @"\d+");
+                return (digitMatch.Success ? digitMatch.Groups[0].Value : "0");
+            }
+        }
         public DateTime DateLastModified { get; set; }
     }
 }
