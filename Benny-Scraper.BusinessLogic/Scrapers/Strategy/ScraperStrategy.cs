@@ -175,7 +175,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 try
                 {
                     var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-                    var userAgent = UserAgents[++_userAgentIndex % _userAgents.Count];
+                    var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
                     requestMessage.Headers.Add("User-Agent", "Other"); // some sites require a user agent to be set https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
                     var response = await _client.SendAsync(requestMessage);
                     response.EnsureSuccessStatusCode(); // Throws an exception if the status code is not successful
