@@ -22,4 +22,8 @@
     <ProjectReference Include="..\Benny-Scraper.Models\Benny-Scraper.Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Scrapers\Strategy\Attributes\" />
+  </ItemGroup>
+
 </Project>

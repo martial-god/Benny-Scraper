@@ -16,6 +16,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 var attributesToFetch = new List<Attr>()
                 {
                     Attr.Title,
+                    Attr.Author
                 };
                 foreach(var attribute in attributesToFetch)
                 {
@@ -35,7 +36,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetBaseUri(SiteTableOfContents);
             
             var htmlDocument = await LoadHtmlAsync(SiteTableOfContents);
-            var novelData = GetNovelDataFromTableOfContents(htmlDocument);
+            var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
 
             _chaptersUri = new Uri(SiteTableOfContents + "/chapters");
 
@@ -53,7 +54,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
-        public override NovelData GetNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        public override NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             var novelData = new NovelData();
             try
