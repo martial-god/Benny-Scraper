@@ -36,7 +36,6 @@ namespace Benny_Scraper.Models
 
         [StringLength(255)]
         public string? SaveLocation { get; set; }
-
     }
 
     public class NovelData

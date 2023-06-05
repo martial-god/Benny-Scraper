@@ -18,5 +18,6 @@ namespace Benny_Scraper.BusinessLogic.Config
         public int PageOffSet { get; set; }
         public string CompletedStatus { get; set; }
         public bool HasNovelInfoOnDifferentPage { get; set; }
+        public bool IsSeleniumSite { get; set; }
     }
 }

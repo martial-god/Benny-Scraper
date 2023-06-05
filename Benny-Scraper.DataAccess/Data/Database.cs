@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Benny_Scraper.DataAccess.Data
 {
-    public class ApplicationDbContext : DbContext
+    public class Database : DbContext
     {
         // Clear nuget packages with errors Scaffolding for Identity
         // https://social.msdn.microsoft.com/Forums/en-US/07c93e8b-5092-4211-80e6-3932d87664c3/always-got-this-error-when-scaffolding-suddenly-8220there-was-an-error-running-the-selected-code?forum=aspdotnetcore
@@ -11,11 +11,11 @@ namespace Benny_Scraper.DataAccess.Data
 
         /// <summary>
         /// Connection string is handled in the Program.cs injection
-        /// The ApplicationDbContext class must expose a public constructor with a DbContextOptions<ApplicationDbContext> parameter. 
+        /// The Database class must expose a public constructor with a DbContextOptions<Database> parameter. 
         /// This is how context configuration from AddDbContext is passed to the DbContext. https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/
         /// </summary>
         /// <param name="options"></param>
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        public Database(DbContextOptions<Database> options) : base(options)
         {
         }
 

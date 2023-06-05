@@ -1,6 +1,6 @@
 ﻿using Benny_Scraper.Models;
 
-namespace Benny_Scraper.BusinessLogic
+namespace Benny_Scraper.BusinessLogic.Interfaces
 {
     public interface IEpubGenerator
     {

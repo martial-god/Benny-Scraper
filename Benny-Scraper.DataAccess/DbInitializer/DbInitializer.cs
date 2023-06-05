@@ -3,11 +3,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Benny_Scraper.DataAccess.DbInitializer
 {
-    public class DbInitializer : IDbInitializer
+    public class DbInitializer
     {
-        private readonly ApplicationDbContext _db;
+        private readonly Database _db;
 
-        public DbInitializer(ApplicationDbContext db)
+        public DbInitializer(Database db)
         {
             _db = db;
         }

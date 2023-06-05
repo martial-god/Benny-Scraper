@@ -7,9 +7,9 @@ namespace Benny_Scraper.DataAccess.Repository
 {
     internal class NovelListRepository : Repository<NovelList>, INovelListRepository
     {
-        private ApplicationDbContext _db;
+        private Database _db;
 
-        public NovelListRepository(ApplicationDbContext db) : base(db)
+        public NovelListRepository(Database db) : base(db)
         {
             _db = db;
         }

@@ -7,13 +7,13 @@ namespace Benny_Scraper.DataAccess.Repository
 {
     public class NovelRepository : Repository<Novel>, INovelRepository
     {
-        private ApplicationDbContext _db;
+        private Database _db;
 
         /// <summary>
         /// Values will be passed in by the UnitOfWork class
         /// </summary>
         /// <param name="db"></param>
-        public NovelRepository(ApplicationDbContext db) : base(db)
+        public NovelRepository(Database db) : base(db)
         {
             _db = db;
         }

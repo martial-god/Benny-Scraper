@@ -2,7 +2,6 @@
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
-using OpenQA.Selenium.DevTools;
 using System.Diagnostics;
 using System.Net;
 
@@ -137,12 +136,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected static SiteConfiguration SiteConfig { get; private set; }
         protected Uri SiteTableOfContents { get; private set; }
         protected Uri BaseUri { get; private set; }
+        public static int ConcurrentRequestsLimit { get; set; } = 12;
 
         public const int MaxRetries = 4;
         public const int MinimumParagraphThreshold = 5;
-        public const int ConcurrentRequestsLimit = 2;
         protected const int TotalPossiblePaginationTabs = 6;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+        
+        protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         protected static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit, ConcurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
         private static readonly List<string> _userAgents = new List<string>
@@ -158,7 +159,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public abstract Task<NovelData> ScrapeAsync();
         public abstract NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
 
-        // create method that calls both SetSiteConfiguration and SetSiteTableOfContents
         public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents)
         {
             SetSiteConfiguration(siteConfig);
@@ -176,7 +176,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
                     var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
-                    requestMessage.Headers.Add("User-Agent", "Other"); // some sites require a user agent to be set https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
+                    requestMessage.Headers.Add("User-Agent", userAgent); // some sites require a user agent to be set https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
                     var response = await _client.SendAsync(requestMessage);
                     response.EnsureSuccessStatusCode(); // Throws an exception if the status code is not successful
                     var content = await response.Content.ReadAsStringAsync();

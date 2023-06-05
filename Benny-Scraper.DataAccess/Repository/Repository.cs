@@ -10,10 +10,10 @@ namespace Benny_Scraper.DataAccess.Repository
     public class Repository<GenericDbObject> : IRepository<GenericDbObject> where GenericDbObject : class
     {
         // adds the database context
-        private readonly ApplicationDbContext _db;
+        private readonly Database _db;
         internal DbSet<GenericDbObject> _dbSet;
 
-        public Repository(ApplicationDbContext db)
+        public Repository(Database db)
         {
             _db = db;
             // make it so we don't have to keep using _db.Set.Add() or other methods

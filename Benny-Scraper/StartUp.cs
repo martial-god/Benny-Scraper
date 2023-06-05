@@ -28,16 +28,20 @@ namespace Benny_Scraper
             Configuration = configuration;
         }
 
+        /// <summary>
+        /// Register all services and repositories, including the DbContext, appsettings.json as NovelScraperSettings and EpubTemplates based on the key in the file
+        /// </summary>
+        /// <param name="builder"></param>
         public void ConfigureServices(ContainerBuilder builder)
         {
             // Register IConfiguration
             builder.RegisterInstance(Configuration).As<IConfiguration>();
 
-            builder.Register(c => new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            builder.Register(c => new Database(new DbContextOptionsBuilder<Database>()
                 .UseSqlite(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();
 
 
-            builder.RegisterType<DbInitializer>().As<IDbInitializer>();
+            builder.RegisterType<DbInitializer>().As<DbInitializer>();
             builder.RegisterType<UnitOfWork>().As<IUnitOfWork>();
             builder.RegisterType<NovelProcessor>().As<INovelProcessor>();
             builder.RegisterType<ChapterRepository>().As<IChapterRepository>();
@@ -56,7 +60,7 @@ namespace Benny_Scraper
             //needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
             builder.Register(c => Options.Create(c.Resolve<NovelScraperSettings>())).As<IOptions<NovelScraperSettings>>().SingleInstance();
 
-            // register EpuTemplates.cs
+            // register EpuTemplates.cs as singleton from the appsettings.json file
             builder.Register(c =>
             {
                 var config = c.Resolve<IConfiguration>();
@@ -75,9 +79,13 @@ namespace Benny_Scraper
 
             builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
             builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
-            builder.RegisterType<NovelFullScraper>().Named<INovelScraper>("Http").InstancePerDependency();
+            builder.RegisterType<HttpNovelScraper>().Named<INovelScraper>("Http").InstancePerDependency();
         }
 
+        /// <summary>
+        /// Get the connection string for the database file, if the file does not exist, create it
+        /// </summary>
+        /// <returns>connection string</returns>
         private static string GetConnectionString()
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);

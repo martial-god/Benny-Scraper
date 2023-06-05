@@ -5,9 +5,9 @@ namespace Benny_Scraper.DataAccess.Repository
 {
     public class UnitOfWork : IUnitOfWork
     {
-        private readonly ApplicationDbContext _db;
+        private readonly Database _db;
 
-        public UnitOfWork(ApplicationDbContext db)
+        public UnitOfWork(Database db)
         {
             _db = db;
             Chapter = new ChapterRepository(_db);

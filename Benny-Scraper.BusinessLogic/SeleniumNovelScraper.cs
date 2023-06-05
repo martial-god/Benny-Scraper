@@ -1,7 +1,6 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
-using Benny_Scraper.Models;
 
 namespace Benny_Scraper.BusinessLogic
 {
@@ -10,57 +9,6 @@ namespace Benny_Scraper.BusinessLogic
     /// </summary>
     public class SeleniumNovelScraper : INovelScraper
     {
-        
-        public Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChaptersName)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<List<string>> BuildChaptersUrlsFromTableOfContentUsingPaginationAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, Uri lastSavedChapterUri)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<NovelData> RequestPaginatedDataAsync(int pageToStartAt, Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<NovelData> GetChaptersFromCheckPointAsync(Uri novelTableOfContentLatestUri, string currentChapter, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<string> GetLatestChapterNameAsync(Uri uri, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task GoToTableOfContentsPageAsync(Uri novelTableOfContentsUri)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<NovelData> GetNovelDataAsync(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<NovelData> RequestPaginatedDataAsync(Uri siteUrl, SiteConfiguration siteConfig, string lastSavedChapterUrl, bool getAllChapters, int pageToStartAt = 1)
-        {
-            throw new NotImplementedException();
-        }
-
         public ScraperStrategy GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
             throw new NotImplementedException();

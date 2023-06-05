@@ -55,7 +55,7 @@ namespace Benny_Scraper.BusinessLogic
             if (novel == null) // Novel is not in database so add it
             {
                 Logger.Info($"Novel with url {novelTableOfContentsUri} is not in database, adding it now.");
-                await AddNewNovelAsync(novelTableOfContentsUri, scraper, scraperStrategy, siteConfig);
+                await AddNewNovelAsync(novelTableOfContentsUri, scraperStrategy);
                 Logger.Info($"Added novel with url {novelTableOfContentsUri} to database.");
             }
             else // make changes or update novelToAdd and newChapters
@@ -63,24 +63,15 @@ namespace Benny_Scraper.BusinessLogic
                 ValidateObject validator = new ValidateObject();
                 var errors = validator.Validate(novel);
                 Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
-                await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraper, siteConfig);
+                await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraperStrategy);
             }
 
         }
 
-
-
-        public async Task<object> CreateEpubAsync(Novel novel, List<Models.Chapter> chapters, string outputPath)
-        {
-            // Reasearch Epub.net on how to make epubs, ex: https://github.com/Mitch528/WebNovelConverter/blob/master/WebNovelConverter/MainForm.cs
-            return null;
-        }
-
-        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, INovelScraper scraper, ScraperStrategy scraperStrategy, SiteConfiguration siteConfig)
+        private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
             NovelData novelData = await scraperStrategy.ScrapeAsync();
 
-            //NovelData novelData = await scraper.GetNovelDataAsync(novelTableOfContentsUri, siteConfig);
             if (novelData == null)
             {
                 Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
@@ -107,8 +98,6 @@ namespace Benny_Scraper.BusinessLogic
             };
 
             IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
-            // Retrieve chapter information
-            //IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.ChapterUrls, siteConfig);
 
             // Create Chapter objects and populate their properties
             List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter
@@ -126,77 +115,35 @@ namespace Benny_Scraper.BusinessLogic
             novelToAdd.Chapters = chaptersToAdd;
 
             string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            //create directory BennyScrapedNovels that will contain all the novels, then a folder for the novel title
 
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
             var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
-            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
+            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
             Directory.CreateDirectory(documentsFolder);
 
             string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
             novelToAdd.SaveLocation = epubFile;
 
-            // call createepub, but only pass newest
             _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile);
 
-            // Add the novel and its chapters to the database
             await _novelService.CreateAsync(novelToAdd);
         }
 
 
 
 
-        private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, INovelScraper scraper, SiteConfiguration siteConfig)
+        private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
-            string lastSavedChapterUrl = string.Empty;
+            NovelData novelData = await scraperStrategy.ScrapeAsync();
 
-            string latestChapter = await scraper.GetLatestChapterNameAsync(novelTableOfContentsUri, siteConfig);
-            bool isCurrentChapterNewest = string.Equals(novel.CurrentChapter, latestChapter, comparisonType: StringComparison.OrdinalIgnoreCase);
-
-            if (isCurrentChapterNewest)
+            if (novelData == null)
             {
-                Logger.Info($"{novel.Title} is currently at the latest chapter. Current Saved: {novel.CurrentChapter}. Novel Id: {novel.Id}");
+                Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
                 return;
             }
 
-            // get all newChapters after the current chapter up to the latest
-            if (string.IsNullOrEmpty(novel.LastTableOfContentsUrl))
-            {
-                Logger.Warn($"{novel.Title} does not have a LastTableOfContentsPageUrl. Novel Id: {novel.Id}");
-
-                Chapter lastSavedChapter = await _chapterService.GetLastSavedChapterByNovelIdAsync(novel.Id);
-
-                if (lastSavedChapter != null)
-                {
-                    lastSavedChapterUrl = novel.CurrentChapterUrl ?? string.Empty;
-                    int.TryParse(lastSavedChapter.Number, out int chapterNumber);
-                    var lazyTableOfContentsPage = chapterNumber / siteConfig.ChaptersPerPage;
-                    var newPageQuery = string.Format(siteConfig.PaginationType, lazyTableOfContentsPage.ToString());
-
-                    novel.LastTableOfContentsUrl = novelTableOfContentsUri.AbsoluteUri + newPageQuery;
-                }
-                else // No novel found should still be okay to proceed, just get all chapters from beginning. Might need to remove older chapters.
-                {
-                    Logger.Warn($"{novel.Title} does not have a LastTableOfContentsPageUrl and no chapter was found in database. Novel Id: {novel.Id}");
-                }
-            }
-            else
-            {
-                lastSavedChapterUrl = novel.CurrentChapterUrl;
-            }
-
-            NovelData novelData = new NovelData();
-
-            if (siteConfig.HasPagination)
-            {
-                Uri lastTableOfContentsUrl = new Uri(novel.LastTableOfContentsUrl);
-
-                int pageToStartAt = GetTableOfContentsPageToStartAt(lastTableOfContentsUrl, novel, siteConfig);
-                novelData = await scraper.RequestPaginatedDataAsync(novelTableOfContentsUri, siteConfig, lastSavedChapterUrl, false, pageToStartAt);
-            }
-
-            IEnumerable<ChapterData> chapterDatas = await scraper.GetChaptersDataAsync(novelData.ChapterUrls, siteConfig);
+            IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
 
             List<Models.Chapter> newChapters = chapterDatas.Select(data => new Models.Chapter
             {
@@ -223,18 +170,16 @@ namespace Benny_Scraper.BusinessLogic
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
             var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novel.Title, fileRegex, " ").ToLower().ToLowerInvariant());
-            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle, $"Read {novelFileSafeTitle}");
+            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
             Directory.CreateDirectory(documentsFolder);
 
             string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
 
-            //_epubGenerator.CreateEpub(novel, novel.Chapters, epubFile);
-
-            // call createepub, but only pass newest
             _epubGenerator.CreateEpub(novel, newChapters, epubFile);
 
             await _novelService.UpdateAndAddChapters(novel, newChapters);
         }
+
 
         private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)
         {

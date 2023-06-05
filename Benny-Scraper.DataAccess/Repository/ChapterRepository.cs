@@ -9,13 +9,13 @@ namespace Benny_Scraper.DataAccess.Repository
 {
     public class ChapterRepository : Repository<Chapter>, IChapterRepository
     {
-        private ApplicationDbContext _db;
+        private Database _db;
 
         /// <summary>
         /// Values will be passed in by the UnitOfWork class
         /// </summary>
         /// <param name="db"></param>
-        public ChapterRepository(ApplicationDbContext db) : base(db)
+        public ChapterRepository(Database db) : base(db)
         {
             _db = db;
         }

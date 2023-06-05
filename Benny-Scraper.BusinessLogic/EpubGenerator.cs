@@ -1,4 +1,5 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Options;

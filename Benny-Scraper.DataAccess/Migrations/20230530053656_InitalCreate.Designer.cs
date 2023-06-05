@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BennyScraper.DataAccess.Migrations
 {
-    [DbContext(typeof(ApplicationDbContext))]
+    [DbContext(typeof(Database))]
     [Migration("20230530053656_InitalCreate")]
     partial class InitalCreate
     {
