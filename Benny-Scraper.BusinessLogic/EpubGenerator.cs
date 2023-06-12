@@ -167,14 +167,13 @@ namespace Benny_Scraper.BusinessLogic
                 Directory.Delete(tempDirectory, true);
                 Logger.Info($"Deleted temporary directory: {tempDirectory}");
 
-                //change the color of the nlog color console to blue
+                
+
                 Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Epub file created at: {0}", outputFilePath);
+                Console.WriteLine("Epub file created at: {0}", outputFilePath);                
                 Console.ResetColor();
             }
         }
-
-
 
         private void AddDirectoryToZip(ZipOutputStream zip, string directoryPath, string entryPath)
         {
