@@ -38,12 +38,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 LatestChapter
             }
 
-            protected static void FetchContentByAttribute(Attr attr, NovelData novelData, HtmlDocument htmlDocument, SiteConfiguration siteConfig)
+            protected static void FetchContentByAttribute(Attr attr, NovelData novelData, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 switch (attr)
                 {
                     case Attr.Title:
-                        var titleNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelTitle);
+                        var titleNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelTitle);
                         if (titleNodes.Any())
                         {
                             novelData.Title = titleNodes.First().InnerText.Trim();
@@ -51,7 +51,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.Author:
-                        var authorNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelAuthor);
+                        var authorNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelAuthor);
                         novelData.Author = authorNode.InnerText.Trim();
                         break;
 
@@ -60,44 +60,57 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.NovelRating:
-                        var novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelRating);
+                        var novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelRating);
                         novelData.Rating = double.Parse(novelRatingNode.InnerText.Trim());
                         break;
 
                     case Attr.TotalRatings:
-                        var totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.TotalRatings);
+                        var totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.TotalRatings);
                         novelData.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
                         break;
 
                     case Attr.Description:
-                        var descriptionNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelDescription);
+                        var descriptionNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelDescription);
                         novelData.Description = descriptionNodes.Select(description => description.InnerText.Trim()).ToList();
                         break;
 
                     case Attr.Genres:
-                        var genreNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelGenres);
+                        var genreNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelGenres);
                         novelData.Genres = genreNodes.Select(genre => genre.InnerText.Trim()).ToList();
                         break;
 
                     case Attr.AlternativeNames:
-                        var alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.NovelAlternativeNames);
+                        var alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelAlternativeNames);
                         novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
                         break;
 
                     case Attr.Status:
-                        var statusNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelStatus);
+                        var statusNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelStatus);
                         novelData.NovelStatus = statusNode.InnerText.Trim();
-                        novelData.IsNovelCompleted = novelData.NovelStatus.ToLower().Contains(siteConfig.CompletedStatus);
+                        novelData.IsNovelCompleted = novelData.NovelStatus.ToLower().Contains(scraperData.SiteConfig.CompletedStatus);
                         break;
 
                     case Attr.ThumbnailURL:
-                        var urlNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.NovelThumbnailUrl);
-                        novelData.ThumbnailUrl = urlNode.Attributes["src"].Value;
+                        var urlNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelThumbnailUrl);
+                        var url = urlNode.Attributes["src"].Value;
+                        bool isValidHttpUrl = Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+                        if (!isValidHttpUrl)
+                        {
+                            url = urlNode.Attributes["data-src"].Value;
+                            var absoluteUrl = new Uri(scraperData.BaseUri, url);
+                            using (var client = new HttpClient())
+                            {
+                                var thumbnailBytes = client.GetByteArrayAsync(absoluteUrl).Result;
+                                novelData.ThumbnailImage = thumbnailBytes;
+                            }
+                        }                        
+
+                        novelData.ThumbnailUrl = url;                        
                         break;
 
                     case Attr.LastTableOfContentsPage:
                         var lastTableOfContentsPageNode =
-                            htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LastTableOfContentsPage);
+                            htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
                         novelData.LastTableOfContentsPageUrl = lastTableOfContentsPageNode.Attributes["href"].Value;
                         break;
 
@@ -106,7 +119,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.ChapterLinks:
-                        var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(siteConfig.Selectors.ChapterLinks);
+                        var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.ChapterLinks);
                         if (chapterLinkNodes.Any())
                         {
                             novelData.FirstChapter = chapterLinkNodes.First().InnerText.Trim();
@@ -114,7 +127,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.LatestChapter:
-                        var latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(siteConfig.Selectors.LatestChapterLink);
+                        var latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LatestChapterLink);
                         if (latestChapterNode == null)
                         {
                             //TODO: The NLog logger does not provide static methods, making it difficult to use in a static context.
@@ -131,19 +144,24 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
     }
 
+    public class ScraperData
+    {
+        public SiteConfiguration? SiteConfig { get; set; }
+        public Uri? SiteTableOfContents { get; set; }
+        public Uri? BaseUri { get; set; }
+    }
+
     public abstract class ScraperStrategy
     {
-        protected static SiteConfiguration SiteConfig { get; private set; }
-        protected Uri SiteTableOfContents { get; private set; }
-        protected Uri BaseUri { get; private set; }
-        public static int ConcurrentRequestsLimit { get; set; } = 12;
+        protected ScraperData _scraperData = new ScraperData();
+        public static int ConcurrentRequestsLimit { get; set; } = 2;
 
         public const int MaxRetries = 4;
         public const int MinimumParagraphThreshold = 5;
         protected const int TotalPossiblePaginationTabs = 6;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         
-        protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
+        protected static readonly NovelScraperSettings _settings = new NovelScraperSettings();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         protected static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit, ConcurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
         private static readonly List<string> _userAgents = new List<string>
@@ -200,12 +218,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate(
                 (segment1, segment2) => segment1 + segment2);
-            return new Uri(BaseUri, allSegementsButLast);
+            return new Uri(_scraperData.BaseUri, allSegementsButLast);
         }
 
         protected void SetBaseUri(Uri siteUri)
         {
-            BaseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
+            _scraperData.BaseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
         }
 
         /// <summary>
@@ -220,7 +238,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             var chapterUrls = new List<string>();
 
-            var baseTableOfContentUrl = tableOfContentUri + SiteConfig.PaginationType;
+            var baseTableOfContentUrl = tableOfContentUri + _scraperData.SiteConfig?.PaginationType;
             var lastTableOfContentsUrl = string.Format(baseTableOfContentUrl, pageToStopAt);
 
             for (int i = pageToStartAt; i <= pageToStopAt; ++i)
@@ -232,7 +250,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Info($"Navigating to {tableOfContentUrl}");
                     var htmlDocument = await LoadHtmlAsync(new Uri(tableOfContentUrl));
 
-                    List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, BaseUri, 1);
+                    List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
                     if (chapterUrlsOnContentPage.Any())
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
@@ -255,7 +273,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected virtual async Task<List<string>> GetChapterUrls(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
-            string baseTableOfContentUrl = tableOfContentUri + SiteConfig.PaginationType;
+            string baseTableOfContentUrl = tableOfContentUri + _scraperData.SiteConfig?.PaginationType;
 
             for (int i = pageToStartAt; i <= pageToStopAt; i++)
             {
@@ -266,7 +284,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Info($"Navigating to {tableOfContentUrl}");
                     HtmlDocument htmlDocument = await LoadHtmlAsync(new Uri(tableOfContentUrl));
 
-                    List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, BaseUri, 1);
+                    List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
                     if (chapterUrlsOnContentPage.Any())
                     {
                         chapterUrls.AddRange(chapterUrlsOnContentPage);
@@ -316,7 +334,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Getting chapter urls from table of contents");
             try
             {
-                HtmlNodeCollection chapterLinks = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.ChapterLinks);
+                HtmlNodeCollection chapterLinks = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterLinks);
 
                 if (chapterLinks == null)
                 {
@@ -377,12 +395,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         #region Private Methods
         private void SetSiteConfiguration(SiteConfiguration siteConfig)
         {
-            SiteConfig = siteConfig;
+            _scraperData.SiteConfig = siteConfig;
         }
 
         private void SetSiteTableOfContents(Uri siteTableOfContents)
         {
-            SiteTableOfContents = siteTableOfContents;
+            _scraperData.SiteTableOfContents = siteTableOfContents;
         }
 
         private async Task<ChapterData> GetChapterDataAsync(string url)
@@ -398,17 +416,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
-                HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.ChapterTitle);
+                HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
                 chapterData.Title = titleNode.InnerText.Trim();
                 Logger.Debug($"Chapter title: {chapterData.Title}");
 
-                HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.ChapterContent);
+                HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
                 var paragraphs = paragraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
 
                 if (paragraphs.Count < MinimumParagraphThreshold)
                 {
                     Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
-                    HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(SiteConfig.Selectors.AlternativeChapterContent);
+                    HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.AlternativeChapterContent);
                     List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
                     Logger.Info($"Alternate paragraphs count: {alternateParagraphs.Count}");
 

@@ -63,5 +63,6 @@ namespace Benny_Scraper.Models
         public string MostRecentChapterTitle { get; set; }
         public string CurrentChapterUrl { get; set; }
         public string FirstChapter { get; set; }
+        public byte[]? ThumbnailImage { get; set; }
     }
 }

@@ -24,7 +24,7 @@ namespace Benny_Scraper.BusinessLogic
             _epubTemplates = epubTemplates.Value;
         }
 
-        public void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath)
+        public void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage)
         {
             Logger.Info("Creating epub file. Novel: {0}, Chapters: {1}, OutputFilePath: {2}", novel.Title, chapters.Count(), outputFilePath);
             string tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -57,6 +57,12 @@ namespace Benny_Scraper.BusinessLogic
 
                 string manifestItems = string.Empty;
                 string spineItems = string.Empty;
+                string subjectItems = string.Empty;
+
+                foreach (var tag in novel.Genre.Split(","))
+                {
+                    subjectItems += $"<dc:subject>{tag}</dc:subject>";
+                }
 
                 int chapterIndex = 1;
                 Logger.Info("Creating chapters and adding to manifest and spine");
@@ -83,13 +89,22 @@ namespace Benny_Scraper.BusinessLogic
                 manifestItems += "<item id=\"css_nav\" href=\"css/nav.css\" media-type=\"text/css\"/>";
                 manifestItems += "<item id=\"css_toc\" href=\"css/toc.css\" media-type=\"text/css\"/>";
 
-                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, novel.Title, novel.Title, novel.Author, manifestItems, spineItems);
+                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, novel.Title, novel.Author, novel.Author, subjectItems, manifestItems, spineItems);
 
                 XmlDocument contentOpf = new XmlDocument();
                 contentOpf.LoadXml(updatedContentOpf);
                 Logger.Info("Saving content.opf");
                 contentOpf.Save(Path.Combine(oebpsDirectory, "content.opf"));
                 Logger.Info("content.opf saved");
+
+                // create cover image file using coverImage if it is not null
+                if (coverImage != null)
+                {
+                    string coverImageFilePath = Path.Combine(oebpsDirectory, "cover.png");
+                    Logger.Info("Saving cover image to {0}", coverImageFilePath);
+                    File.WriteAllBytes(coverImageFilePath, coverImage);
+                    Logger.Info("Cover image saved");
+                }
 
                 // Create nav.xhtml
                 XmlDocument navXhtml = new XmlDocument();
@@ -151,6 +166,11 @@ namespace Benny_Scraper.BusinessLogic
                 // Delete temporary directory
                 Directory.Delete(tempDirectory, true);
                 Logger.Info($"Deleted temporary directory: {tempDirectory}");
+
+                //change the color of the nlog color console to blue
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("Epub file created at: {0}", outputFilePath);
+                Console.ResetColor();
             }
         }
 

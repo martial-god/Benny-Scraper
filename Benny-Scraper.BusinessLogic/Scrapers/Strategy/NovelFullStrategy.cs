@@ -14,8 +14,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             //Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
             //child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
             //the implementation would require both.
-            public static void FetchNovelContent(NovelData novelData, HtmlDocument htmlDocument, Uri tableOfContents, SiteConfiguration siteConfig)
+            public static void FetchNovelContent(NovelData novelData, HtmlDocument htmlDocument, ScraperData scraperData)
             {
+                var tableOfContents = scraperData.SiteTableOfContents;
                 var attributesToFetch = new List<Attr>()
                 {
                     Attr.Author,
@@ -33,7 +34,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 };
                 foreach(var attribute in attributesToFetch)
                 {
-                    FetchContentByAttribute(attribute, novelData, htmlDocument, siteConfig);
+                    FetchContentByAttribute(attribute, novelData, htmlDocument, scraperData);
                 }
 
                 //TODO: Brad: I notice that the name LatestChapter and CurrentChapter are both used to refer to the same thing.
@@ -58,8 +59,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             Logger.Info("Getting novel data");
 
-            SetBaseUri(SiteTableOfContents);
-            var htmlDocument = await LoadHtmlAsync(SiteTableOfContents);
+            SetBaseUri(_scraperData.SiteTableOfContents);
+            var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
             
             try
             {
@@ -79,7 +80,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
 
             int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
-            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(SiteTableOfContents, true, pageToStopAt);
+            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_scraperData.SiteTableOfContents, true, pageToStopAt);
 
             novelData.ChapterUrls = chapterUrls;
             novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
@@ -92,7 +93,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var novelData = new NovelData();
             try
             {
-                NovelFullInitializer.FetchNovelContent(novelData, htmlDocument, SiteTableOfContents, SiteConfig);
+                NovelFullInitializer.FetchNovelContent(novelData, htmlDocument, _scraperData);
                 return novelData;
             }
             catch (Exception e)
@@ -105,17 +106,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private int FetchLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
         {
-            Logger.Info($"Getting last table of contents page number at {SiteConfig.Selectors.LastTableOfContentsPage}");
+            Logger.Info($"Getting last table of contents page number at {_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage}");
             try
             {
-                HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(SiteConfig.Selectors.LastTableOfContentsPage);
-                string lastPage = lastPageNode.Attributes[SiteConfig.Selectors.LastTableOfContentPageNumberAttribute].Value;
+                HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
+                string lastPage = lastPageNode.Attributes[_scraperData.SiteConfig?.Selectors.LastTableOfContentPageNumberAttribute].Value;
 
                 int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
 
-                if (SiteConfig.PageOffSet > 0)
+                if (_scraperData.SiteConfig?.PageOffSet > 0)
                 {
-                    lastPageNumber += SiteConfig.PageOffSet;
+                    lastPageNumber += _scraperData.SiteConfig.PageOffSet;
                 }
 
                 Logger.Info($"Last table of contents page number is {lastPage}");

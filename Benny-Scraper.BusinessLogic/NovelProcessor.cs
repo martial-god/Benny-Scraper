@@ -125,13 +125,10 @@ namespace Benny_Scraper.BusinessLogic
             string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
             novelToAdd.SaveLocation = epubFile;
 
-            _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile);
+            _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile, novelData.ThumbnailImage);
 
             await _novelService.CreateAsync(novelToAdd);
         }
-
-
-
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
@@ -175,11 +172,10 @@ namespace Benny_Scraper.BusinessLogic
 
             string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
 
-            _epubGenerator.CreateEpub(novel, newChapters, epubFile);
+            _epubGenerator.CreateEpub(novel, newChapters, epubFile, novelData.ThumbnailImage);
 
             await _novelService.UpdateAndAddChapters(novel, newChapters);
         }
-
 
         private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)
         {
@@ -191,27 +187,6 @@ namespace Benny_Scraper.BusinessLogic
         {
             List<SiteConfiguration> siteConfigurations = _novelScraperSettings.SiteConfigurations;
             return siteConfigurations.FirstOrDefault(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern));
-        }
-
-        /// <summary>
-        /// Gets the page number to start at when scraping chapters from a table of contents.
-        /// </summary>
-        /// <param name="novelTableOfContentsUrl"></param>
-        /// <param name="novel"></param>
-        /// <param name="siteConfig"></param>
-        /// <returns>int of the page number</returns>
-        private static int GetTableOfContentsPageToStartAt(Uri novelTableOfContentsUrl, Novel novel, SiteConfiguration siteConfig)
-        {
-            if (novelTableOfContentsUrl == null || string.IsNullOrEmpty(novelTableOfContentsUrl.ToString()))
-            {
-                Logger.Info($"{novel.Title} does not have a LastTableOfContentsPageUrl.\nCurrent Saved: {novel.LastTableOfContentsUrl}");
-                return 1;
-            }
-
-            string pageString = novelTableOfContentsUrl.Query.Replace(siteConfig.PaginationQueryPartial, string.Empty); //ex: page="2" so we remove page=
-            int.TryParse(pageString, out int page);
-            Logger.Info($"Table of content page to start at is {page}");
-            return page;
         }
     }
 }
