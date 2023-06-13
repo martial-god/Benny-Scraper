@@ -19,5 +19,6 @@
         public string? ChapterContent { get; set; }
         public string? AlternativeChapterContent { get; set; }
         public string? TableOfContnetsPaginationListItems { get; set; }
+        public string? ThumbnailUrlAttribute { get; set; }
     }
 }

@@ -92,19 +92,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     case Attr.ThumbnailURL:
                         var urlNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelThumbnailUrl);
-                        var url = urlNode.Attributes["src"].Value;
+                        var url = urlNode.Attributes[scraperData.SiteConfig?.Selectors.ThumbnailUrlAttribute].Value;
                         bool isValidHttpUrl = Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
-                        if (!isValidHttpUrl)
+                        Uri absoluteUri = isValidHttpUrl ? new Uri(url) : new Uri(scraperData.BaseUri, url);                        
+                        using (var client = new HttpClient())
                         {
-                            url = urlNode.Attributes["data-src"].Value;
-                            var absoluteUrl = new Uri(scraperData.BaseUri, url);
-                            using (var client = new HttpClient())
-                            {
-                                var thumbnailBytes = client.GetByteArrayAsync(absoluteUrl).Result;
-                                novelData.ThumbnailImage = thumbnailBytes;
-                            }
-                        }                        
-
+                            var thumbnailBytes = client.GetByteArrayAsync(absoluteUri).Result;
+                            novelData.ThumbnailImage = thumbnailBytes;
+                        }
                         novelData.ThumbnailUrl = url;                        
                         break;
 

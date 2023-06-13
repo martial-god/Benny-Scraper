@@ -18,6 +18,7 @@ namespace Benny_Scraper.Models
         public string Number { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }
+        public List<Page> Pages { get; set; } // New property for manga pages
     }
 
     public class ChapterData
@@ -34,5 +35,22 @@ namespace Benny_Scraper.Models
             }
         }
         public DateTime DateLastModified { get; set; }
+        public List<PageData> Pages { get; set; } // New property for manga pages
     }
+
+    public class Page
+    {
+        public Guid Id { get; set; }
+        public Guid ChapterId { get; set; }
+        public Chapter Chapter { get; set; }
+        public string Url { get; set; }
+        public byte[] Image { get; set; }
+    }
+
+    public class PageData
+    {
+        public string Url { get; set; }
+        public byte[] Image { get; set; }
+    }
+
 }
