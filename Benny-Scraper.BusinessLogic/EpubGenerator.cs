@@ -4,6 +4,7 @@ using Benny_Scraper.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Options;
 using NLog;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -166,14 +167,42 @@ namespace Benny_Scraper.BusinessLogic
                 // Delete temporary directory
                 Directory.Delete(tempDirectory, true);
                 Logger.Info($"Deleted temporary directory: {tempDirectory}");
-
-                
+                Logger.Info($"Adding Epub to Calibredb");
+                ExecuteCommand(@"calibredb " +  $"add {outputFilePath}");
 
                 Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Epub file created at: {0}", outputFilePath);                
+                Console.WriteLine("Epub file created at: {0}", outputFilePath);
                 Console.ResetColor();
             }
         }
+
+        public void ExecuteCommand(string command)
+        {
+            // start new cmd process make sure to use shellexecute and createnowindow
+            Process process = new Process();
+            if (Environment.Is64BitOperatingSystem)
+            { //Works for .Net 4.0 and newer
+                process.StartInfo.WorkingDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "sysnative"); //set working directory for x64bit
+            }
+            else
+            {
+                process.StartInfo.WorkingDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32"); //set working directory for x32bit
+                                                                                                                                             //process.StartInfo.WorkingDirectory = Environment.SystemDirectory;//or use this to set working directory for x32bit
+            }
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.UseShellExecute = true;
+            startInfo.CreateNoWindow = true;
+            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            startInfo.FileName = "cmd.exe";
+            startInfo.Arguments = $"/k {command}";
+            Console.WriteLine(startInfo.Arguments);
+            process.StartInfo = startInfo;
+            process.Start();
+            //process.WaitForExit();
+            //return process.ExitCode.ToString();
+        }
+
+
 
         private void AddDirectoryToZip(ZipOutputStream zip, string directoryPath, string entryPath)
         {
