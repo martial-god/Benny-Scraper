@@ -19,6 +19,7 @@ namespace Benny_Scraper.BusinessLogic
     {
         private readonly EpubTemplates _epubTemplates;
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+        public bool UseCalibre { get; set; } = false;
 
         public EpubGenerator(IOptions<EpubTemplates> epubTemplates)
         {
@@ -69,9 +70,6 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info("Creating chapters and adding to manifest and spine");
                 foreach (var chapter in chapters)
                 {
-                    // create variable to save chapter name replace invalid characters with _ and remove spaces
-                    // use regex to replace invalid characters
-
                     string safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
                     string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
                     string chapterFilePath = Path.Combine(textDirectory, chapterFileName);
@@ -90,7 +88,7 @@ namespace Benny_Scraper.BusinessLogic
                 manifestItems += "<item id=\"css_nav\" href=\"css/nav.css\" media-type=\"text/css\"/>";
                 manifestItems += "<item id=\"css_toc\" href=\"css/toc.css\" media-type=\"text/css\"/>";
 
-                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, novel.Title, novel.Author, novel.Author, subjectItems, manifestItems, spineItems);
+                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, Regex.Replace(novel.Title, @"[^a-zA-Z0-9\s_.]+", "", RegexOptions.Compiled), novel.Author, novel.Author, subjectItems, manifestItems, spineItems);
 
                 XmlDocument contentOpf = new XmlDocument();
                 contentOpf.LoadXml(updatedContentOpf);
@@ -98,7 +96,6 @@ namespace Benny_Scraper.BusinessLogic
                 contentOpf.Save(Path.Combine(oebpsDirectory, "content.opf"));
                 Logger.Info("content.opf saved");
 
-                // create cover image file using coverImage if it is not null
                 if (coverImage != null)
                 {
                     string coverImageFilePath = Path.Combine(oebpsDirectory, "cover.png");
@@ -166,43 +163,47 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info($"Deleting temporary directory: {tempDirectory}");
                 // Delete temporary directory
                 Directory.Delete(tempDirectory, true);
-                Logger.Info($"Deleted temporary directory: {tempDirectory}");
-                Logger.Info($"Adding Epub to Calibredb");
-                ExecuteCommand(@"calibredb " +  $"add {outputFilePath}");
+                Logger.Info($"Deleted temporary directory: {tempDirectory}\n");
 
+                Logger.Info(new string('=', 50));
                 Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Epub file created at: {0}", outputFilePath);
+                Console.Write($"Total chapters: {chapters.Count()}\nEpub file created at: {outputFilePath}\n");
+                Logger.Info($"Adding Epub to Calibredb");
+                var result = ExecuteCommand($"calibredb add \"{outputFilePath}\"");
+                Logger.Info($"Command executed with code: {result}");
                 Console.ResetColor();
+                Logger.Info(new string('=', 50));
             }
         }
 
-        public void ExecuteCommand(string command)
+        public string ExecuteCommand(string command)
         {
-            // start new cmd process make sure to use shellexecute and createnowindow
+            // able to get this working thanks to https://stackoverflow.com/questions/4291912/process-start-how-to-get-the-output
             Process process = new Process();
-            if (Environment.Is64BitOperatingSystem)
-            { //Works for .Net 4.0 and newer
-                process.StartInfo.WorkingDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "sysnative"); //set working directory for x64bit
-            }
-            else
-            {
-                process.StartInfo.WorkingDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32"); //set working directory for x32bit
-                                                                                                                                             //process.StartInfo.WorkingDirectory = Environment.SystemDirectory;//or use this to set working directory for x32bit
-            }
             ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.UseShellExecute = true;
+            startInfo.UseShellExecute = false;
             startInfo.CreateNoWindow = true;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
             startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-            startInfo.FileName = "cmd.exe";
-            startInfo.Arguments = $"/k {command}";
-            Console.WriteLine(startInfo.Arguments);
+            startInfo.FileName = @"cmd.exe";
+            startInfo.Arguments = $"/c {command}";
             process.StartInfo = startInfo;
+            // Set your output and error (asynchronous) handlers
+            process.OutputDataReceived += new DataReceivedEventHandler(OutputHandler);
+            process.ErrorDataReceived += new DataReceivedEventHandler(OutputHandler);
             process.Start();
-            //process.WaitForExit();
-            //return process.ExitCode.ToString();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            process.WaitForExit();
+            return process.ExitCode.ToString();
         }
 
-
+        static void OutputHandler(object sendingProcess, DataReceivedEventArgs outLine)
+        {
+            // Do what you want with the output (write to console/log/StringBuilder)
+            Console.WriteLine(outLine.Data);
+        }
 
         private void AddDirectoryToZip(ZipOutputStream zip, string directoryPath, string entryPath)
         {
@@ -249,9 +250,6 @@ namespace Benny_Scraper.BusinessLogic
             return string.Format(_epubTemplates.ChapterContent, title, xhtmlContentBuilder.ToString());
         }
 
-
-
-        //create a method to open an epub and validate it, it should be very robust on the problems
         public void ValidateEpub(string epubFilePath)
         {
             //check if the file exists

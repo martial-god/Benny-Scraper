@@ -70,6 +70,7 @@ namespace Benny_Scraper
                 Console.ResetColor();
 
                 IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
+                //var foo = epubGenerator.ExecuteCommand("calibredb add \"C:\\Users\\Emiya\\Documents\\BennyScrapedNovels\\The Lazy Swordmaster\\The Lazy Swordmaster.epub\"");
                 //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");
 
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
