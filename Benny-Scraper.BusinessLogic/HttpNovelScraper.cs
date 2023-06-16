@@ -29,9 +29,16 @@ namespace Benny_Scraper.BusinessLogic
         {
             AddSiteToMap("https://www.webnovelpub.com", new WebNovelPubStrategy());
             AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
+            AddSiteToMap("https://mangakakalot.to", new MangaKakalotStrategy());
         }
         #endregion
 
+        /// <summary>
+        /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Class are added to the map in the constructor.
+        /// </summary>
+        /// <param name="novelTableOfContentsUri"></param>
+        /// <param name="siteConfig"></param>
+        /// <returns></returns>
         public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
             string baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
