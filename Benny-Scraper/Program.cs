@@ -165,6 +165,7 @@ namespace Benny_Scraper
                             INovelService novelService = scope.Resolve<INovelService>();
                             Guid.TryParse(args[1], out Guid novelId);
                             await novelService.RemoveByIdAsync(novelId);
+                            logger.Info($"Novel with id: {args[1]} deleted.");
                         }
                         break;
                     default:

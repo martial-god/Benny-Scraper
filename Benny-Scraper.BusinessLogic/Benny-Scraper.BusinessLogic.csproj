@@ -9,6 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Scrapers\Strategy\Attributes\**" />
+    <EmbeddedResource Remove="Scrapers\Strategy\Attributes\**" />
+    <None Remove="Scrapers\Strategy\Attributes\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.46" />
     <PackageReference Include="NLog" Version="5.1.3" />
@@ -20,10 +26,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Benny-Scraper.DataAccess\Benny-Scraper.DataAccess.csproj" />
     <ProjectReference Include="..\Benny-Scraper.Models\Benny-Scraper.Models.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Scrapers\Strategy\Attributes\" />
   </ItemGroup>
 
 </Project>

@@ -27,12 +27,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Attr.Genres,
                     Attr.AlternativeNames,
                     Attr.Status,
-                    Attr.ThumbnailURL,
+                    Attr.ThumbnailUrl,
                     Attr.LastTableOfContentsPage,
-                    Attr.ChapterLinks,
+                    Attr.FirstChapterUrl,
                     Attr.LatestChapter
                 };
-                foreach(var attribute in attributesToFetch)
+                foreach (var attribute in attributesToFetch)
                 {
                     FetchContentByAttribute(attribute, novelData, htmlDocument, scraperData);
                 }
@@ -41,14 +41,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 //  As is, FetchContentByAttribute(Attr.LatestChapter ...) sets the NovelData's CurrentChapterUrl property.
                 //  It is probably best if the two naming schemes are unified, but I don't want to change the data members
                 //  of NovelData without consulting you first.
-                var fullLatestChapterUrl = new Uri(tableOfContents, novelData.CurrentChapterUrl.TrimStart('/')).ToString();
-                var fullThumbnailUrl = new Uri(tableOfContents, novelData.ThumbnailUrl.TrimStart('/')).ToString();
-                var fullTableOfContentUrl = new Uri(tableOfContents, novelData.LastTableOfContentsPageUrl.TrimStart('/')).ToString();
-                var firstChapterUrl = new Uri(tableOfContents, novelData.FirstChapter.TrimStart('/')).ToString();
+                var fullLatestChapterUrl = new Uri(tableOfContents, novelData.CurrentChapterUrl?.TrimStart('/')).ToString();
+                var fullThumbnailUrl = new Uri(tableOfContents, novelData.ThumbnailUrl?.TrimStart('/')).ToString();
+                var fullLastTableOfContentUrl = new Uri(tableOfContents, novelData.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
+                //var firstChapterUrl = new Uri(tableOfContents, novelData.FirstChapter?.TrimStart('/')).ToString() ?? null;
 
                 novelData.ThumbnailUrl = fullThumbnailUrl;
                 novelData.LastTableOfContentsPageUrl = fullLatestChapterUrl;
-                novelData.FirstChapter = firstChapterUrl;
+                //novelData.FirstChapter = firstChapterUrl;
+                novelData.LastTableOfContentsPageUrl = fullLastTableOfContentUrl;
             }
         }
     }
@@ -57,7 +58,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     {
         public override async Task<NovelData> ScrapeAsync()
         {
-            Logger.Info("Getting novel data");
+            Logger.Info($"Getting novel data for {this.GetType().Name}");
 
             SetBaseUri(_scraperData.SiteTableOfContents);
             var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);

@@ -19,8 +19,6 @@ namespace Benny_Scraper
 {
     public class StartUp
     {
-        private static readonly string _appSettings = "appsettings.json";
-        private static readonly string _connectionType = "DefaultConnection";
         public IConfiguration Configuration { get; }
 
         public StartUp(IConfiguration configuration)

@@ -4,6 +4,7 @@ using HtmlAgilityPack;
 using NLog;
 using System.Diagnostics;
 using System.Net;
+using System.Text;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -31,10 +32,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 //TODO: 'Status' is ambiguous. Should this attribute and the corresponding data member of NovelData be renamed
                 //  to clarify it's purpose?
                 Status,
-                ThumbnailURL,
+                ThumbnailUrl,
                 LastTableOfContentsPage,
                 ChapterUrls,
-                ChapterLinks,
+                FirstChapterUrl,
                 LatestChapter
             }
 
@@ -46,13 +47,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var titleNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelTitle);
                         if (titleNodes.Any())
                         {
-                            novelData.Title = titleNodes.First().InnerText.Trim();
+                            novelData.Title = HtmlEntity.DeEntitize(titleNodes.First().InnerText.Trim());
                         }
                         break;
 
                     case Attr.Author:
                         var authorNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelAuthor);
-                        novelData.Author = authorNode.InnerText.Trim();
+                        novelData.Author = HtmlEntity.DeEntitize(authorNode.InnerText.Trim());
                         break;
 
                     case Attr.Category:
@@ -71,17 +72,22 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     case Attr.Description:
                         var descriptionNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelDescription);
-                        novelData.Description = descriptionNodes.Select(description => description.InnerText.Trim()).ToList();
+                        novelData.Description = descriptionNodes.Select(description => HtmlEntity.DeEntitize(description.InnerText.Trim())).ToList();
                         break;
 
                     case Attr.Genres:
                         var genreNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelGenres);
-                        novelData.Genres = genreNodes.Select(genre => genre.InnerText.Trim()).ToList();
+                        novelData.Genres = genreNodes.Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())).ToList();
                         break;
 
                     case Attr.AlternativeNames:
                         var alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelAlternativeNames);
-                        novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
+                        List<string> alternateNames = alternateNameNodes.Select(alternateName => HtmlEntity.DeEntitize(alternateName.InnerText.Trim())).ToList();
+                        if (alternateNames.Any())
+                        {
+                            // SelectMany flattens a list of lists into a single list.
+                            novelData.AlternativeNames = alternateNames.SelectMany(altName => SplitByLanguage(altName)).ToList();
+                        }
                         break;
 
                     case Attr.Status:
@@ -90,7 +96,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         novelData.IsNovelCompleted = novelData.NovelStatus.ToLower().Contains(scraperData.SiteConfig.CompletedStatus);
                         break;
 
-                    case Attr.ThumbnailURL:
+                    case Attr.ThumbnailUrl:
                         var urlNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelThumbnailUrl);
                         var url = urlNode.Attributes[scraperData.SiteConfig?.Selectors.ThumbnailUrlAttribute].Value;
                         bool isValidHttpUrl = Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
@@ -110,15 +116,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.ChapterUrls:
-                        //TODO: Implement
-                        break;
-
-                    case Attr.ChapterLinks:
                         var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.ChapterLinks);
                         if (chapterLinkNodes.Any())
                         {
-                            novelData.FirstChapter = chapterLinkNodes.First().InnerText.Trim();
+                            novelData.ChapterUrls = chapterLinkNodes.Select(chapterLink => chapterLink.Attributes["href"].Value).ToList();
                         }
+                        break;
+
+                    case Attr.FirstChapterUrl:
+                        //TODO: Implement
                         break;
 
                     case Attr.LatestChapter:
@@ -132,10 +138,42 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             return;
                         }
                         novelData.CurrentChapterUrl = latestChapterNode.Attributes["href"].Value;
-                        novelData.MostRecentChapterTitle = latestChapterNode.InnerText;
+                        novelData.MostRecentChapterTitle = HtmlEntity.DeEntitize(latestChapterNode.InnerText);
                         break;
                 }
             }
+            
+            /// <summary>
+            /// Splits a string into a list of strings, each containing only characters from either the Asian or Latin alphabet.
+            /// </summary>
+            /// <param name="input"></param>
+            /// <returns></returns>
+            public static List<string> SplitByLanguage(string input)
+            {
+                List<string> result = new List<string>();
+                StringBuilder currentString = new StringBuilder();
+                bool? isLastCharAsian = null;
+
+                foreach (char c in input)
+                {
+                    //http://www.rikai.com/library/kanjitables/kanji_codes.unicode.shtml
+                    bool isCurrentCharAsian = (c >= 0x3000 && c <= 0x9FFF) || (c >= 0x4E00 && c <= 0x9FFF); // range of Asian characters
+
+                    if (isLastCharAsian.HasValue && isCurrentCharAsian != isLastCharAsian)
+                    {
+                        result.Add(currentString.ToString().Trim());
+                        currentString.Clear();
+                    }
+
+                    currentString.Append(c);
+                    isLastCharAsian = isCurrentCharAsian;
+                }
+
+                result.Add(currentString.ToString().Trim());
+
+                return result;
+            }
+
         }
     }
 
@@ -171,12 +209,23 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         public abstract Task<NovelData> ScrapeAsync();
         public abstract NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
+        public virtual Task<NovelData> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        {
+            // this method should always be overridden, I just needed a default implementation so other Strategies would not require it
+            return Task.Run(() => FetchNovelDataFromTableOfContents(htmlDocument));
+        }
 
         public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents)
         {
             SetSiteConfiguration(siteConfig);
             SetSiteTableOfContents(siteTableOfContents);
         }
+
+        public async Task<HtmlDocument> LoadHtmlPublicAsync(Uri uri)
+        {
+            return await LoadHtmlAsync(uri);
+        }
+
 
         protected static async Task<HtmlDocument> LoadHtmlAsync(Uri uri)
         {
@@ -222,7 +271,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
         /// <summary>
-        /// 
+        /// Gets the chapter urls from the table of contents page that requires pagination to get chapters.
         /// </summary>
         /// <param name="tableOfContentUri"></param>
         /// <param name="getAllChapters"></param>
@@ -416,13 +465,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Debug($"Chapter title: {chapterData.Title}");
 
                 HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-                var paragraphs = paragraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+                var paragraphs = paragraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
 
                 if (paragraphs.Count < MinimumParagraphThreshold)
                 {
                     Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
                     HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.AlternativeChapterContent);
-                    List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+                    List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
                     Logger.Info($"Alternate paragraphs count: {alternateParagraphs.Count}");
 
                     if (alternateParagraphs.Count > paragraphs.Count)
