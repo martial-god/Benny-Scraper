@@ -187,7 +187,7 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.HasIndex("NovelId");
 
-                    b.ToTable("NovelLists");
+                    b.ToTable("NovelLists", (string)null);
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.Page", b =>
@@ -211,7 +211,7 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.HasIndex("ChapterId");
 
-                    b.ToTable("Page");
+                    b.ToTable("Page", (string)null);
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>

@@ -96,7 +96,7 @@ namespace Benny_Scraper.BusinessLogic
                 FirstChapter = novelData.FirstChapter ?? string.Empty,
                 CurrentChapterUrl = novelData.CurrentChapterUrl ?? string.Empty
             };
-
+            Logger.Info("Finished populating Novel date for {0}", novelToAdd.Title);
             IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
 
             // Create Chapter objects and populate their properties
