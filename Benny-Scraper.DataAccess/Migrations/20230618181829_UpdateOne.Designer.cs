@@ -3,6 +3,7 @@ using System;
 using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(Database))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230618181829_UpdateOne")]
+    partial class UpdateOne
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.1");
@@ -26,7 +29,6 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnOrder(0);
 
                     b.Property<string>("Content")
-                        .IsRequired()
                         .HasColumnType("TEXT")
                         .HasColumnName("content")
                         .HasColumnOrder(7);
@@ -187,31 +189,35 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.HasIndex("NovelId");
 
-                    b.ToTable("NovelLists", (string)null);
+                    b.ToTable("NovelLists");
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.Page", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
 
                     b.Property<Guid>("ChapterId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("TEXT")
+                        .HasColumnName("chapter_id");
 
                     b.Property<byte[]>("Image")
                         .IsRequired()
-                        .HasColumnType("BLOB");
+                        .HasColumnType("BLOB")
+                        .HasColumnName("image");
 
                     b.Property<string>("Url")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("TEXT")
+                        .HasColumnName("url");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ChapterId");
 
-                    b.ToTable("Page", (string)null);
+                    b.ToTable("page", (string)null);
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>

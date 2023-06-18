@@ -32,7 +32,7 @@ namespace Benny_Scraper.BusinessLogic
             _novelScraper = novelScraper;
             _novelScraperSettings = novelScraperSettings.Value;
             _epubGenerator = epubGenerator;
-        }        
+        }
 
         public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
         {
@@ -78,41 +78,11 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            // Create a new Novel object and populate its properties
-            Novel novelToAdd = new Novel
-            {
-                Title = novelData.Title ?? string.Empty,
-                Author = novelData.Author,
-                Url = novelTableOfContentsUri.ToString() ?? string.Empty,
-                Genre = string.Join(", ", novelData.Genres),
-                Description = string.Join(" ", novelData.Description),
-                DateCreated = DateTime.Now,
-                DateLastModified = DateTime.Now,
-                Status = novelData.NovelStatus,
-                LastTableOfContentsUrl = novelData.LastTableOfContentsPageUrl,
-                LastChapter = novelData.IsNovelCompleted,
-                CurrentChapter = novelData.MostRecentChapterTitle ?? string.Empty,
-                SiteName = novelTableOfContentsUri.Host ?? string.Empty,
-                FirstChapter = novelData.FirstChapter ?? string.Empty,
-                CurrentChapterUrl = novelData.CurrentChapterUrl ?? string.Empty
-            };
-            Logger.Info("Finished populating Novel date for {0}", novelToAdd.Title);
+            Novel novelToAdd = CreateNovel(novelData, novelTableOfContentsUri);
+            Logger.Info("Finished populating Novel data for {0}", novelToAdd.Title);
+
             IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
-
-            // Create Chapter objects and populate their properties
-            List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter
-            {
-                NovelId = novelToAdd.Id,
-                Url = data.Url ?? string.Empty,
-                Content = data.Content ?? string.Empty,
-                Title = data.Title ?? string.Empty,
-                Number = data.Number,
-                DateCreated = DateTime.Now,
-                DateLastModified = data.DateLastModified
-            }).ToList();
-
-            // Add chapters to the novel
-            novelToAdd.Chapters = chaptersToAdd;
+            novelToAdd.Chapters = CreateChapters(chapterDatas, novelToAdd.Id);
 
             string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
@@ -175,6 +145,46 @@ namespace Benny_Scraper.BusinessLogic
             _epubGenerator.CreateEpub(novel, newChapters, epubFile, novelData.ThumbnailImage);
 
             await _novelService.UpdateAndAddChapters(novel, newChapters);
+        }
+
+        private Novel CreateNovel(NovelData novelData, Uri novelTableOfContentsUri)
+        {
+            return new Novel
+            {
+                Title = novelData.Title ?? string.Empty,
+                Author = novelData.Author,
+                Url = novelTableOfContentsUri.ToString(),
+                Genre = string.Join(", ", novelData.Genres),
+                Description = string.Join(" ", novelData.Description),
+                DateCreated = DateTime.Now,
+                DateLastModified = DateTime.Now,
+                Status = novelData.NovelStatus,
+                LastTableOfContentsUrl = novelData.LastTableOfContentsPageUrl,
+                LastChapter = novelData.IsNovelCompleted,
+                CurrentChapter = novelData.MostRecentChapterTitle ?? string.Empty,
+                SiteName = novelTableOfContentsUri.Host ?? string.Empty,
+                FirstChapter = novelData.FirstChapter ?? string.Empty,
+                CurrentChapterUrl = novelData.CurrentChapterUrl ?? string.Empty
+            };
+        }
+
+        private List<Chapter> CreateChapters(IEnumerable<ChapterData> chapterDatas, Guid novelId)
+        {
+            return chapterDatas.Select(data => new Chapter
+            {
+                NovelId = novelId,
+                Url = data.Url ?? string.Empty,
+                Content = data.Content,
+                Title = data.Title ?? string.Empty,
+                Number = data.Number,
+                Pages = data.Pages?.Select(p => new Page
+                {
+                    Url = p.Url,
+                    Image = p.Image
+                }).ToList(),
+                DateCreated = DateTime.Now,
+                DateLastModified = data.DateLastModified
+            }).ToList();
         }
 
         private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)

@@ -100,13 +100,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var urlNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelThumbnailUrl);
                         var url = urlNode.Attributes[scraperData.SiteConfig?.Selectors.ThumbnailUrlAttribute].Value;
                         bool isValidHttpUrl = Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
-                        Uri absoluteUri = isValidHttpUrl ? new Uri(url) : new Uri(scraperData.BaseUri, url);                        
+                        Uri absoluteUri = isValidHttpUrl ? new Uri(url) : new Uri(scraperData.BaseUri, url);
                         using (var client = new HttpClient())
                         {
                             var thumbnailBytes = client.GetByteArrayAsync(absoluteUri).Result;
                             novelData.ThumbnailImage = thumbnailBytes;
                         }
-                        novelData.ThumbnailUrl = url;                        
+                        novelData.ThumbnailUrl = url;
                         break;
 
                     case Attr.LastTableOfContentsPage:
@@ -142,7 +142,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
                 }
             }
-            
+
             /// <summary>
             /// Splits a string into a list of strings, each containing only characters from either the Asian or Latin alphabet.
             /// </summary>
@@ -193,7 +193,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public const int MinimumParagraphThreshold = 5;
         protected const int TotalPossiblePaginationTabs = 6;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-        
+
         protected static readonly NovelScraperSettings _settings = new NovelScraperSettings();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         protected static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit, ConcurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting

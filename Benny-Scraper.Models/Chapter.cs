@@ -8,23 +8,24 @@ namespace Benny_Scraper.Models
     /// </summary>
     public class Chapter
     {
+        [Key]
         public Guid Id { get; set; }
         public Guid NovelId { get; set; }
         public Novel Novel { get; set; }
         [StringLength(255)]
         public string? Title { get; set; }
         public string Url { get; set; }
-        public string Content { get; set; }
+        public string? Content { get; set; }
         public string Number { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }
-        public List<Page> Pages { get; set; } // New property for manga pages
+        public virtual ICollection<Page>? Pages { get; set; } // New property for manga pages
     }
 
     public class ChapterData
     {
         public string Url { get; set; }
-        public string Content { get; set; }
+        public string? Content { get; set; }
         public string Title { get; set; }
         public string Number
         {
@@ -35,16 +36,7 @@ namespace Benny_Scraper.Models
             }
         }
         public DateTime DateLastModified { get; set; }
-        public List<PageData> Pages { get; set; } // New property for manga pages
-    }
-
-    public class Page
-    {
-        public Guid Id { get; set; }
-        public Guid ChapterId { get; set; }
-        public Chapter Chapter { get; set; }
-        public string Url { get; set; }
-        public byte[] Image { get; set; }
+        public ICollection<PageData>? Pages { get; set; } // New property for manga pages
     }
 
     public class PageData

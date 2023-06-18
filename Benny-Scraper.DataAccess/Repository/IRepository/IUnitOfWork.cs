@@ -10,6 +10,7 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
         IChapterRepository Chapter { get; }
         INovelRepository Novel { get; }
         INovelListRepository NovelList { get; }
+        IPageRepository Page { get; }
         Task<int> SaveAsync();
     }
 }

@@ -13,12 +13,14 @@ namespace Benny_Scraper.DataAccess.Repository
             Chapter = new ChapterRepository(_db);
             Novel = new NovelRepository(_db);
             NovelList = new NovelListRepository(_db);
+            Page = new PageRepository(_db);
 
         }
 
         public IChapterRepository Chapter { get; private set; }
         public INovelRepository Novel { get; private set; }
         public INovelListRepository NovelList { get; private set; }
+        public IPageRepository Page { get; private set; }
 
         public Task<int> SaveAsync()
         {
