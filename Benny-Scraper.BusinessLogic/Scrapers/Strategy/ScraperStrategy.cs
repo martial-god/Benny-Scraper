@@ -2,6 +2,7 @@
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
+using OpenQA.Selenium.Chrome;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -447,6 +448,71 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             _scraperData.SiteTableOfContents = siteTableOfContents;
         }
 
+        private async Task<ChapterData> GetChapterData2Async(string url)
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var chapterData = new ChapterData();
+            Logger.Info($"Navigating to {url}");
+
+            var chromeDriverService = ChromeDriverService.CreateDefaultService(); // needs to be first in order to have the driver ready when called asycnhronously
+            //chromeDriverService.HideCommandPromptWindow = true;
+            // Use Selenium to load the page
+            var chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments("--no-sandbox", "--disable-web-security", "--disable-gpu", "--hide-scrollbars", "window-size=1920,1080");
+            //chromeOptions.AddArguments("--headless"); // Make sure it runs in headless mode
+            using (var driver = new ChromeDriver(chromeDriverService, chromeOptions))
+            {
+                driver.Navigate().GoToUrl(url);
+
+                // Wait for the images to load
+                //await Task.Delay(5000); // Adjust this delay as needed
+
+                // Get the page source
+                var html = driver.PageSource;
+
+                // Parse the HTML with HtmlAgilityPack
+                var htmlDocument = new HtmlDocument();
+                htmlDocument.LoadHtml(html);
+
+                Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                stopwatch.Restart();
+
+                try
+                {
+                    if (_scraperData.SiteConfig.HasImagesForChapterContent)
+                    {
+                        HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
+                        var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value).ToList();
+
+                        using (var client = new HttpClient())
+                        {
+                            var pageDataTasks = pageUrls.Select(async pageUrl =>
+                            {
+                                var pageBytes = await client.GetByteArrayAsync(pageUrl);
+                                return new PageData
+                                {
+                                    Url = pageUrl,
+                                    Image = pageBytes
+                                };
+                            });
+
+                            chapterData.Pages = await Task.WhenAll(pageDataTasks);
+                        }
+                    }
+
+                    // Rest of your code...
+                }
+                finally
+                {
+                    driver.Quit(); // Make sure to quit the driver when done
+                }
+            }
+            return chapterData;
+        }
+
+
         private async Task<ChapterData> GetChapterDataAsync(string url)
         {
             var stopwatch = new Stopwatch();
@@ -460,6 +526,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
+                if (_scraperData.SiteConfig.HasImagesForChapterContent)
+                {
+                    HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
+                    var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
+                }
+
                 HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
                 chapterData.Title = titleNode.InnerText.Trim();
                 Logger.Debug($"Chapter title: {chapterData.Title}");
@@ -480,9 +552,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         paragraphs = alternateParagraphs;
                     }
                 }
-
-                Logger.Info($"Finished retrieving chapter content. Time taken: {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
 
                 chapterData.Content = string.Join("\n", paragraphs);
                 int contentCount = chapterData.Content.Count(c => c == '\n');
