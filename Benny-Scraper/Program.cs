@@ -123,7 +123,8 @@ namespace Benny_Scraper
             List<string> supportedSites = new List<string>
                 {
                     "\nWebnovel Pub (https://www.webnovelpub.com/)",
-                    "Novel Full (https://www.novelfull.com/)"
+                    "Novel Full (https://www.novelfull.com/)",
+                    "Manga Fire (https://mangafire.to/)",
                 };
 
             string instructions = "\n" + $@"Welcome to our novel scraper application!
