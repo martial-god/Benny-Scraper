@@ -1,4 +1,5 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
+﻿using AngleSharp.Dom;
+using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.Models;
@@ -8,6 +9,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
+using System;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -264,6 +266,38 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");
         }
 
+        protected static async Task<byte[]> LoadByteArrayAsync(Uri uri)
+        {
+            var uriString = uri.ToString();
+            uriString = uriString.Replace("amp;", "");
+            uri = new Uri(uriString);
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+
+            int retryCount = 0;
+            while (retryCount < MaxRetries)
+            {
+                try
+                {
+                    var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
+                    var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
+                    requestMessage.Headers.Add("User-Agent", userAgent);
+                    var response = await _client.SendAsync(requestMessage);
+                    response.EnsureSuccessStatusCode();
+                    var bytes = await response.Content.ReadAsByteArrayAsync();
+
+                    return bytes;
+                }
+                catch (HttpRequestException e)
+                {
+                    retryCount++;
+                    Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
+                    await Task.Delay(3000);
+                }
+            }
+            throw new HttpRequestException($"Failed to load byte array from {uri} after {MaxRetries} attempts.");
+        }
+
+
         protected virtual Uri TrimLastUriSegment(Uri siteUri)
         {
             string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate(
@@ -360,19 +394,32 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             try
             {
                 Logger.Info("Getting chapters data");
-                List<Task<ChapterData>> tasks = new List<Task<ChapterData>>();
-                IDriverFactory driverFactory = new DriverFactory();
-                var driver = await driverFactory.CreateDriverAsync(chapterUrls.First());
-                var foo = GetChapterData2Async(driver, chapterUrls);
-                //foreach (var url in chapterUrls)
-                //{
-                //    await _semaphoreSlim.WaitAsync();
-                //    tasks.Add(GetChapterDataAsync(url));
-                //}
+                var tasks = new List<Task<ChapterData>>();
+                var chapterData = new List<ChapterData>();
 
-                ChapterData[] chapterData = await Task.WhenAll(tasks);
-                Logger.Info("Finished getting chapters data");
-                return chapterData.ToList();
+                if (chapterUrls.Any(url => url.Contains("https://mangakakalot.to/")))
+                {
+                    // if so, use selenium to get the data
+                    IDriverFactory driverFactory = new DriverFactory();
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First());
+                    var foo = await GetChapterData2Async(driver, chapterUrls);
+                    // Use the result from GetChapterData2Async
+                    chapterData.Add(foo);
+                }
+                else
+                {
+                    // otherwise, use html agility pack
+                    foreach (var url in chapterUrls)
+                    {
+                        await _semaphoreSlim.WaitAsync();
+                        tasks.Add(GetChapterDataAsync(url));
+                        _semaphoreSlim.Release(); // You need to release the semaphore
+                    }
+                    var taskResults = await Task.WhenAll(tasks);
+                    chapterData.AddRange(taskResults);
+                    Logger.Info("Finished getting chapters data");
+                }
+                return chapterData;
             }
             catch (Exception ex)
             {
@@ -380,6 +427,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 throw;
             }
         }
+
 
 
         protected virtual List<string> GetChapterUrlsInRange(HtmlDocument htmlDocument, Uri baseSiteUri, int? startChapter = null, int? endChapter = null)
@@ -472,9 +520,36 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // get the html of the page then load it into a html document
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
+            driver.Quit();
+
+            HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
+            chapterData.Title = titleNode.InnerText.Trim() ?? string.Empty;
+            Logger.Debug($"Chapter title: {chapterData.Title}");
 
             HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
             var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
+            bool isValidHttpUrls = pageUrls.Select(url => Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)).All(value => value);
+            
+            if (!isValidHttpUrls)
+            {
+                Logger.Error("Invalid page urls");
+                return chapterData;
+            }
+
+            chapterData.Pages = new List<PageData>();
+            foreach (var url in pageUrls)
+            {
+                Logger.Info($"Getting page image from {url}");
+                stopwatch.Reset();
+                var imageBytes = await LoadByteArrayAsync(new Uri(url));
+                Logger.Info($"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                chapterData.Pages.Add(new PageData
+                {
+                    Url = url,
+                    Image = imageBytes
+                });
+            }
+            chapterData.Url = urls.First();
 
             return chapterData;
         }

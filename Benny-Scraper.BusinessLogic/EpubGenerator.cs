@@ -14,6 +14,7 @@ namespace Benny_Scraper.BusinessLogic
 {
     /// <summary>
     /// Generates an epub file from a novel and its chapters. Using Epub Version 3.2 https://en.wikipedia.org/wiki/EPUB#Open_Container_Format_3.2
+    /// Validation for files can be done at https://validator.w3.org/check
     /// </summary>
     public class EpubGenerator : IEpubGenerator
     {
@@ -66,7 +67,33 @@ namespace Benny_Scraper.BusinessLogic
                     subjectItems += $"<dc:subject>{tag}</dc:subject>";
                 }
 
-                int chapterIndex = 1;
+                // save cover image
+                string coverImageFileName = "cover.png";
+                string coverImageFilePath = Path.Combine(oebpsDirectory, coverImageFileName);
+
+                if (coverImage != null)
+                {
+                    Logger.Info("Saving cover image to {0}", coverImageFilePath);
+                    File.WriteAllBytes(coverImageFilePath, coverImage);
+                    Logger.Info("Cover image saved");
+                }
+
+                // create intro page
+                int chapterIndex = 0;
+                string introTitle = novel.Title;
+                string introImage = "../" + coverImageFileName;
+                string introDescription = novel.Description;
+
+                string introFileName = $"000{chapterIndex}_intro.xhtml";
+                string introFilePath = Path.Combine(textDirectory, introFileName);
+
+                string introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, introDescription);
+                File.WriteAllText(introFilePath, introContent);
+
+                manifestItems += $"<item id=\"intro\" href=\"Text/{introFileName}\" media-type=\"application/xhtml+xml\"/>";
+                spineItems += $"<itemref idref=\"intro\"/>";
+
+                chapterIndex++;
                 Logger.Info("Creating chapters and adding to manifest and spine");
                 foreach (var chapter in chapters)
                 {
@@ -96,18 +123,19 @@ namespace Benny_Scraper.BusinessLogic
                 contentOpf.Save(Path.Combine(oebpsDirectory, "content.opf"));
                 Logger.Info("content.opf saved");
 
-                if (coverImage != null)
-                {
-                    string coverImageFilePath = Path.Combine(oebpsDirectory, "cover.png");
-                    Logger.Info("Saving cover image to {0}", coverImageFilePath);
-                    File.WriteAllBytes(coverImageFilePath, coverImage);
-                    Logger.Info("Cover image saved");
-                }
-
                 // Create nav.xhtml
                 XmlDocument navXhtml = new XmlDocument();
                 navXhtml.LoadXml(_epubTemplates.NavXhtml);
                 var navList = navXhtml.SelectSingleNode("//*[local-name()='ol']");
+
+                // Add the intro page to the navigation
+                XmlElement navItemIntro = navXhtml.CreateElement("li");
+                XmlElement navLinkIntro = navXhtml.CreateElement("a");
+                navLinkIntro.SetAttribute("href", $"Text/{introFileName}");
+                navLinkIntro.InnerText = introTitle;
+                navItemIntro.AppendChild(navLinkIntro);
+                navList?.AppendChild(navItemIntro);
+
                 chapterIndex = 1;
                 foreach (var chapter in chapters)
                 {
@@ -119,7 +147,7 @@ namespace Benny_Scraper.BusinessLogic
                     navLink.SetAttribute("href", $"Text/{chapterFileName}");
                     navLink.InnerText = chapter.Title;
                     navItem.AppendChild(navLink);
-                    navList.AppendChild(navItem);
+                    navList?.AppendChild(navItem);
 
                     chapterIndex++;
                 }

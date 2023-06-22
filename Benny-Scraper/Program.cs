@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Targets;
 using System.Diagnostics;
+using System.Text;
 
 namespace Benny_Scraper
 {
@@ -30,6 +31,7 @@ namespace Benny_Scraper
         static async Task Main(string[] args)
         {
             SetupLogger();
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             Logger.Info("Application Started");
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();

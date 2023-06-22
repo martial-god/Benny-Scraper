@@ -12,5 +12,6 @@
         public string NavCss { get; set; }
         public string TocCss { get; set; }
         public XmlSelectors XmlSelectors { get; set; }
+        public string IntroContent { get; set; }
     }
 }
