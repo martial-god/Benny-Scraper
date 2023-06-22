@@ -514,10 +514,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Navigating to {urls.First()}");
             //driver.Navigate().GoToUrl(urls.First());
             Logger.Info($"Finished navigating to {urls.First()} Time taken: {stopwatch.ElapsedMilliseconds} ms");
-            // wait for presence of element using by xpath
-            //var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-            //wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath("[@class='card-wrap']")));
-            // get the html of the page then load it into a html document
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
             driver.Quit();
