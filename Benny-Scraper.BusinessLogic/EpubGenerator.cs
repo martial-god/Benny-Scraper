@@ -80,7 +80,7 @@ namespace Benny_Scraper.BusinessLogic
 
                 // create intro page
                 int chapterIndex = 0;
-                string introTitle = novel.Title;
+                string introTitle = "Information";
                 string introImage = "../" + coverImageFileName;
                 string introDescription = novel.Description;
 

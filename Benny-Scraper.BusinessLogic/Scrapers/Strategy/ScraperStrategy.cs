@@ -413,10 +413,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     {
                         await _semaphoreSlim.WaitAsync();
                         tasks.Add(GetChapterDataAsync(url));
-                        _semaphoreSlim.Release(); // You need to release the semaphore
                     }
                     var taskResults = await Task.WhenAll(tasks);
                     chapterData.AddRange(taskResults);
+                    
+
                     Logger.Info("Finished getting chapters data");
                 }
                 return chapterData;
