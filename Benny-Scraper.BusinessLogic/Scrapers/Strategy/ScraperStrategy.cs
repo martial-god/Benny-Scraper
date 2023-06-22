@@ -1,15 +1,10 @@
-﻿using AngleSharp.Dom;
-using Benny_Scraper.BusinessLogic.Config;
+﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
-using SeleniumExtras.WaitHelpers;
-using System;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -388,7 +383,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterUrls;
         }
 
-
         public virtual async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls)
         {
             try
@@ -399,16 +393,20 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 if (chapterUrls.Any(url => url.Contains("https://mangakakalot.to/")))
                 {
-                    // if so, use selenium to get the data
+                    Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
                     var driver = await driverFactory.CreateDriverAsync(chapterUrls.First());
-                    var foo = await GetChapterData2Async(driver, chapterUrls);
-                    // Use the result from GetChapterData2Async
-                    chapterData.Add(foo);
+                    foreach (var url in chapterUrls)
+                    {
+                        tasks.Add(GetChapterData2Async(driver, url));
+                    }
+                    var taskResults = await Task.WhenAll(tasks);
+                    chapterData.AddRange(taskResults);
+                    driver.Quit();
                 }
                 else
                 {
-                    // otherwise, use html agility pack
+                    Logger.Info("Using HttpClient to get chapters data");
                     foreach (var url in chapterUrls)
                     {
                         await _semaphoreSlim.WaitAsync();
@@ -416,7 +414,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     }
                     var taskResults = await Task.WhenAll(tasks);
                     chapterData.AddRange(taskResults);
-                    
 
                     Logger.Info("Finished getting chapters data");
                 }
@@ -505,19 +502,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             _scraperData.SiteTableOfContents = siteTableOfContents;
         }
 
-        private async Task<ChapterData> GetChapterData2Async(IWebDriver driver, List<string> urls)
+        private async Task<ChapterData> GetChapterData2Async(IWebDriver driver, string urls)
         {
-
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
             var chapterData = new ChapterData();
-            Logger.Info($"Navigating to {urls.First()}");
-            //driver.Navigate().GoToUrl(urls.First());
-            Logger.Info($"Finished navigating to {urls.First()} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+            Logger.Info($"Navigating to {urls}");
+            driver.Navigate().GoToUrl(urls);
+            Logger.Info($"Finished navigating to {urls} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
-            driver.Quit();
+            
 
             HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
             chapterData.Title = titleNode.InnerText.Trim() ?? string.Empty;
@@ -526,7 +522,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
             var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
             bool isValidHttpUrls = pageUrls.Select(url => Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)).All(value => value);
-            
+
             if (!isValidHttpUrls)
             {
                 Logger.Error("Invalid page urls");
@@ -546,7 +542,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Image = imageBytes
                 });
             }
-            chapterData.Url = urls.First();
+            chapterData.Url = urls;
 
             return chapterData;
         }
