@@ -126,7 +126,7 @@ namespace Benny_Scraper
                 {
                     "\nWebnovel Pub (https://www.webnovelpub.com/)",
                     "Novel Full (https://www.novelfull.com/)",
-                    "Manga Fire (https://mangafire.to/)",
+                    "Mangakakalot (https://mangakakalot.to/)",
                 };
 
             string instructions = "\n" + $@"Welcome to our novel scraper application!
