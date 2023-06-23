@@ -141,14 +141,28 @@ namespace Benny_Scraper.BusinessLogic
         private void CreatePdf(Novel novel, IEnumerable<ChapterData> chapterDatas, string documentsFolder)
         {
             string pdfFile = Path.Combine(documentsFolder, $"{novel.Title}.pdf");
-            CreatePdf(novel, chapterDatas.First(), pdfFile);
+            Logger.Info(new string('=', 50));
+            Console.ForegroundColor = ConsoleColor.Blue;
+            CreatePdfs(novel, chapterDatas, pdfFile);
+            Console.Write($"Total chapters: {chapterDatas.Count()}\nPDF file created at: {pdfFile}\n");
+            var result = _epubGenerator.ExecuteCommand($"calibredb add \"{pdfFile}\"");
+            Logger.Info($"Command executed with code: {result}");
+            Console.ResetColor();
+            Logger.Info(new string('=', 50));
         }
 
-        private void CreatePdf(Novel novel, ChapterData chapterData, string pdfFilePath)
+        private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfFilePath)
         {
-            var images = chapterData.Pages.Select(page => page.Image).ToList();
+            var images = chapterData.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Select(page => page.Image).ToList();
+            Console.WriteLine($"Total images: {images.Count}");
             // Create a new PDF document
             PdfDocument document = new PdfDocument();
+
+            document.Info.Title = novel.Title;
+            document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
+            document.Info.Subject = novel.Genre;
+            document.Info.Keywords = novel.Genre;
+
 
             foreach (var imageBytes in images)
             {

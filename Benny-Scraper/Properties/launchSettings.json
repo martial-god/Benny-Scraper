@@ -1,5 +1,9 @@
 {
   "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
     "Benny-Scraper": {
       "commandName": "Project"
     }

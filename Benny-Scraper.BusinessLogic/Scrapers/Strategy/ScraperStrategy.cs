@@ -5,6 +5,8 @@ using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
 using OpenQA.Selenium;
+using OpenQA.Selenium.Support.UI;
+using SeleniumExtras.WaitHelpers;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -50,13 +52,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var titleNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelTitle);
                         if (titleNodes.Any())
                         {
-                            novelData.Title = HtmlEntity.DeEntitize(titleNodes.First().InnerText.Trim());
+                            novelData.Title = titleNodes != null ? HtmlEntity.DeEntitize(titleNodes.First().InnerText.Trim()) : string.Empty;
                         }
                         break;
 
                     case Attr.Author:
                         var authorNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelAuthor);
-                        novelData.Author = HtmlEntity.DeEntitize(authorNode.InnerText.Trim());
+                        novelData.Author = authorNode != null ? HtmlEntity.DeEntitize(authorNode.InnerText.Trim()) : string.Empty;
                         break;
 
                     case Attr.Category:
@@ -391,14 +393,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 var tasks = new List<Task<ChapterData>>();
                 var chapterData = new List<ChapterData>();
 
-                if (chapterUrls.Any(url => url.Contains("https://mangakakalot.to/")))
+                if (_scraperData.SiteConfig.HasImagesForChapterContent)
                 {
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
-                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First());
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
                     foreach (var url in chapterUrls)
                     {
-                        tasks.Add(GetChapterData2Async(driver, url));
+                        tasks.Add(GetChapterDataAsync(driver, url));
                     }
                     var taskResults = await Task.WhenAll(tasks);
                     chapterData.AddRange(taskResults);
@@ -502,7 +504,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             _scraperData.SiteTableOfContents = siteTableOfContents;
         }
 
-        private async Task<ChapterData> GetChapterData2Async(IWebDriver driver, string urls)
+        private async Task<ChapterData> GetChapterDataAsync(IWebDriver driver, string urls)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -510,6 +512,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var chapterData = new ChapterData();
             Logger.Info($"Navigating to {urls}");
             driver.Navigate().GoToUrl(urls);
+            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+            wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
             Logger.Info($"Finished navigating to {urls} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
@@ -561,12 +565,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
-                if (_scraperData.SiteConfig.HasImagesForChapterContent)
-                {
-                    HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-                    var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
-                }
-
                 HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
                 chapterData.Title = titleNode.InnerText.Trim();
                 Logger.Debug($"Chapter title: {chapterData.Title}");
