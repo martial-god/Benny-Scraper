@@ -35,8 +35,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {                
                 if (attribute == Attr.ChapterUrls)
                 {
-                    var htmlDocumentForChapterUrls = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
-                    FetchContentByAttribute(attribute, novelData, htmlDocumentForChapterUrls, scraperData);
+                    FetchContentByAttribute(attribute, novelData, htmlDocument, scraperData);
                     if (novelData.ChapterUrls.Any())
                     {
                         // chapters are in reverse order
