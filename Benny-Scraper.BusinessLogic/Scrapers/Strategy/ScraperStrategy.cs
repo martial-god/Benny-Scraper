@@ -122,10 +122,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     case Attr.ChapterUrls:
                         var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.ChapterLinks);
-                        if (chapterLinkNodes.Any())
+                        List<string> chapterUrls = chapterLinkNodes.Select(chapterLink => chapterLink.Attributes["href"].Value).ToList();
+                        if (chapterUrls.Any() && !IsValidHttpUrl(chapterUrls.First()))
                         {
-                            novelData.ChapterUrls = chapterLinkNodes.Select(chapterLink => chapterLink.Attributes["href"].Value).ToList();
+                            chapterUrls = chapterUrls.Select(chapterUrl => new Uri(scraperData.BaseUri, chapterUrl).ToString()).ToList();
                         }
+                        novelData.ChapterUrls = chapterUrls;
                         break;
 
                     case Attr.FirstChapterUrl:
@@ -177,6 +179,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 result.Add(currentString.ToString().Trim());
 
                 return result;
+            }
+
+            public static bool IsValidHttpUrl(string url)
+            {
+                return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
             }
 
         }
