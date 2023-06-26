@@ -70,6 +70,7 @@ namespace Benny_Scraper.BusinessLogic
 
         }
 
+        #region Private Methods
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
             NovelData novelData = await scraperStrategy.ScrapeAsync();
@@ -253,5 +254,6 @@ namespace Benny_Scraper.BusinessLogic
             List<SiteConfiguration> siteConfigurations = _novelScraperSettings.SiteConfigurations;
             return siteConfigurations.FirstOrDefault(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern));
         }
+        #endregion
     }
 }

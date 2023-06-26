@@ -30,6 +30,7 @@ namespace Benny_Scraper.BusinessLogic
             AddSiteToMap("https://www.webnovelpub.com", new WebNovelPubStrategy());
             AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
             AddSiteToMap("https://mangakakalot.to", new MangaKakalotStrategy());
+            AddSiteToMap("https://www.mangareader.to", new MangaReaderStrategy());
         }
         #endregion
 

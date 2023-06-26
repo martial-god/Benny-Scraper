@@ -1,14 +1,20 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using AngleSharp.Dom;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
     /// <summary>
-    /// Strategy for https://mangakakalot.to/
+    /// Strategy for https://mangareader.to/
     /// </summary>
-    public class MangaKakalotInitializer : NovelDataInitializer
+    public class MangaReaderInitializer : NovelDataInitializer
     {
         public static async Task FetchNovelContentAsync(NovelData novelData, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
         {
@@ -32,7 +38,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             };
 
             foreach (var attribute in attributesToFetch)
-            {                
+            {
                 if (attribute == Attr.ChapterUrls)
                 {
                     var htmlDocumentForChapterUrls = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
@@ -59,7 +65,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
     }
 
-    public class MangaKakalotStrategy : ScraperStrategy
+    public class MangaReaderStrategy : ScraperStrategy
     {
         public override async Task<NovelData> ScrapeAsync()
         {
