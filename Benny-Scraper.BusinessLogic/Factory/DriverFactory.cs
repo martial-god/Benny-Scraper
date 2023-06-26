@@ -1,11 +1,19 @@
-﻿using Benny_Scraper.Interfaces;
+﻿using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using System.Collections.Concurrent;
 using WebDriverManager.DriverConfigs.Impl;
 
-namespace Benny_Scraper
+namespace Benny_Scraper.BusinessLogic.Factory
 {
+    public enum Broswer
+    {
+        Chrome,
+        Firefox,
+        Edge,
+        IE
+    }
+
     public class DriverFactory : IDriverFactory
     {
         private ConcurrentDictionary<int, IWebDriver> _drivers; // thread-safe version of the dictionary, no need to worry about multiple threads making changes
@@ -26,7 +34,7 @@ namespace Benny_Scraper
         /// <param name="url"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public IWebDriver CreateDriver(int browser, bool isHeadless, string url)
+        public IWebDriver CreateDriver(string url, int browser, bool isHeadless)
         {
             switch (browser)
             {
@@ -59,7 +67,7 @@ namespace Benny_Scraper
         /// <param name="isHeadless"></param>
         /// <param name="url"></param>
         /// <returns></returns>
-        public async Task<IWebDriver> CreateDriverAsync(int browser, bool isHeadless, string url)
+        public async Task<IWebDriver> CreateDriverAsync(string url, int browser, bool isHeadless)
         {
             switch (browser)
             {
@@ -77,7 +85,7 @@ namespace Benny_Scraper
                     IWebDriver driver = await Task.Run(() => new ChromeDriver(chromeDriverService, chromeOptions));
                     driver.Url = url;
 
-                    int id = Interlocked.Increment(ref _counter); // increment the counter in a thread-safe way atomically
+                    int id = Interlocked.Increment(ref _counter); // increment the counter in a thread-safe way atomatically
                     _drivers.TryAdd(id, driver); // thread safe way off adding to ConcurrentDictionary
 
                     return driver;

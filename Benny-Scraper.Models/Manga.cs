@@ -5,7 +5,7 @@ namespace Benny_Scraper.Models
     public class Manga
     {
         [Key]
-        public Guid Id { get; set; }
+        public int Id { get; set; }
         public ICollection<Chapter> Chapters { get; set; }
 
         [Required]
@@ -33,33 +33,4 @@ namespace Benny_Scraper.Models
         [StringLength(255)]
         public string? SaveLocation { get; set; }
     }
-
-    public class MangaData
-    {
-        public MangaData()
-        {
-            ChapterUrls = new List<string>();
-            Description = new List<string>();
-            Genres = new List<string>();
-            AlternativeNames = new List<string>();
-        }
-
-        public string Title { get; set; }
-        public List<string> ChapterUrls { get; set; }
-        public string MangaStatus { get; set; }
-        public string LastTableOfContentsPageUrl { get; set; }
-        public bool IsMangaCompleted { get; set; }
-        public string ThumbnailUrl { get; set; }
-        public double Rating { get; set; }
-        public int TotalRatings { get; set; }
-        public List<string>? Description { get; set; }
-        public string Author { get; set; }
-        public List<string> Genres { get; set; }
-        public List<string> AlternativeNames { get; set; }
-        public string MostRecentChapterTitle { get; set; }
-        public string CurrentChapterUrl { get; set; }
-        public string FirstChapter { get; set; }
-        public byte[]? ThumbnailImage { get; set; }
-    }
-
 }

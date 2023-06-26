@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BennyScraper.DataAccess.Migrations
 {
     /// <inheritdoc />
-    public partial class InitalCreate : Migration
+    public partial class InitialCreateWithPages : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -84,6 +84,27 @@ namespace BennyScraper.DataAccess.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "page",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    chapterid = table.Column<Guid>(name: "chapter_id", type: "TEXT", nullable: false),
+                    url = table.Column<string>(type: "TEXT", nullable: false),
+                    image = table.Column<byte[]>(type: "BLOB", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_page", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_page_chapter_chapter_id",
+                        column: x => x.chapterid,
+                        principalTable: "chapter",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_chapter_novel_id",
                 table: "chapter",
@@ -93,16 +114,24 @@ namespace BennyScraper.DataAccess.Migrations
                 name: "IX_NovelLists_NovelId",
                 table: "NovelLists",
                 column: "NovelId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_page_chapter_id",
+                table: "page",
+                column: "chapter_id");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "chapter");
+                name: "NovelLists");
 
             migrationBuilder.DropTable(
-                name: "NovelLists");
+                name: "page");
+
+            migrationBuilder.DropTable(
+                name: "chapter");
 
             migrationBuilder.DropTable(
                 name: "novel");

@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Targets;
 using System.Diagnostics;
+using System.Text;
 
 namespace Benny_Scraper
 {
@@ -30,6 +31,7 @@ namespace Benny_Scraper
         static async Task Main(string[] args)
         {
             SetupLogger();
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             Logger.Info("Application Started");
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();
@@ -123,7 +125,8 @@ namespace Benny_Scraper
             List<string> supportedSites = new List<string>
                 {
                     "\nWebnovel Pub (https://www.webnovelpub.com/)",
-                    "Novel Full (https://www.novelfull.com/)"
+                    "Novel Full (https://www.novelfull.com/)",
+                    "Mangakakalot (https://mangakakalot.to/)",
                 };
 
             string instructions = "\n" + $@"Welcome to our novel scraper application!
@@ -165,6 +168,7 @@ namespace Benny_Scraper
                             INovelService novelService = scope.Resolve<INovelService>();
                             Guid.TryParse(args[1], out Guid novelId);
                             await novelService.RemoveByIdAsync(novelId);
+                            logger.Info($"Novel with id: {args[1]} deleted.");
                         }
                         break;
                     default:

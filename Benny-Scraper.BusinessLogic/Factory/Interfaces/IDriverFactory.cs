@@ -1,7 +1,7 @@
 ﻿using OpenQA.Selenium;
 using System.Collections.Concurrent;
 
-namespace Benny_Scraper.Interfaces
+namespace Benny_Scraper.BusinessLogic.Factory.Interfaces
 {
     public interface IDriverFactory
     {
@@ -13,9 +13,9 @@ namespace Benny_Scraper.Interfaces
         /// <param name="url"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        IWebDriver CreateDriver(int browser, bool isHeadless, string url);
+        IWebDriver CreateDriver(string url, int browser = 0, bool isHeadless = false);
 
-        Task<IWebDriver> CreateDriverAsync(int browser, bool isHeadless, string url);
+        Task<IWebDriver> CreateDriverAsync(string url, int browser = 0, bool isHeadless = false);
         IWebDriver GetDriverById(int id);
 
         /// <summary>

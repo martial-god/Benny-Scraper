@@ -19,7 +19,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Attr.Author,
                     Attr.Status,
                     Attr.Description,
-                    Attr.ThumbnailURL,
+                    Attr.ThumbnailUrl,
                     Attr.Genres
                 };
                 foreach (var attribute in attributesToFetch)

@@ -1,6 +1,4 @@
-﻿
-
-using Benny_Scraper.Models;
+﻿using Benny_Scraper.Models;
 
 namespace Benny_Scraper.DataAccess.Repository.IRepository
 {

@@ -38,6 +38,9 @@ namespace Benny_Scraper.Models
         public string? SaveLocation { get; set; }
     }
 
+    /// <summary>
+    /// Class for storing pertinent data about a novel, usually things found on table of centents page like title description, genres, etc.
+    /// </summary>
     public class NovelData
     {
         public NovelData()

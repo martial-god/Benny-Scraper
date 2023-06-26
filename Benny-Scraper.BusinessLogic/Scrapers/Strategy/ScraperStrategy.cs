@@ -1,9 +1,15 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Factory;
+using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Support.UI;
+using SeleniumExtras.WaitHelpers;
 using System.Diagnostics;
 using System.Net;
+using System.Text;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -31,10 +37,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 //TODO: 'Status' is ambiguous. Should this attribute and the corresponding data member of NovelData be renamed
                 //  to clarify it's purpose?
                 Status,
-                ThumbnailURL,
+                ThumbnailUrl,
                 LastTableOfContentsPage,
                 ChapterUrls,
-                ChapterLinks,
+                FirstChapterUrl,
                 LatestChapter
             }
 
@@ -46,13 +52,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var titleNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelTitle);
                         if (titleNodes.Any())
                         {
-                            novelData.Title = titleNodes.First().InnerText.Trim();
+                            novelData.Title = titleNodes != null ? HtmlEntity.DeEntitize(titleNodes.First().InnerText.Trim()) : string.Empty;
                         }
                         break;
 
                     case Attr.Author:
                         var authorNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelAuthor);
-                        novelData.Author = authorNode.InnerText.Trim();
+                        novelData.Author = authorNode != null ? HtmlEntity.DeEntitize(authorNode.InnerText.Trim()) : string.Empty;
                         break;
 
                     case Attr.Category:
@@ -71,17 +77,22 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     case Attr.Description:
                         var descriptionNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelDescription);
-                        novelData.Description = descriptionNodes.Select(description => description.InnerText.Trim()).ToList();
+                        novelData.Description = descriptionNodes.Select(description => HtmlEntity.DeEntitize(description.InnerText.Trim())).ToList();
                         break;
 
                     case Attr.Genres:
                         var genreNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelGenres);
-                        novelData.Genres = genreNodes.Select(genre => genre.InnerText.Trim()).ToList();
+                        novelData.Genres = genreNodes.Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())).ToList();
                         break;
 
                     case Attr.AlternativeNames:
                         var alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelAlternativeNames);
-                        novelData.AlternativeNames = alternateNameNodes.Select(alternateName => alternateName.InnerText.Trim()).ToList();
+                        List<string> alternateNames = alternateNameNodes.Select(alternateName => HtmlEntity.DeEntitize(alternateName.InnerText.Trim())).ToList();
+                        if (alternateNames.Any())
+                        {
+                            // SelectMany flattens a list of lists into a single list.
+                            novelData.AlternativeNames = alternateNames.SelectMany(altName => SplitByLanguage(altName)).ToList();
+                        }
                         break;
 
                     case Attr.Status:
@@ -90,17 +101,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         novelData.IsNovelCompleted = novelData.NovelStatus.ToLower().Contains(scraperData.SiteConfig.CompletedStatus);
                         break;
 
-                    case Attr.ThumbnailURL:
+                    case Attr.ThumbnailUrl:
                         var urlNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelThumbnailUrl);
                         var url = urlNode.Attributes[scraperData.SiteConfig?.Selectors.ThumbnailUrlAttribute].Value;
                         bool isValidHttpUrl = Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
-                        Uri absoluteUri = isValidHttpUrl ? new Uri(url) : new Uri(scraperData.BaseUri, url);                        
+                        Uri absoluteUri = isValidHttpUrl ? new Uri(url) : new Uri(scraperData.BaseUri, url);
                         using (var client = new HttpClient())
                         {
                             var thumbnailBytes = client.GetByteArrayAsync(absoluteUri).Result;
                             novelData.ThumbnailImage = thumbnailBytes;
                         }
-                        novelData.ThumbnailUrl = url;                        
+                        novelData.ThumbnailUrl = url;
                         break;
 
                     case Attr.LastTableOfContentsPage:
@@ -110,15 +121,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.ChapterUrls:
-                        //TODO: Implement
-                        break;
-
-                    case Attr.ChapterLinks:
                         var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.ChapterLinks);
                         if (chapterLinkNodes.Any())
                         {
-                            novelData.FirstChapter = chapterLinkNodes.First().InnerText.Trim();
+                            novelData.ChapterUrls = chapterLinkNodes.Select(chapterLink => chapterLink.Attributes["href"].Value).ToList();
                         }
+                        break;
+
+                    case Attr.FirstChapterUrl:
+                        //TODO: Implement
                         break;
 
                     case Attr.LatestChapter:
@@ -132,10 +143,42 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             return;
                         }
                         novelData.CurrentChapterUrl = latestChapterNode.Attributes["href"].Value;
-                        novelData.MostRecentChapterTitle = latestChapterNode.InnerText;
+                        novelData.MostRecentChapterTitle = HtmlEntity.DeEntitize(latestChapterNode.InnerText);
                         break;
                 }
             }
+
+            /// <summary>
+            /// Splits a string into a list of strings, each containing only characters from either the Asian or Latin alphabet.
+            /// </summary>
+            /// <param name="input"></param>
+            /// <returns></returns>
+            public static List<string> SplitByLanguage(string input)
+            {
+                List<string> result = new List<string>();
+                StringBuilder currentString = new StringBuilder();
+                bool? isLastCharAsian = null;
+
+                foreach (char c in input)
+                {
+                    //http://www.rikai.com/library/kanjitables/kanji_codes.unicode.shtml
+                    bool isCurrentCharAsian = (c >= 0x3000 && c <= 0x9FFF) || (c >= 0x4E00 && c <= 0x9FFF); // range of Asian characters
+
+                    if (isLastCharAsian.HasValue && isCurrentCharAsian != isLastCharAsian)
+                    {
+                        result.Add(currentString.ToString().Trim());
+                        currentString.Clear();
+                    }
+
+                    currentString.Append(c);
+                    isLastCharAsian = isCurrentCharAsian;
+                }
+
+                result.Add(currentString.ToString().Trim());
+
+                return result;
+            }
+
         }
     }
 
@@ -155,7 +198,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public const int MinimumParagraphThreshold = 5;
         protected const int TotalPossiblePaginationTabs = 6;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-        
+
         protected static readonly NovelScraperSettings _settings = new NovelScraperSettings();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
         protected static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit, ConcurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
@@ -171,12 +214,23 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         public abstract Task<NovelData> ScrapeAsync();
         public abstract NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
+        public virtual Task<NovelData> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        {
+            // this method should always be overridden, I just needed a default implementation so other Strategies would not require it
+            return Task.Run(() => FetchNovelDataFromTableOfContents(htmlDocument));
+        }
 
         public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents)
         {
             SetSiteConfiguration(siteConfig);
             SetSiteTableOfContents(siteTableOfContents);
         }
+
+        public async Task<HtmlDocument> LoadHtmlPublicAsync(Uri uri)
+        {
+            return await LoadHtmlAsync(uri);
+        }
+
 
         protected static async Task<HtmlDocument> LoadHtmlAsync(Uri uri)
         {
@@ -209,6 +263,38 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");
         }
 
+        protected static async Task<byte[]> LoadByteArrayAsync(Uri uri)
+        {
+            var uriString = uri.ToString();
+            uriString = uriString.Replace("amp;", "");
+            uri = new Uri(uriString);
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+
+            int retryCount = 0;
+            while (retryCount < MaxRetries)
+            {
+                try
+                {
+                    var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
+                    var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
+                    requestMessage.Headers.Add("User-Agent", userAgent);
+                    var response = await _client.SendAsync(requestMessage);
+                    response.EnsureSuccessStatusCode();
+                    var bytes = await response.Content.ReadAsByteArrayAsync();
+
+                    return bytes;
+                }
+                catch (HttpRequestException e)
+                {
+                    retryCount++;
+                    Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
+                    await Task.Delay(3000);
+                }
+            }
+            throw new HttpRequestException($"Failed to load byte array from {uri} after {MaxRetries} attempts.");
+        }
+
+
         protected virtual Uri TrimLastUriSegment(Uri siteUri)
         {
             string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1).Aggregate(
@@ -222,7 +308,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
         /// <summary>
-        /// 
+        /// Gets the chapter urls from the table of contents page that requires pagination to get chapters.
         /// </summary>
         /// <param name="tableOfContentUri"></param>
         /// <param name="getAllChapters"></param>
@@ -299,22 +385,41 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterUrls;
         }
 
-
         public virtual async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls)
         {
             try
             {
                 Logger.Info("Getting chapters data");
-                List<Task<ChapterData>> tasks = new List<Task<ChapterData>>();
-                foreach (var url in chapterUrls)
-                {
-                    await _semaphoreSlim.WaitAsync();
-                    tasks.Add(GetChapterDataAsync(url));
-                }
+                var tasks = new List<Task<ChapterData>>();
+                var chapterData = new List<ChapterData>();
 
-                ChapterData[] chapterData = await Task.WhenAll(tasks);
-                Logger.Info("Finished getting chapters data");
-                return chapterData.ToList();
+                if (_scraperData.SiteConfig.HasImagesForChapterContent)
+                {
+                    Logger.Info("Using Selenium to get chapters data");
+                    IDriverFactory driverFactory = new DriverFactory();
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
+                    foreach (var url in chapterUrls)
+                    {
+                        tasks.Add(GetChapterDataAsync(driver, url));
+                    }
+                    var taskResults = await Task.WhenAll(tasks);
+                    chapterData.AddRange(taskResults);
+                    driver.Quit();
+                }
+                else
+                {
+                    Logger.Info("Using HttpClient to get chapters data");
+                    foreach (var url in chapterUrls)
+                    {
+                        await _semaphoreSlim.WaitAsync();
+                        tasks.Add(GetChapterDataAsync(url));
+                    }
+                    var taskResults = await Task.WhenAll(tasks);
+                    chapterData.AddRange(taskResults);
+
+                    Logger.Info("Finished getting chapters data");
+                }
+                return chapterData;
             }
             catch (Exception ex)
             {
@@ -322,6 +427,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 throw;
             }
         }
+
 
 
         protected virtual List<string> GetChapterUrlsInRange(HtmlDocument htmlDocument, Uri baseSiteUri, int? startChapter = null, int? endChapter = null)
@@ -398,6 +504,54 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             _scraperData.SiteTableOfContents = siteTableOfContents;
         }
 
+        private async Task<ChapterData> GetChapterDataAsync(IWebDriver driver, string urls)
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var chapterData = new ChapterData();
+            Logger.Info($"Navigating to {urls}");
+            driver.Navigate().GoToUrl(urls);
+            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+            wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
+            Logger.Info($"Finished navigating to {urls} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+            var htmlDocument = new HtmlDocument();
+            htmlDocument.LoadHtml(driver.PageSource);
+            
+
+            HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
+            chapterData.Title = titleNode.InnerText.Trim() ?? string.Empty;
+            Logger.Debug($"Chapter title: {chapterData.Title}");
+
+            HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
+            var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
+            bool isValidHttpUrls = pageUrls.Select(url => Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)).All(value => value);
+
+            if (!isValidHttpUrls)
+            {
+                Logger.Error("Invalid page urls");
+                return chapterData;
+            }
+
+            chapterData.Pages = new List<PageData>();
+            foreach (var url in pageUrls)
+            {
+                Logger.Info($"Getting page image from {url}");
+                stopwatch.Reset();
+                var imageBytes = await LoadByteArrayAsync(new Uri(url));
+                Logger.Info($"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                chapterData.Pages.Add(new PageData
+                {
+                    Url = url,
+                    Image = imageBytes
+                });
+            }
+            chapterData.Url = urls;
+
+            return chapterData;
+        }
+
+
         private async Task<ChapterData> GetChapterDataAsync(string url)
         {
             var stopwatch = new Stopwatch();
@@ -416,13 +570,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Debug($"Chapter title: {chapterData.Title}");
 
                 HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-                var paragraphs = paragraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+                var paragraphs = paragraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
 
                 if (paragraphs.Count < MinimumParagraphThreshold)
                 {
                     Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
                     HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.AlternativeChapterContent);
-                    List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => paragraph.InnerText.Trim()).ToList();
+                    List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
                     Logger.Info($"Alternate paragraphs count: {alternateParagraphs.Count}");
 
                     if (alternateParagraphs.Count > paragraphs.Count)
@@ -431,9 +585,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         paragraphs = alternateParagraphs;
                     }
                 }
-
-                Logger.Info($"Finished retrieving chapter content. Time taken: {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
 
                 chapterData.Content = string.Join("\n", paragraphs);
                 int contentCount = chapterData.Content.Count(c => c == '\n');

@@ -3,7 +3,6 @@ using System;
 using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,11 +10,9 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(Database))]
-    [Migration("20230530053656_InitalCreate")]
-    partial class InitalCreate
+    partial class DatabaseModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.1");
@@ -29,7 +26,6 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnOrder(0);
 
                     b.Property<string>("Content")
-                        .IsRequired()
                         .HasColumnType("TEXT")
                         .HasColumnName("content")
                         .HasColumnOrder(7);
@@ -193,6 +189,34 @@ namespace BennyScraper.DataAccess.Migrations
                     b.ToTable("NovelLists");
                 });
 
+            modelBuilder.Entity("Benny_Scraper.Models.Page", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ChapterId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("chapter_id");
+
+                    b.Property<byte[]>("Image")
+                        .IsRequired()
+                        .HasColumnType("BLOB")
+                        .HasColumnName("image");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("url");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChapterId");
+
+                    b.ToTable("page", (string)null);
+                });
+
             modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>
                 {
                     b.HasOne("Benny_Scraper.Models.Novel", "Novel")
@@ -213,6 +237,22 @@ namespace BennyScraper.DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Novel");
+                });
+
+            modelBuilder.Entity("Benny_Scraper.Models.Page", b =>
+                {
+                    b.HasOne("Benny_Scraper.Models.Chapter", "Chapter")
+                        .WithMany("Pages")
+                        .HasForeignKey("ChapterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chapter");
+                });
+
+            modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>
+                {
+                    b.Navigation("Pages");
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.Novel", b =>

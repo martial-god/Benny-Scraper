@@ -4,7 +4,6 @@ using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Interfaces;
-using Benny_Scraper.BusinessLogic.Scrapers;
 using Benny_Scraper.BusinessLogic.Services;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.Data;
@@ -19,8 +18,6 @@ namespace Benny_Scraper
 {
     public class StartUp
     {
-        private static readonly string _appSettings = "appsettings.json";
-        private static readonly string _connectionType = "DefaultConnection";
         public IConfiguration Configuration { get; }
 
         public StartUp(IConfiguration configuration)
@@ -49,6 +46,7 @@ namespace Benny_Scraper
             builder.RegisterType<ChapterService>().As<IChapterService>().InstancePerLifetimeScope();
             builder.RegisterType<NovelRepository>().As<INovelRepository>();
             builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
+            builder.RegisterType<DriverFactory>().As<IDriverFactory>();
 
             builder.Register(c =>
             {

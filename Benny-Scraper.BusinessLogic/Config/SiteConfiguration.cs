@@ -19,5 +19,6 @@ namespace Benny_Scraper.BusinessLogic.Config
         public string CompletedStatus { get; set; }
         public bool HasNovelInfoOnDifferentPage { get; set; }
         public bool IsSeleniumSite { get; set; }
+        public bool HasImagesForChapterContent { get; set; }
     }
 }

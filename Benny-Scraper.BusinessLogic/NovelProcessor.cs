@@ -7,6 +7,8 @@ using Benny_Scraper.BusinessLogic.Validators;
 using Benny_Scraper.Models;
 using Microsoft.Extensions.Options;
 using NLog;
+using PdfSharp.Drawing;
+using PdfSharp.Pdf;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -32,7 +34,7 @@ namespace Benny_Scraper.BusinessLogic
             _novelScraper = novelScraper;
             _novelScraperSettings = novelScraperSettings.Value;
             _epubGenerator = epubGenerator;
-        }        
+        }
 
         public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
         {
@@ -78,56 +80,24 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            // Create a new Novel object and populate its properties
-            Novel novelToAdd = new Novel
-            {
-                Title = novelData.Title ?? string.Empty,
-                Author = novelData.Author,
-                Url = novelTableOfContentsUri.ToString() ?? string.Empty,
-                Genre = string.Join(", ", novelData.Genres),
-                Description = string.Join(" ", novelData.Description),
-                DateCreated = DateTime.Now,
-                DateLastModified = DateTime.Now,
-                Status = novelData.NovelStatus,
-                LastTableOfContentsUrl = novelData.LastTableOfContentsPageUrl,
-                LastChapter = novelData.IsNovelCompleted,
-                CurrentChapter = novelData.MostRecentChapterTitle ?? string.Empty,
-                SiteName = novelTableOfContentsUri.Host ?? string.Empty,
-                FirstChapter = novelData.FirstChapter ?? string.Empty,
-                CurrentChapterUrl = novelData.CurrentChapterUrl ?? string.Empty
-            };
+            Novel newNovel = CreateNovel(novelData, novelTableOfContentsUri);
+            Logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
             IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
+            newNovel.Chapters = CreateChapters(chapterDatas, newNovel.Id);
 
-            // Create Chapter objects and populate their properties
-            List<Chapter> chaptersToAdd = chapterDatas.Select(data => new Chapter
+            string documentsFolder = GetDocumentsFolder(newNovel.Title);
+
+            if (newNovel.Chapters.Any(chapter => chapter.Pages != null))
             {
-                NovelId = novelToAdd.Id,
-                Url = data.Url ?? string.Empty,
-                Content = data.Content ?? string.Empty,
-                Title = data.Title ?? string.Empty,
-                Number = data.Number,
-                DateCreated = DateTime.Now,
-                DateLastModified = data.DateLastModified
-            }).ToList();
+                CreatePdf(newNovel, chapterDatas, documentsFolder);
+            }
+            else
+            {
+                newNovel.SaveLocation = CreateEpub(newNovel, novelData.ThumbnailImage, documentsFolder);
+            }
 
-            // Add chapters to the novel
-            novelToAdd.Chapters = chaptersToAdd;
-
-            string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-
-            string fileRegex = @"[^a-zA-Z0-9-\s]";
-            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novelToAdd.Title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
-            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
-            Directory.CreateDirectory(documentsFolder);
-
-            string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
-            novelToAdd.SaveLocation = epubFile;
-
-            _epubGenerator.CreateEpub(novelToAdd, novelToAdd.Chapters, epubFile, novelData.ThumbnailImage);
-
-            await _novelService.CreateAsync(novelToAdd);
+            await _novelService.CreateAsync(newNovel);
         }
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
@@ -141,40 +111,135 @@ namespace Benny_Scraper.BusinessLogic
             }
 
             IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
+            List<Models.Chapter> newChapters = CreateChapters(chapterDatas, novel.Id);
 
-            List<Models.Chapter> newChapters = chapterDatas.Select(data => new Models.Chapter
+            UpdateNovel(novel, novelData, newChapters);
+
+            string documentsFolder = GetDocumentsFolder(novel.Title);
+            novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
+
+            await _novelService.UpdateAndAddChapters(novel, newChapters);
+        }
+
+        private string GetDocumentsFolder(string title)
+        {
+            string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string fileRegex = @"[^a-zA-Z0-9-\s]";
+            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
+            return Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
+        }
+
+        private string CreateEpub(Novel novel, byte[]? thumbnailImage, string documentsFolder)
+        {
+            Directory.CreateDirectory(documentsFolder);
+            string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
+            _epubGenerator.CreateEpub(novel, novel.Chapters, epubFile, thumbnailImage);
+            return epubFile;
+        }
+
+        private void CreatePdf(Novel novel, IEnumerable<ChapterData> chapterDatas, string documentsFolder)
+        {
+            string pdfFile = Path.Combine(documentsFolder, $"{novel.Title}.pdf");
+            Logger.Info(new string('=', 50));
+            Console.ForegroundColor = ConsoleColor.Blue;
+            CreatePdfs(novel, chapterDatas, pdfFile);
+            Console.Write($"Total chapters: {chapterDatas.Count()}\nPDF file created at: {pdfFile}\n");
+            var result = _epubGenerator.ExecuteCommand($"calibredb add \"{pdfFile}\"");
+            Logger.Info($"Command executed with code: {result}");
+            Console.ResetColor();
+            Logger.Info(new string('=', 50));
+        }
+
+        private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfFilePath)
+        {
+            var images = chapterData.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Select(page => page.Image).ToList();
+            Console.WriteLine($"Total images: {images.Count}");
+            // Create a new PDF document
+            PdfDocument document = new PdfDocument();
+
+            document.Info.Title = novel.Title;
+            document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
+            document.Info.Subject = novel.Genre;
+            document.Info.Keywords = novel.Genre;
+
+
+            foreach (var imageBytes in images)
             {
-                Url = data.Url ?? string.Empty,
-                Content = data.Content ?? string.Empty,
-                Title = data.Title ?? string.Empty,
-                DateCreated = DateTime.Now,
-                DateLastModified = DateTime.Now,
-                Number = data.Number,
+                // Create an empty page in this document
+                PdfPage page = document.AddPage();
 
-            }).ToList();
+                // Create an XImage object from the byte array
+                using (MemoryStream ms = new MemoryStream(imageBytes))
+                {
+                    XImage img = XImage.FromStream(ms);
 
+                    // Get an XGraphics object for drawing
+                    XGraphics gfx = XGraphics.FromPdfPage(page);
+
+                    // Draw the image centered on the page
+                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                }
+            }
+            string directoryPath = Path.GetDirectoryName(pdfFilePath);
+            Directory.CreateDirectory(directoryPath);
+            // to avoid the System.NotSupportedException: No data is available for encoding 1252. we have to install the Nugget package System.Text.Encoding.CodePages
+            //https://stackoverflow.com/questions/50858209/system-notsupportedexception-no-data-is-available-for-encoding-1252
+
+            // Save the document
+            document.Save(pdfFilePath);
+        }        
+
+        private void UpdateNovel(Novel novel, NovelData novelData, List<Models.Chapter> newChapters)
+        {
             novel.Chapters.AddRange(newChapters);
             novel.LastTableOfContentsUrl = (!string.IsNullOrEmpty(novelData.LastTableOfContentsPageUrl)) ? novelData.LastTableOfContentsPageUrl : novel.LastTableOfContentsUrl;
             novel.Status = (!string.IsNullOrEmpty(novelData.NovelStatus)) ? novelData.NovelStatus : novel.Status;
             novel.LastChapter = novelData.IsNovelCompleted;
             novel.DateLastModified = DateTime.Now;
             novel.TotalChapters = novel.Chapters.Count;
-            novel.CurrentChapter = novel.Chapters.LastOrDefault().Title;
+            novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title;
+        }
 
-            string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            //create directory BennyScrapedNovels that will contain all the novels, then a folder for the novel title
 
-            string fileRegex = @"[^a-zA-Z0-9-\s]";
-            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(novel.Title, fileRegex, " ").ToLower().ToLowerInvariant());
-            documentsFolder = Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
-            Directory.CreateDirectory(documentsFolder);
+        private Novel CreateNovel(NovelData novelData, Uri novelTableOfContentsUri)
+        {
+            return new Novel
+            {
+                Title = novelData.Title ?? string.Empty,
+                Author = novelData.Author,
+                Url = novelTableOfContentsUri.ToString(),
+                Genre = string.Join(", ", novelData.Genres),
+                Description = string.Join(" ", novelData.Description),
+                DateCreated = DateTime.Now,
+                DateLastModified = DateTime.Now,
+                Status = novelData.NovelStatus,
+                LastTableOfContentsUrl = novelData.LastTableOfContentsPageUrl,
+                LastChapter = novelData.IsNovelCompleted,
+                CurrentChapter = novelData.MostRecentChapterTitle ?? string.Empty,
+                SiteName = novelTableOfContentsUri.Host ?? string.Empty,
+                FirstChapter = novelData.FirstChapter ?? string.Empty,
+                CurrentChapterUrl = novelData.CurrentChapterUrl ?? string.Empty
+            };
+        }
 
-            string epubFile = Path.Combine(documentsFolder, $"{novelFileSafeTitle}.epub");
-
-            _epubGenerator.CreateEpub(novel, newChapters, epubFile, novelData.ThumbnailImage);
-
-            await _novelService.UpdateAndAddChapters(novel, newChapters);
+        private List<Chapter> CreateChapters(IEnumerable<ChapterData> chapterDatas, Guid novelId)
+        {
+            return chapterDatas.Select(data => new Chapter
+            {
+                NovelId = novelId,
+                Url = data.Url ?? string.Empty,
+                Content = data.Content,
+                Title = data.Title ?? string.Empty,
+                Number = data.Number,
+                Pages = data.Pages?.Select(p => new Page
+                {
+                    Url = p.Url,
+                    Image = p.Image
+                }).ToList(),
+                DateCreated = DateTime.Now,
+                DateLastModified = data.DateLastModified
+            }).ToList();
         }
 
         private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)
