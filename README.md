@@ -9,8 +9,8 @@ Webscraper that sets out make listening to webnovels easier for myself. Creates 
 - [x] Test on computers without sql installed
 - [x] Test on Linux machine - in this Case Ubuntu 20.04-x64
 - [ ] Verify the update novel works
-- [ ] Finish up Selenium Scraper
-- [ ] Try Manga sites
+- [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
+- [x] Try Manga sites
 - [ ] Add UI
 - [ ] make changes to database, use ints instead of unique identifiers as Shane mentioned. Guid should be used from the outside in, where someone wants to get data through an api, for that having the main id be a int and having a column like UUID which is the guid that will be used to find the item.
 
