@@ -411,9 +411,24 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     {
                         tasks.Add(GetChapterDataAsync(driver, url));
                     }
-                    var taskResults = await Task.WhenAll(tasks);
-                    chapterData.AddRange(taskResults);
-                    driver.Quit();
+                    try
+                    {
+                        var taskResults = await Task.WhenAll(tasks);
+                        chapterData.AddRange(taskResults);
+                        driver.Quit();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error while getting chapters data. {ex}");
+                        throw;
+                    }
+                    finally
+                    {
+                        Logger.Info("Closing driver");
+                        driver.Quit();
+                        Logger.Info("Finished closing driver");
+                    }
+                    
                 }
                 else
                 {
@@ -423,8 +438,20 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         await _semaphoreSlim.WaitAsync();
                         tasks.Add(GetChapterDataAsync(url));
                     }
-                    var taskResults = await Task.WhenAll(tasks);
-                    chapterData.AddRange(taskResults);
+                    try
+                    {
+                        var taskResults = await Task.WhenAll(tasks);
+                        chapterData.AddRange(taskResults);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error while getting chapters data. {ex}");
+                        throw;
+                    }
+                    finally
+                    {
+                        _semaphoreSlim.Release();
+                    }                    
 
                     Logger.Info("Finished getting chapters data");
                 }
@@ -561,6 +588,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error(ex);
+                throw;
             }
             finally
             {
@@ -669,6 +697,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error(ex);
+                throw;
             }
             finally
             {
