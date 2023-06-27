@@ -48,6 +48,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 novelData.ChapterUrls.Reverse();
                 novelData.ChapterUrls = novelData.ChapterUrls.Select(partialUrl => new Uri(scraperData.BaseUri, partialUrl).ToString()).ToList();
             }
+            if (!string.IsNullOrEmpty(novelData.MostRecentChapterTitle))
+            {
+                novelData.MostRecentChapterTitle = novelData.MostRecentChapterTitle.Split("\n").First(); // remove new line and everything after
+            }
         }
 
     }

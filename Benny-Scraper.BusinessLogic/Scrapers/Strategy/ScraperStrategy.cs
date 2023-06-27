@@ -1,4 +1,5 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
+﻿using AngleSharp.Dom;
+using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.Models;
@@ -138,14 +139,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LatestChapterLink);
                         if (latestChapterNode == null)
                         {
-                            //TODO: The NLog logger does not provide static methods, making it difficult to use in a static context.
-                            //  There are a couple possible options to handle this, but I've left logging unimplemented inside the
-                            //  initializer classes for now.
-                            //Logger.Error("Error while trying to get the latest chapter node.");
                             return;
                         }
-                        novelData.CurrentChapterUrl = latestChapterNode.Attributes["href"].Value;
-                        novelData.MostRecentChapterTitle = HtmlEntity.DeEntitize(latestChapterNode.InnerText);
+                        var currentChapterUrl = latestChapterNode.Attributes["href"].Value;
+                        if (!IsValidHttpUrl(currentChapterUrl))
+                        {
+                            currentChapterUrl = new Uri(scraperData.BaseUri, currentChapterUrl).ToString();
+                        }
+                        novelData.CurrentChapterUrl = currentChapterUrl;
+                        novelData.MostRecentChapterTitle = HtmlEntity.DeEntitize(latestChapterNode.InnerText).Trim();
                         break;
                 }
             }
@@ -404,7 +406,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
-                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: false);
                     foreach (var url in chapterUrls)
                     {
                         tasks.Add(GetChapterDataAsync(driver, url));
@@ -511,6 +513,62 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             _scraperData.SiteTableOfContents = siteTableOfContents;
         }
 
+        public async Task<ChapterData> GetChapterDataThatHasImagesNoSeleniumAsync(string url)
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var chapterData = new ChapterData();
+            Logger.Info($"Navigating to {url}");
+            var htmlDocument = await LoadHtmlAsync(new Uri(url));
+            Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
+
+            try
+            {
+                HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
+                chapterData.Title = titleNode.InnerText.Trim() ?? string.Empty;
+                Logger.Debug($"Chapter title: {chapterData.Title}");
+
+                HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
+                var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
+                bool isValidHttpUrls = pageUrls.Select(url => Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)).All(value => value);
+
+                if (!isValidHttpUrls)
+                {
+                    Logger.Error("Invalid page urls");
+                    return chapterData;
+                }
+
+                chapterData.Pages = new List<PageData>();
+                foreach (var pageUrl in pageUrls)
+                {
+                    Logger.Info($"Getting page image from {pageUrl}");
+                    stopwatch.Reset();
+                    var imageBytes = await LoadByteArrayAsync(new Uri(pageUrl));
+                    Logger.Info($"Finished getting page image from {pageUrl} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                    chapterData.Pages.Add(new PageData
+                    {
+                        Url = pageUrl,
+                        Image = imageBytes
+                    });
+                }
+                chapterData.Url = url;
+                chapterData.DateLastModified = DateTime.Now;
+
+                Logger.Info($"Finished processing chapter data. Time taken: {stopwatch.ElapsedMilliseconds} ms");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+            }
+            finally
+            {
+                _semaphoreSlim.Release();
+            }
+            return chapterData;
+        }
+
         private async Task<ChapterData> GetChapterDataAsync(IWebDriver driver, string urls)
         {
             var stopwatch = new Stopwatch();
@@ -519,6 +577,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var chapterData = new ChapterData();
             Logger.Info($"Navigating to {urls}");
             driver.Navigate().GoToUrl(urls);
+            var foo = driver.PageSource;
             WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
             wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
             Logger.Info($"Finished navigating to {urls} Time taken: {stopwatch.ElapsedMilliseconds} ms");
