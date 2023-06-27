@@ -406,7 +406,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
-                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: false);
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
                     foreach (var url in chapterUrls)
                     {
                         tasks.Add(GetChapterDataAsync(driver, url));
