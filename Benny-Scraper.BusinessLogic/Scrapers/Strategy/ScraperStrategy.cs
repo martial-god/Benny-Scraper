@@ -11,6 +11,7 @@ using SeleniumExtras.WaitHelpers;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using System.Xml.Linq;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -407,6 +408,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
                     var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
+
+                    if (_scraperData.SiteConfig.Name == "mangareaders") // element is visisble while not in headless mode
+                    {
+                        WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
+                        wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")));
+                        var chapterContent = driver.FindElement(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")); //element that decides orientation of pages
+                        if (chapterContent != null)
+                        {
+                            ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", chapterContent);
+                        }
+                    }
+                    
                     foreach (var url in chapterUrls)
                     {
                         tasks.Add(GetChapterDataAsync(driver, url));
@@ -447,11 +460,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     {
                         Logger.Error($"Error while getting chapters data. {ex}");
                         throw;
-                    }
-                    finally
-                    {
-                        _semaphoreSlim.Release();
-                    }                    
+                    }                   
 
                     Logger.Info("Finished getting chapters data");
                 }
@@ -605,8 +614,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var chapterData = new ChapterData();
             Logger.Info($"Navigating to {urls}");
             driver.Navigate().GoToUrl(urls);
-            var foo = driver.PageSource;
-            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
             wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
             Logger.Info($"Finished navigating to {urls} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             var htmlDocument = new HtmlDocument();

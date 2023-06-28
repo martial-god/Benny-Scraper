@@ -141,55 +141,63 @@ namespace Benny_Scraper.BusinessLogic
 
         private void CreatePdf(Novel novel, IEnumerable<ChapterData> chapterDatas, string documentsFolder)
         {
-            string pdfFile = Path.Combine(documentsFolder, $"{novel.Title}.pdf");
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
-            CreatePdfs(novel, chapterDatas, pdfFile);
-            Console.Write($"Total chapters: {chapterDatas.Count()}\nPDF file created at: {pdfFile}\n");
-            var result = _epubGenerator.ExecuteCommand($"calibredb add \"{pdfFile}\"");
+            CreatePdfs(novel, chapterDatas, documentsFolder);
+            Console.Write($"Total chapters: {chapterDatas.Count()}\nPDF files created at: {documentsFolder}\n");
+            var result = _epubGenerator.ExecuteCommand($"calibredb add \"{documentsFolder}\"");
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
             Logger.Info(new string('=', 50));
         }
 
-        private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfFilePath)
+        private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
         {
-            var images = chapterData.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Select(page => page.Image).ToList();
-            Console.WriteLine($"Total images: {images.Count}");
-            // Create a new PDF document
-            PdfDocument document = new PdfDocument();
+            Directory.CreateDirectory(pdfDirectoryPath);
 
-            document.Info.Title = novel.Title;
-            document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
-            document.Info.Subject = novel.Genre;
-            document.Info.Keywords = novel.Genre;
-
-
-            foreach (var imageBytes in images)
+            foreach (var chapter in chapterData)
             {
-                // Create an empty page in this document
-                PdfPage page = document.AddPage();
+                if (chapter.Pages == null)
+                    continue;
 
-                // Create an XImage object from the byte array
-                using (MemoryStream ms = new MemoryStream(imageBytes))
+                var images = chapter.Pages.Select(page => page.Image).ToList();
+                Console.WriteLine($"Total images in chapter {chapter.Title}: {images.Count}");
+
+                // Create a new PDF document
+                PdfDocument document = new PdfDocument();
+
+                document.Info.Title = $"{novel.Title} - {chapter.Title}";
+                document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
+                document.Info.Subject = novel.Genre;
+                document.Info.Keywords = novel.Genre;
+                document.Info.CreationDate = DateTime.Now;
+
+                foreach (var imageBytes in images)
                 {
-                    XImage img = XImage.FromStream(ms);
+                    // Create an empty page in this document
+                    PdfPage page = document.AddPage();
 
-                    // Get an XGraphics object for drawing
-                    XGraphics gfx = XGraphics.FromPdfPage(page);
+                    // Create an XImage object from the byte array
+                    using (MemoryStream ms = new MemoryStream(imageBytes))
+                    {
+                        XImage img = XImage.FromStream(ms);
 
-                    // Draw the image centered on the page
-                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                        // Get an XGraphics object for drawing
+                        XGraphics gfx = XGraphics.FromPdfPage(page);
+
+                        // Draw the image centered on the page
+                        gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                    }
                 }
-            }
-            string directoryPath = Path.GetDirectoryName(pdfFilePath);
-            Directory.CreateDirectory(directoryPath);
-            // to avoid the System.NotSupportedException: No data is available for encoding 1252. we have to install the Nugget package System.Text.Encoding.CodePages
-            //https://stackoverflow.com/questions/50858209/system-notsupportedexception-no-data-is-available-for-encoding-1252
+                // to avoid the System.NotSupportedException: No data is available for encoding 1252. we have to install the Nugget package System.Text.Encoding.CodePages
+                //https://stackoverflow.com/questions/50858209/system-notsupportedexception-no-data-is-available-for-encoding-1252
 
-            // Save the document
-            document.Save(pdfFilePath);
-        }        
+                // Save the document
+                var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{novel.Title} - {chapter.Title}.pdf");
+                document.Save(pdfFilePath);
+            }
+        }
+
 
         private void UpdateNovel(Novel novel, NovelData novelData, List<Models.Chapter> newChapters)
         {
