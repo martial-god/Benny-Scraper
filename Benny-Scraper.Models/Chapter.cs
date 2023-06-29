@@ -42,7 +42,7 @@ namespace Benny_Scraper.Models
     public class PageData
     {
         public string Url { get; set; }
-        public byte[] Image { get; set; }
+        public string ImagePath { get; set; }
     }
 
 }

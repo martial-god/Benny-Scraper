@@ -273,7 +273,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");
         }
 
-        protected static async Task<byte[]> LoadByteArrayAsync(Uri uri)
+        protected static async Task<string> DownloadImageAsync(Uri uri, string tempImageDirectory)
         {
             var uriString = uri.ToString();
             uriString = uriString.Replace("amp;", "");
@@ -288,11 +288,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
                     var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
                     requestMessage.Headers.Add("User-Agent", userAgent);
-                    var response = await _client.SendAsync(requestMessage);
-                    response.EnsureSuccessStatusCode();
-                    var bytes = await response.Content.ReadAsByteArrayAsync();
-
-                    return bytes;
+                    var imageStream = await _client.GetStreamAsync(uri);
+                    var imagePath = Path.Combine(tempImageDirectory, Path.GetRandomFileName() + ".jpg");
+                    using (var fileStream = File.Create(imagePath))
+                    {
+                        await imageStream.CopyToAsync(fileStream);
+                        Logger.Info($"Downloaded image to temp folder {imagePath}");
+                    }
+                    return imagePath;
                 }
                 catch (HttpRequestException e)
                 {
@@ -301,7 +304,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     await Task.Delay(3000);
                 }
             }
-            throw new HttpRequestException($"Failed to load byte array from {uri} after {MaxRetries} attempts.");
+            throw new HttpRequestException($"Failed to download image from {uri} after {MaxRetries} attempts.");
         }
 
 
@@ -407,9 +410,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
-                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: false);
 
-                    if (_scraperData.SiteConfig.Name == "mangareaders") // element is visisble while not in headless mode
+                    if (_scraperData.SiteConfig.Name == "mangareader") // element is visisble while not in headless mode
                     {
                         WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
                         wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")));
@@ -419,10 +422,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", chapterContent);
                         }
                     }
-                    
+                    var tempImageDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                    Directory.CreateDirectory(tempImageDirectory);
+
                     foreach (var url in chapterUrls)
                     {
-                        tasks.Add(GetChapterDataAsync(driver, url));
+                        tasks.Add(GetChapterDataAsync(driver, url, tempImageDirectory));
                     }
                     try
                     {
@@ -547,66 +552,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private void SetSiteTableOfContents(Uri siteTableOfContents)
         {
             _scraperData.SiteTableOfContents = siteTableOfContents;
-        }
+        }        
 
-        public async Task<ChapterData> GetChapterDataThatHasImagesNoSeleniumAsync(string url)
-        {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            var chapterData = new ChapterData();
-            Logger.Info($"Navigating to {url}");
-            var htmlDocument = await LoadHtmlAsync(new Uri(url));
-            Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Restart();
-
-            try
-            {
-                HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
-                chapterData.Title = titleNode.InnerText.Trim() ?? string.Empty;
-                Logger.Debug($"Chapter title: {chapterData.Title}");
-
-                HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-                var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
-                bool isValidHttpUrls = pageUrls.Select(url => Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)).All(value => value);
-
-                if (!isValidHttpUrls)
-                {
-                    Logger.Error("Invalid page urls");
-                    return chapterData;
-                }
-
-                chapterData.Pages = new List<PageData>();
-                foreach (var pageUrl in pageUrls)
-                {
-                    Logger.Info($"Getting page image from {pageUrl}");
-                    stopwatch.Reset();
-                    var imageBytes = await LoadByteArrayAsync(new Uri(pageUrl));
-                    Logger.Info($"Finished getting page image from {pageUrl} Time taken: {stopwatch.ElapsedMilliseconds} ms");
-                    chapterData.Pages.Add(new PageData
-                    {
-                        Url = pageUrl,
-                        Image = imageBytes
-                    });
-                }
-                chapterData.Url = url;
-                chapterData.DateLastModified = DateTime.Now;
-
-                Logger.Info($"Finished processing chapter data. Time taken: {stopwatch.ElapsedMilliseconds} ms");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex);
-                throw;
-            }
-            finally
-            {
-                _semaphoreSlim.Release();
-            }
-            return chapterData;
-        }
-
-        private async Task<ChapterData> GetChapterDataAsync(IWebDriver driver, string urls)
+        private async Task<ChapterData> GetChapterDataAsync(IWebDriver driver, string urls, string tempImageDirectory)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -640,12 +588,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Info($"Getting page image from {url}");
                 stopwatch.Reset();
-                var imageBytes = await LoadByteArrayAsync(new Uri(url));
+                var imagePath = await DownloadImageAsync(new Uri(url), tempImageDirectory);
                 Logger.Info($"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
                 chapterData.Pages.Add(new PageData
                 {
                     Url = url,
-                    Image = imageBytes
+                    ImagePath = imagePath
                 });
             }
             chapterData.Url = urls;

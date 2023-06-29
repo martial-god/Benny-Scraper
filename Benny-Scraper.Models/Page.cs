@@ -9,6 +9,6 @@ namespace Benny_Scraper.Models
         public Guid ChapterId { get; set; }
         public virtual Chapter Chapter { get; set; } // Lazy loaded, on demand
         public string Url { get; set; }
-        public byte[] Image { get; set; }
+        public byte[]? Image { get; set; }
     }
 }

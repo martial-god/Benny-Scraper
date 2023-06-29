@@ -160,8 +160,8 @@ namespace Benny_Scraper.BusinessLogic
                 if (chapter.Pages == null)
                     continue;
 
-                var images = chapter.Pages.Select(page => page.Image).ToList();
-                Console.WriteLine($"Total images in chapter {chapter.Title}: {images.Count}");
+                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
+                Console.WriteLine($"Total imagePaths in chapter {chapter.Title}: {imagePaths.Count}");
 
                 // Create a new PDF document
                 PdfDocument document = new PdfDocument();
@@ -172,22 +172,19 @@ namespace Benny_Scraper.BusinessLogic
                 document.Info.Keywords = novel.Genre;
                 document.Info.CreationDate = DateTime.Now;
 
-                foreach (var imageBytes in images)
+                foreach (var imagePath in imagePaths)
                 {
                     // Create an empty page in this document
                     PdfPage page = document.AddPage();
 
-                    // Create an XImage object from the byte array
-                    using (MemoryStream ms = new MemoryStream(imageBytes))
-                    {
-                        XImage img = XImage.FromStream(ms);
+                    // Load the image from the file path
+                    XImage img = XImage.FromFile(imagePath);
 
-                        // Get an XGraphics object for drawing
-                        XGraphics gfx = XGraphics.FromPdfPage(page);
+                    // Get an XGraphics object for drawing
+                    XGraphics gfx = XGraphics.FromPdfPage(page);
 
-                        // Draw the image centered on the page
-                        gfx.DrawImage(img, 0, 0, page.Width, page.Height);
-                    }
+                    // Draw the image centered on the page
+                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
                 }
                 // to avoid the System.NotSupportedException: No data is available for encoding 1252. we have to install the Nugget package System.Text.Encoding.CodePages
                 //https://stackoverflow.com/questions/50858209/system-notsupportedexception-no-data-is-available-for-encoding-1252
@@ -244,7 +241,7 @@ namespace Benny_Scraper.BusinessLogic
                 Pages = data.Pages?.Select(p => new Page
                 {
                     Url = p.Url,
-                    Image = p.Image
+                    Image = null,
                 }).ToList(),
                 DateCreated = DateTime.Now,
                 DateLastModified = data.DateLastModified
