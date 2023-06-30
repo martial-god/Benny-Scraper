@@ -1,13 +1,7 @@
-﻿using AngleSharp.Dom;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
