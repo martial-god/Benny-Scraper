@@ -35,13 +35,9 @@ namespace Benny_Scraper
             Logger.Info("Application Started");
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();
-            // Pass the built configuration to the StartUp class
-            //var startUp = new StartUp(configuration);
 
-            // Database Injections
             var builder = new ContainerBuilder();
             ConfigureServices(builder);
-
             Container = builder.Build();
 
             if (args.Length > 0)
@@ -72,8 +68,6 @@ namespace Benny_Scraper
                 Console.ResetColor();
 
                 IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
-                //var foo = epubGenerator.ExecuteCommand("calibredb add \"C:\\Users\\Emiya\\Documents\\BennyScrapedNovels\\The Lazy Swordmaster\\The Lazy Swordmaster.epub\"");
-                //epubGenerator.ValidateEpub(@"C:\Users\Emiya\Documents\BennyScrapedNovels\SUPREMACY GAMES\Read Supremacy Games\supremacy games.epub");
 
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
@@ -127,6 +121,8 @@ namespace Benny_Scraper
                     "\nWebnovel Pub (https://www.webnovelpub.com/)",
                     "Novel Full (https://www.novelfull.com/)",
                     "Mangakakalot (https://mangakakalot.to/)",
+                    "Mangareader (https://www.mangareader.to/)",
+                    "Mangakatana (https://mangakatana.com/)",
                 };
 
             string instructions = "\n" + $@"Welcome to our novel scraper application!

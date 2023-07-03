@@ -304,6 +304,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     await Task.Delay(3000);
                 }
             }
+            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+            {
+                if (Directory.Exists(tempImageDirectory))
+                {
+                    Directory.Delete(tempImageDirectory, true);
+                    Logger.Info($"Application shutdown. Temp directory {tempImageDirectory} deleted");
+                }
+            };
             throw new HttpRequestException($"Failed to download image from {uri} after {MaxRetries} attempts.");
         }
 
@@ -410,7 +418,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
-                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: false);
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
 
                     if (_scraperData.SiteConfig.Name == "mangareader") // element is visisble while not in headless mode
                     {
@@ -446,7 +454,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         driver.Quit();
                         Logger.Info("Finished closing driver");
                     }
-                    
+
                 }
                 else
                 {
@@ -574,7 +582,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Debug($"Chapter title: {chapterData.Title}");
 
             HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-            var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes["data-url"].Value);
+            var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes[_scraperData.SiteConfig?.Selectors?.ChapterContentImageUrlAttribute].Value);
             bool isValidHttpUrls = pageUrls.Select(url => Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)).All(value => value);
 
             if (!isValidHttpUrls)

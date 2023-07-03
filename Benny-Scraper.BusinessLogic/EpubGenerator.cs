@@ -35,6 +35,15 @@ namespace Benny_Scraper.BusinessLogic
             Directory.CreateDirectory(tempDirectory);
             Logger.Info("Temp directory created");
 
+            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+            {
+                if (Directory.Exists(tempDirectory))
+                {
+                    Directory.Delete(tempDirectory, true);
+                    Logger.Info($"Application shutdown. Temp directory {tempDirectory} deleted");
+                }
+            };
+
             try
             {
                 string mimetypeFilePath = Path.Combine(tempDirectory, "mimetype");

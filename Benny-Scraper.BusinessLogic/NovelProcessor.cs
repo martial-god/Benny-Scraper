@@ -99,6 +99,7 @@ namespace Benny_Scraper.BusinessLogic
             }
 
             await _novelService.CreateAsync(newNovel);
+            Logger.Info("Finished adding novel {0} to database", newNovel.Title);
         }
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
@@ -117,6 +118,7 @@ namespace Benny_Scraper.BusinessLogic
             UpdateNovel(novel, novelData, newChapters);
 
             string documentsFolder = GetDocumentsFolder(novel.Title);
+
             novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
 
             await _novelService.UpdateAndAddChapters(novel, newChapters);
@@ -141,14 +143,17 @@ namespace Benny_Scraper.BusinessLogic
 
         private void CreatePdf(Novel novel, IEnumerable<ChapterData> chapterDatas, string documentsFolder)
         {
+            int? totalPages = novel.Chapters.SelectMany(chapter => chapter.Pages).Count();
+
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
             CreatePdfs(novel, chapterDatas, documentsFolder);
-            Console.Write($"Total chapters: {chapterDatas.Count()}\nPDF files created at: {documentsFolder}\n");
+            Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
             var result = _epubGenerator.ExecuteCommand($"calibredb add \"{documentsFolder}\"");
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
             Logger.Info(new string('=', 50));
+            Logger.Info($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
         }
 
         private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
@@ -160,10 +165,9 @@ namespace Benny_Scraper.BusinessLogic
                 if (chapter.Pages == null)
                     continue;
 
-                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
-                Console.WriteLine($"Total imagePaths in chapter {chapter.Title}: {imagePaths.Count}");
+                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList(); // only Page from PageData has ImagePath as a member variable
+                Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
 
-                // Create a new PDF document
                 PdfDocument document = new PdfDocument();
 
                 document.Info.Title = $"{novel.Title} - {chapter.Title}";
@@ -174,25 +178,29 @@ namespace Benny_Scraper.BusinessLogic
 
                 foreach (var imagePath in imagePaths)
                 {
-                    // Create an empty page in this document
-                    PdfPage page = document.AddPage();
-
-                    // Load the image from the file path
                     XImage img = XImage.FromFile(imagePath);
 
-                    // Get an XGraphics object for drawing
+                    PdfPage page = document.AddPage();
+                    page.Width = XUnit.FromPoint(img.PixelWidth);
+                    page.Height = XUnit.FromPoint(img.PixelHeight);                    
+
                     XGraphics gfx = XGraphics.FromPdfPage(page);
 
-                    // Draw the image centered on the page
                     gfx.DrawImage(img, 0, 0, page.Width, page.Height);
                 }
                 // to avoid the System.NotSupportedException: No data is available for encoding 1252. we have to install the Nugget package System.Text.Encoding.CodePages
                 //https://stackoverflow.com/questions/50858209/system-notsupportedexception-no-data-is-available-for-encoding-1252
 
-                // Save the document
-                var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{novel.Title} - {chapter.Title}.pdf");
+                var sanitizedTitle = SanitizeFileName($"{novel.Title} - {chapter.Title}");
+                var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{sanitizedTitle}.pdf");
                 document.Save(pdfFilePath);
             }
+        }
+
+        public static string SanitizeFileName(string fileName)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            return new string(fileName.Where(ch => !invalidChars.Contains(ch)).ToArray());
         }
 
 
