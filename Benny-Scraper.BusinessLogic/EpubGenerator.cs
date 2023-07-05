@@ -9,6 +9,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using ShellProgressBar;
 
 namespace Benny_Scraper.BusinessLogic
 {
@@ -70,54 +71,72 @@ namespace Benny_Scraper.BusinessLogic
                 string manifestItems = string.Empty;
                 string spineItems = string.Empty;
                 string subjectItems = string.Empty;
-
-                foreach (var tag in novel.Genre.Split(","))
-                {
-                    subjectItems += $"<dc:subject>{tag}</dc:subject>";
-                }
-
-                // save cover image
-                string coverImageFileName = "cover.png";
-                string coverImageFilePath = Path.Combine(oebpsDirectory, coverImageFileName);
-
-                if (coverImage != null)
-                {
-                    Logger.Info("Saving cover image to {0}", coverImageFilePath);
-                    File.WriteAllBytes(coverImageFilePath, coverImage);
-                    Logger.Info("Cover image saved");
-                }
-
-                // create intro page
+                string introFileName = string.Empty;
+                string introTitle = string.Empty;
                 int chapterIndex = 0;
-                string introTitle = "Information";
-                string introImage = "../" + coverImageFileName;
-                string introDescription = novel.Description;
 
-                string introFileName = $"000{chapterIndex}_intro.xhtml";
-                string introFilePath = Path.Combine(textDirectory, introFileName);
-
-                string introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, introDescription);
-                File.WriteAllText(introFilePath, introContent);
-
-                manifestItems += $"<item id=\"intro\" href=\"Text/{introFileName}\" media-type=\"application/xhtml+xml\"/>";
-                spineItems += $"<itemref idref=\"intro\"/>";
-
-                chapterIndex++;
-                Logger.Info("Creating chapters and adding to manifest and spine");
-                foreach (var chapter in chapters)
+                int totalChapters = chapters.Count();
+                var options = new ProgressBarOptions
                 {
-                    string safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
-                    string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
-                    string chapterFilePath = Path.Combine(textDirectory, chapterFileName);
+                    ForegroundColor = ConsoleColor.Yellow,
+                    ForegroundColorDone = ConsoleColor.DarkGreen,
+                    BackgroundColor = ConsoleColor.DarkGray,
+                    ProgressBarOnBottom = true
+                };
+                using (var pbar = new ProgressBar(totalChapters, "Creating chapters", options))
+                {
+                    int currentChapter = 0;
+                    foreach (var tag in novel.Genre.Split(","))
+                    {
+                        subjectItems += $"<dc:subject>{tag}</dc:subject>";
+                    }
 
-                    string chapterContent = BuildXhtmlContent(chapter.Title, chapter.Content);
-                    File.WriteAllText(chapterFilePath, chapterContent);
+                    // save cover image
+                    string coverImageFileName = "cover.png";
+                    string coverImageFilePath = Path.Combine(oebpsDirectory, coverImageFileName);
 
-                    manifestItems += $"<item id=\"chapter{chapterIndex}\" href=\"Text/{chapterFileName}\" media-type=\"application/xhtml+xml\"/>";
-                    spineItems += $"<itemref idref=\"chapter{chapterIndex}\"/>";
+                    if (coverImage != null)
+                    {
+                        Logger.Info("Saving cover image to {0}", coverImageFilePath);
+                        File.WriteAllBytes(coverImageFilePath, coverImage);
+                        Logger.Info("Cover image saved");
+                    }
+
+                    // create intro page
+                    chapterIndex = 0;
+                    introFileName = "Information";
+                    string introImage = "../" + coverImageFileName;
+                    string introDescription = novel.Description;
+
+                    introFileName = $"000{chapterIndex}_intro.xhtml";
+                    string introFilePath = Path.Combine(textDirectory, introFileName);
+
+                    string introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, introDescription);
+                    File.WriteAllText(introFilePath, introContent);
+
+                    manifestItems += $"<item id=\"intro\" href=\"Text/{introFileName}\" media-type=\"application/xhtml+xml\"/>";
+                    spineItems += $"<itemref idref=\"intro\"/>";
 
                     chapterIndex++;
+                    Logger.Info("Creating chapters and adding to manifest and spine");
+                    foreach (var chapter in chapters)
+                    {
+                        string safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
+                        string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
+                        string chapterFilePath = Path.Combine(textDirectory, chapterFileName);
+
+                        string chapterContent = BuildXhtmlContent(chapter.Title, chapter.Content);
+                        File.WriteAllText(chapterFilePath, chapterContent);
+
+                        manifestItems += $"<item id=\"chapter{chapterIndex}\" href=\"Text/{chapterFileName}\" media-type=\"application/xhtml+xml\"/>";
+                        spineItems += $"<itemref idref=\"chapter{chapterIndex}\"/>";
+
+                        chapterIndex++;
+                        currentChapter++;
+                        pbar.Tick($"Chapter {currentChapter} of {totalChapters}");
+                    }
                 }
+
                 Logger.Info("Chapters created and added to manifest and spine");
                 manifestItems += "<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>";
                 manifestItems += "<item id=\"css_chapter\" href=\"css/chapter.css\" media-type=\"text/css\"/>";
@@ -145,20 +164,25 @@ namespace Benny_Scraper.BusinessLogic
                 navItemIntro.AppendChild(navLinkIntro);
                 navList?.AppendChild(navItemIntro);
 
-                chapterIndex = 1;
-                foreach (var chapter in chapters)
+                using (var pbar = new ProgressBar(chapters.Count(), "Processing chapters for nav.xhtml", options))
                 {
-                    string safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
-                    string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
+                    int currentChapter = 1;
+                    foreach (var chapter in chapters)
+                    {
+                        string safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
+                        string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
 
-                    XmlElement navItem = navXhtml.CreateElement("li");
-                    XmlElement navLink = navXhtml.CreateElement("a");
-                    navLink.SetAttribute("href", $"Text/{chapterFileName}");
-                    navLink.InnerText = chapter.Title;
-                    navItem.AppendChild(navLink);
-                    navList?.AppendChild(navItem);
+                        XmlElement navItem = navXhtml.CreateElement("li");
+                        XmlElement navLink = navXhtml.CreateElement("a");
+                        navLink.SetAttribute("href", $"Text/{chapterFileName}");
+                        navLink.InnerText = chapter.Title;
+                        navItem.AppendChild(navLink);
+                        navList?.AppendChild(navItem);
 
-                    chapterIndex++;
+                        chapterIndex++;
+                        currentChapter++;
+                        pbar.Tick($"Chapter {currentChapter} of {totalChapters} for nav.xhtml");
+                    }
                 }
 
                 navXhtml.Save(Path.Combine(oebpsDirectory, "nav.xhtml"));
@@ -206,7 +230,7 @@ namespace Benny_Scraper.BusinessLogic
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.Write($"Total chapters: {chapters.Count()}\nEpub file created at: {outputFilePath}\n");
                 Logger.Info($"Adding Epub to Calibredb");
-                var result = ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\"");
+                var result = ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
                 Logger.Info($"Command executed with code: {result}");
                 Console.ResetColor();
                 Logger.Info(new string('=', 50));

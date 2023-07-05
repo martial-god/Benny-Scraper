@@ -408,6 +408,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         public virtual async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls)
         {
+            var tempImageDirectory = string.Empty;
             try
             {
                 Logger.Info("Getting chapters data");
@@ -430,7 +431,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", chapterContent);
                         }
                     }
-                    var tempImageDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                    tempImageDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
                     Directory.CreateDirectory(tempImageDirectory);
 
                     foreach (var url in chapterUrls)
@@ -446,6 +447,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     catch (Exception ex)
                     {
                         Logger.Error($"Error while getting chapters data. {ex}");
+                        Directory.Delete(tempImageDirectory, true);
+                        Logger.Info("Finished deleting temp image directory");
                         throw;
                     }
                     finally
@@ -482,6 +485,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error($"Error while getting chapters data. {ex}");
+                if (!string.IsNullOrEmpty(tempImageDirectory))
+                {
+                    Directory.Delete(tempImageDirectory, true);
+                    Logger.Info("Finished deleting temp image directory");
+                }
                 throw;
             }
         }
@@ -566,19 +574,32 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
+            var uriLastSegment = new Uri(urls).Segments.Last();
 
             var chapterData = new ChapterData();
+            chapterData.Url = urls;
+
             Logger.Info($"Navigating to {urls}");
             driver.Navigate().GoToUrl(urls);
-            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
-            wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
+            try
+            {
+                WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
+                wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
+            }
+            catch (WebDriverTimeoutException ex)
+            {
+                Logger.Error($"Timeout while waiting for elements on page {urls}: {ex.Message}");
+                chapterData.Title = uriLastSegment;
+                return chapterData;
+            }
+            
             Logger.Info($"Finished navigating to {urls} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
             
 
             HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
-            chapterData.Title = titleNode.InnerText.Trim() ?? string.Empty;
+            chapterData.Title = titleNode.InnerText.Trim() ?? uriLastSegment;
             Logger.Debug($"Chapter title: {chapterData.Title}");
 
             HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
@@ -604,7 +625,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     ImagePath = imagePath
                 });
             }
-            chapterData.Url = urls;
 
             return chapterData;
         }

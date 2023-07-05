@@ -89,7 +89,7 @@ namespace Benny_Scraper.BusinessLogic
 
             string documentsFolder = GetDocumentsFolder(newNovel.Title);
 
-            if (newNovel.Chapters.Any(chapter => chapter.Pages != null))
+            if (newNovel.Chapters.Any(chapter => chapter?.Pages != null))
             {
                 CreatePdf(newNovel, chapterDatas, documentsFolder);
             }
@@ -127,6 +127,8 @@ namespace Benny_Scraper.BusinessLogic
         private string GetDocumentsFolder(string title)
         {
             string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (string.Equals(Environment.UserName, "emiya", StringComparison.OrdinalIgnoreCase))
+                documentsFolder = DriveInfo.GetDrives().FirstOrDefault(drive => drive.Name == @"H:\")?.Name ?? documentsFolder;
             string fileRegex = @"[^a-zA-Z0-9-\s]";
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
             var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
@@ -143,17 +145,29 @@ namespace Benny_Scraper.BusinessLogic
 
         private void CreatePdf(Novel novel, IEnumerable<ChapterData> chapterDatas, string documentsFolder)
         {
-            int? totalPages = novel.Chapters.SelectMany(chapter => chapter.Pages).Count();
+            Logger.Info("Creating PDFs for {0}", novel.Title);
+            int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
+            int totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || !chapter.Pages.Any());
+            var missingChapterUrls = novel.Chapters.Where(chapter => chapter.Pages == null).Select(chapter => chapter.Url);
 
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
             CreatePdfs(novel, chapterDatas, documentsFolder);
             Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
-            var result = _epubGenerator.ExecuteCommand($"calibredb add \"{documentsFolder}\"");
+            if (totalMissingChapters > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Theere were {totalMissingChapters} chapters with no pages");
+                Console.WriteLine($"Missing chapter urls: {string.Join("\n", missingChapterUrls)}");
+            }
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.WriteLine($"Adding PDFs to Calibre database");
+            var result = _epubGenerator.ExecuteCommand($"calibredb add \"{documentsFolder}\" --series \"{novel.Title}\"");
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
             Logger.Info(new string('=', 50));
             Logger.Info($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
+            
         }
 
         private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
@@ -182,7 +196,7 @@ namespace Benny_Scraper.BusinessLogic
 
                     PdfPage page = document.AddPage();
                     page.Width = XUnit.FromPoint(img.PixelWidth);
-                    page.Height = XUnit.FromPoint(img.PixelHeight);                    
+                    page.Height = XUnit.FromPoint(img.PixelHeight);
 
                     XGraphics gfx = XGraphics.FromPdfPage(page);
 

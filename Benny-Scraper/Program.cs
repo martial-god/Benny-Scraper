@@ -67,8 +67,6 @@ namespace Benny_Scraper
                 Console.WriteLine(instructions);
                 Console.ResetColor();
 
-                IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
-
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
                 bool isApplicationRunning = true;
