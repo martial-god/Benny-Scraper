@@ -36,7 +36,8 @@ namespace Benny_Scraper.Models
             }
         }
         public DateTime DateLastModified { get; set; }
-        public ICollection<PageData>? Pages { get; set; } // New property for manga pages
+        public ICollection<PageData>? Pages { get; set; }
+        public string TempDirectory { get; set; }
     }
 
     public class PageData

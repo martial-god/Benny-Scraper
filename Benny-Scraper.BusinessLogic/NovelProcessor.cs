@@ -153,6 +153,9 @@ namespace Benny_Scraper.BusinessLogic
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
             CreatePdfs(novel, chapterDatas, documentsFolder);
+
+            if (totalPages > 0)
+                DeleteTempFolder(chapterDatas.First().Pages.First().ImagePath);
             Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
             if (totalMissingChapters > 0)
             {
@@ -168,6 +171,15 @@ namespace Benny_Scraper.BusinessLogic
             Logger.Info(new string('=', 50));
             Logger.Info($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
             
+        }
+
+        private void DeleteTempFolder(string tempFile)
+        {
+            string directory = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(tempFile, true);
+            }
         }
 
         private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)

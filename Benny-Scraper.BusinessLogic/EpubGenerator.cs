@@ -79,7 +79,7 @@ namespace Benny_Scraper.BusinessLogic
                 var options = new ProgressBarOptions
                 {
                     ForegroundColor = ConsoleColor.Yellow,
-                    ForegroundColorDone = ConsoleColor.DarkGreen,
+                    ForegroundColorDone = ConsoleColor.White,
                     BackgroundColor = ConsoleColor.DarkGray,
                     ProgressBarOnBottom = true
                 };
