@@ -424,77 +424,71 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     ProgressBarOnBottom = true
                 };
 
-                using (var pbar = new ProgressBar(chapterUrls.Count, "Getting chapter data", options))
+                
+                if (_scraperData.SiteConfig.HasImagesForChapterContent)
                 {
-                    int currentChapter = 0;
-                    if (_scraperData.SiteConfig.HasImagesForChapterContent)
+                    Logger.Info("Using Selenium to get chapters data");
+                    IDriverFactory driverFactory = new DriverFactory();
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
+
+                    //if (_scraperData.SiteConfig.Name == "mangareader") // element is visisble while not in headless mode
+                    //{
+                    //    WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
+                    //    wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")));
+                    //    var chapterContent = driver.FindElement(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")); //element that decides orientation of pages
+                    //    if (chapterContent != null)
+                    //    {
+                    //        ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", chapterContent);
+                    //    }
+                    //}
+                    tempImageDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                    Directory.CreateDirectory(tempImageDirectory);
+
+                    foreach (var url in chapterUrls)
                     {
-                        Logger.Info("Using Selenium to get chapters data");
-                        IDriverFactory driverFactory = new DriverFactory();
-                        var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
-
-                        if (_scraperData.SiteConfig.Name == "mangareader") // element is visisble while not in headless mode
-                        {
-                            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
-                            wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")));
-                            var chapterContent = driver.FindElement(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")); //element that decides orientation of pages
-                            if (chapterContent != null)
-                            {
-                                ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", chapterContent);
-                            }
-                        }
-                        tempImageDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                        Directory.CreateDirectory(tempImageDirectory);
-
-                        foreach (var url in chapterUrls)
-                        {
-                            tasks.Add(GetChapterDataAsync(driver, url, tempImageDirectory));
-                            pbar.Tick($"Getting chapter {++currentChapter} of {chapterUrls.Count}");
-                        }
-                        try
-                        {
-                            var taskResults = await Task.WhenAll(tasks);
-                            chapterDatas.AddRange(taskResults);
-                            driver.Quit();
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"Error while getting chapters data. {ex}");
-                            Directory.Delete(tempImageDirectory, true);
-                            Logger.Info("Finished deleting temp image directory");
-                            throw;
-                        }
-                        finally
-                        {
-                            Logger.Info("Closing driver");
-                            driver.Quit();
-                            Logger.Info("Finished closing driver");
-                        }
-
+                        tasks.Add(GetChapterDataAsync(driver, url, tempImageDirectory));
                     }
-                    else
+                    try
                     {
-                        Logger.Info("Using HttpClient to get chapters data");
-                        foreach (var url in chapterUrls)
-                        {
-                            await _semaphoreSlim.WaitAsync();
-                            tasks.Add(GetChapterDataAsync(url));
-                            pbar.Tick($"Getting chapter {++currentChapter} of {chapterUrls.Count}");
-                        }
-                        try
-                        {
-                            var taskResults = await Task.WhenAll(tasks);
-                            chapterDatas.AddRange(taskResults);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"Error while getting chapters data. {ex}");
-                            throw;
-                        }
-
-                        Logger.Info("Finished getting chapters data");
+                        var taskResults = await Task.WhenAll(tasks);
+                        chapterDatas.AddRange(taskResults);
+                        driver.Quit();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error while getting chapters data. {ex}");
+                        Directory.Delete(tempImageDirectory, true);
+                        Logger.Info("Finished deleting temp image directory");
+                        throw;
+                    }
+                    finally
+                    {
+                        Logger.Info("Closing driver");
+                        driver.Quit();
+                        Logger.Info("Finished closing driver");
                     }
 
+                }
+                else
+                {
+                    Logger.Info("Using HttpClient to get chapters data");
+                    foreach (var url in chapterUrls)
+                    {
+                        await _semaphoreSlim.WaitAsync();
+                        tasks.Add(GetChapterDataAsync(url));
+                    }
+                    try
+                    {
+                        var taskResults = await Task.WhenAll(tasks);
+                        chapterDatas.AddRange(taskResults);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error while getting chapters data. {ex}");
+                        throw;
+                    }
+
+                    Logger.Info("Finished getting chapters data");
                 }
                 
                 return chapterDatas;

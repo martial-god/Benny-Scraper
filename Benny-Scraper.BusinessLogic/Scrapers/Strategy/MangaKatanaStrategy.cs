@@ -41,6 +41,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 // chapters are in reverse order
                 novelData.ChapterUrls.Reverse();
                 novelData.ChapterUrls = novelData.ChapterUrls.Select(partialUrl => new Uri(scraperData.BaseUri, partialUrl).ToString()).ToList();
+                novelData.FirstChapter = novelData.ChapterUrls.First();
             }
             if (!string.IsNullOrEmpty(novelData.MostRecentChapterTitle))
             {

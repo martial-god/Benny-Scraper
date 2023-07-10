@@ -119,7 +119,15 @@ namespace Benny_Scraper.BusinessLogic
 
             string documentsFolder = GetDocumentsFolder(novel.Title);
 
-            novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
+            if (newChapters.Any(chapter => chapter?.Pages != null))
+            {
+                CreatePdf(novel, chapterDatas, documentsFolder);
+            }
+            else
+            {
+                novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
+            }
+
 
             await _novelService.UpdateAndAddChapters(novel, newChapters);
         }
@@ -152,10 +160,8 @@ namespace Benny_Scraper.BusinessLogic
 
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
-            CreatePdfs(novel, chapterDatas, documentsFolder);
+            CreateSinglePdf(novel, chapterDatas, documentsFolder);
 
-            if (totalPages > 0)
-                DeleteTempFolder(chapterDatas.First().Pages.First().ImagePath);
             Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
             if (totalMissingChapters > 0)
             {
@@ -170,7 +176,7 @@ namespace Benny_Scraper.BusinessLogic
             Console.ResetColor();
             Logger.Info(new string('=', 50));
             Logger.Info($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
-            
+
         }
 
         private void DeleteTempFolder(string tempFile)
@@ -178,11 +184,13 @@ namespace Benny_Scraper.BusinessLogic
             string directory = Path.GetDirectoryName(tempFile);
             if (Directory.Exists(directory))
             {
-                Directory.Delete(tempFile, true);
+                Directory.Delete(directory, false);
+                Logger.Info($"Deleted temp folder {directory}");
             }
+
         }
 
-        private void CreatePdfs(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
+        private void CreatePdfByChapter(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -222,6 +230,52 @@ namespace Benny_Scraper.BusinessLogic
                 document.Save(pdfFilePath);
             }
         }
+
+        private void CreateSinglePdf(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
+        {
+            Directory.CreateDirectory(pdfDirectoryPath);
+
+            PdfDocument document = new PdfDocument();
+
+            document.Info.Title = $"{novel.Title}";
+            document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
+            document.Info.Subject = novel.Genre;
+            document.Info.Keywords = novel.Genre;
+            document.Info.CreationDate = DateTime.Now;
+
+            foreach (var chapter in chapterData)
+            {
+                if (chapter.Pages == null)
+                    continue;
+
+                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList(); // only Page from PageData has ImagePath as a member variable
+                Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
+
+                foreach (var imagePath in imagePaths)
+                {
+                    XImage img;
+                    using (var imageStream = File.OpenRead(imagePath))
+                    {
+                        img = XImage.FromStream(imageStream);
+                        PdfPage page = document.AddPage();
+                        page.Width = XUnit.FromPoint(img.PixelWidth);
+                        page.Height = XUnit.FromPoint(img.PixelHeight);
+
+                        XGraphics gfx = XGraphics.FromPdfPage(page);
+
+                        gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                    }
+
+                    File.Delete(imagePath);
+                }
+            }
+            DeleteTempFolder(chapterData.First().Pages.First().ImagePath);
+
+            var sanitizedTitle = SanitizeFileName($"{novel.Title}");
+            var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{sanitizedTitle}.pdf");
+            document.Save(pdfFilePath);
+        }
+
 
         public static string SanitizeFileName(string fileName)
         {
