@@ -27,7 +27,7 @@ namespace Benny_Scraper.BusinessLogic
 
         void AddSupportForWebsite()
         {
-            AddSiteToMap("https://www.webnovelpub.com", new WebNovelPubStrategy());
+            AddSiteToMap("https://www.lightnovelworld.com", new LightNovelWorldStrategy());
             AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
             AddSiteToMap("https://mangakakalot.to", new MangaKakalotStrategy());
             AddSiteToMap("https://mangareader.to", new MangaReaderStrategy());

@@ -7,6 +7,7 @@ using HtmlAgilityPack;
 using NLog;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
+using Polly;
 using SeleniumExtras.WaitHelpers;
 using ShellProgressBar;
 using System.Diagnostics;
@@ -242,36 +243,57 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return await LoadHtmlAsync(uri);
         }
 
-
         protected static async Task<HtmlDocument> LoadHtmlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 
-            int retryCount = 0;
-            while (retryCount < MaxRetries)
+            var retryPolicy = Policy
+                .Handle<HttpRequestException>()
+                .OrResult<HtmlDocument>(htmlDoc => htmlDoc == null) // Retry if the result is null
+                .WaitAndRetryAsync(MaxRetries, retryAttempt =>
+                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // exponential back-off
+                    (outcome, timeSpan, retryCount, context) =>
+                    {
+                        if (outcome.Exception != null)
+                        {
+                            // Log the exception details here
+                            Logger.Warn($"Error occurred while navigating to {uri}. Error: {outcome.Exception}. Attempt: {retryCount}");
+                        }
+                        else
+                        {
+                            // Log that the chapter is being skipped
+                            Logger.Warn($"Skipping chapter due to repeated failures: {uri}. Attempt: {retryCount}");
+                        }
+                    });
+
+            return await retryPolicy.ExecuteAsync(async context =>
             {
-                try
+                var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
+                var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
+                requestMessage.Headers.Add("User-Agent", userAgent);
+                requestMessage.Properties.Add("RequestTimeout", TimeSpan.FromSeconds(10));
+                Logger.Debug($"Sending request to {uri}");
+                var response = await _client.SendAsync(requestMessage);
+                Logger.Debug($"Received response from {response.StatusCode}");
+                if (!response.IsSuccessStatusCode)
                 {
-                    var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-                    var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
-                    requestMessage.Headers.Add("User-Agent", userAgent); // some sites require a user agent to be set https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
-                    var response = await _client.SendAsync(requestMessage);
-                    response.EnsureSuccessStatusCode(); // Throws an exception if the status code is not successful
-                    var content = await response.Content.ReadAsStringAsync();
-
-                    var htmlDocument = new HtmlDocument();
-                    htmlDocument.LoadHtml(content);
-
-                    return htmlDocument;
+                    if (response.StatusCode == HttpStatusCode.TooManyRequests && (int)context["RetryCount"] >= 4)
+                    {
+                        // Skip this chapter and return null
+                        return null;
+                    }
+                    else
+                    {
+                        throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts. Status code: {response.StatusCode}");
+                    }
                 }
-                catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
-                {
-                    retryCount++;
-                    Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
-                    await Task.Delay(3000);
-                }
-            }
-            throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts.");
+                response.EnsureSuccessStatusCode();
+                var content = await response.Content.ReadAsStringAsync();
+
+                var htmlDocument = new HtmlDocument();
+                htmlDocument.LoadHtml(content);
+                return htmlDocument;
+            }, new Context { ["RetryCount"] = 0 });
         }
 
         protected static async Task<string> DownloadImageAsync(Uri uri, string tempImageDirectory)
@@ -415,15 +437,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Info("Getting chapters data");
                 var tasks = new List<Task<ChapterData>>();
                 var chapterDatas = new List<ChapterData>();
-
-                var options = new ProgressBarOptions
-                {
-                    ForegroundColor = ConsoleColor.Yellow,
-                    ForegroundColorDone = ConsoleColor.White,
-                    BackgroundColor = ConsoleColor.DarkGray,
-                    ProgressBarOnBottom = true
-                };
-
                 
                 if (_scraperData.SiteConfig.HasImagesForChapterContent)
                 {
@@ -568,7 +581,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return decodedHtmlDocument;
         }
-
 
         #region Private Methods
         private void SetSiteConfiguration(SiteConfiguration siteConfig)

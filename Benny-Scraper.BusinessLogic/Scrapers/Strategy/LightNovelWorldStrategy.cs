@@ -29,13 +29,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
     }
-    public class WebNovelPubStrategy : ScraperStrategy
+    public class LightNovelWorldStrategy : ScraperStrategy
     {
         private Uri? _chaptersUri;
 
         public override async Task<NovelData> ScrapeAsync()
         {
-            Logger.Info("Starting scraper for Web");
+            Logger.Info($"Starting scraper for {this.GetType().Name}");
 
             SetBaseUri(_scraperData.SiteTableOfContents);
 

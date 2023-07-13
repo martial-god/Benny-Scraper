@@ -116,7 +116,7 @@ namespace Benny_Scraper
         {
             List<string> supportedSites = new List<string>
                 {
-                    "\nWebnovel Pub (https://www.webnovelpub.com/)",
+                    "\nWebnovel Pub (https://www.lightnovelworld.com/)",
                     "Novel Full (https://www.novelfull.com/)",
                     "Mangakakalot (https://mangakakalot.to/)",
                     "Mangareader (https://www.mangareader.to/)",

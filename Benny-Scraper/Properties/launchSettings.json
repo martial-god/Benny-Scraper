@@ -6,7 +6,7 @@
     },
     "Benny-Scraper": {
       "commandName": "Project",
-      "commandLineArgs": "delete_novel_by_id 6E9C31AF-0CEB-4EF4-AE19-271165EB7137"
+      "nativeDebugging": true
     }
   }
 }
