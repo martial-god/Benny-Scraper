@@ -112,8 +112,16 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         Uri absoluteUri = isValidHttpUrl ? new Uri(url) : new Uri(scraperData.BaseUri, url);
                         using (var client = new HttpClient())
                         {
-                            var thumbnailBytes = client.GetByteArrayAsync(absoluteUri).Result;
-                            novelData.ThumbnailImage = thumbnailBytes;
+                            try 
+                            {
+                                var thumbnailBytes = client.GetByteArrayAsync(absoluteUri).Result;
+                                novelData.ThumbnailImage = thumbnailBytes;
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine($"Failed to download thumbnail image for novel {novelData.Title} at url {absoluteUri}. Exception: {e}");
+                            }
+                            
                         }
                         novelData.ThumbnailUrl = url;
                         break;

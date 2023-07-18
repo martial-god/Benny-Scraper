@@ -40,7 +40,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetBaseUri(_scraperData.SiteTableOfContents);
 
             var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
-            htmlDocument = DecodeHtml(htmlDocument);
+            //htmlDocument = DecodeHtml(htmlDocument);
             var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
 
             _chaptersUri = new Uri(_scraperData.SiteTableOfContents + "/chapters");
