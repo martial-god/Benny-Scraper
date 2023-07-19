@@ -14,7 +14,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             //Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
             //child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
             //the implementation would require both.
-            public static void FetchNovelContent(NovelData novelData, HtmlDocument htmlDocument, ScraperData scraperData)
+            public static void FetchNovelContent(NovelDataBuffer novelData, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 var tableOfContents = scraperData.SiteTableOfContents;
                 var attributesToFetch = new List<Attr>()
@@ -38,9 +38,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
 
                 //TODO: Brad: I notice that the name LatestChapter and CurrentChapter are both used to refer to the same thing.
-                //  As is, FetchContentByAttribute(Attr.LatestChapter ...) sets the NovelData's CurrentChapterUrl property.
+                //  As is, FetchContentByAttribute(Attr.LatestChapter ...) sets the NovelDataBuffer's CurrentChapterUrl property.
                 //  It is probably best if the two naming schemes are unified, but I don't want to change the data members
-                //  of NovelData without consulting you first.
+                //  of NovelDataBuffer without consulting you first.
                 var fullLatestChapterUrl = new Uri(tableOfContents, novelData.CurrentChapterUrl?.TrimStart('/')).ToString();
                 var fullThumbnailUrl = new Uri(tableOfContents, novelData.ThumbnailUrl?.TrimStart('/')).ToString();
                 var fullLastTableOfContentUrl = new Uri(tableOfContents, novelData.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
@@ -54,7 +54,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     
     public class NovelFullStrategy : ScraperStrategy
     {
-        public override async Task<NovelData> ScrapeAsync()
+        public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
 
@@ -63,7 +63,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             
             try
             {
-                NovelData novelData = await BuildNovelDataAsync(htmlDocument);
+                NovelDataBuffer novelData = await BuildNovelDataAsync(htmlDocument);
 
                 return novelData;
             }
@@ -74,7 +74,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        private async Task<NovelData> BuildNovelDataAsync(HtmlDocument htmlDocument)
+        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
             var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
 
@@ -87,9 +87,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
-        public override NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
-            var novelData = new NovelData();
+            var novelData = new NovelDataBuffer();
             try
             {
                 NovelFullInitializer.FetchNovelContent(novelData, htmlDocument, _scraperData);

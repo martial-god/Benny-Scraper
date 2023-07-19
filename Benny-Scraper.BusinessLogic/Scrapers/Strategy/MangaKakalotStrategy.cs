@@ -10,7 +10,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     /// </summary>
     public class MangaKakalotInitializer : NovelDataInitializer
     {
-        public static async Task FetchNovelContentAsync(NovelData novelData, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
+        public static async Task FetchNovelContentAsync(NovelDataBuffer novelData, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
         {
             int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split("-").Last(), out int novelId);
             StringBuilder queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
@@ -61,7 +61,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
     public class MangaKakalotStrategy : ScraperStrategy
     {
-        public override async Task<NovelData> ScrapeAsync()
+        public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
             SetBaseUri(_scraperData.SiteTableOfContents);
@@ -70,7 +70,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
-                NovelData novelData = await BuildNovelDataAsync(htmlDocument);
+                NovelDataBuffer novelData = await BuildNovelDataAsync(htmlDocument);
 
                 return novelData;
             }
@@ -81,15 +81,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        private async Task<NovelData> BuildNovelDataAsync(HtmlDocument htmlDocument)
+        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
             var novelData = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
             return novelData;
         }
 
-        public override async Task<NovelData> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        public override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
-            var novelData = new NovelData();
+            var novelData = new NovelDataBuffer();
             try
             {
                 await Task.WhenAll(MangaKakalotInitializer.FetchNovelContentAsync(novelData, htmlDocument, _scraperData, this));
@@ -103,7 +103,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
-        public override NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             throw new NotImplementedException();
         }

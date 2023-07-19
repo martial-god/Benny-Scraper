@@ -73,7 +73,7 @@ namespace Benny_Scraper.BusinessLogic
         #region Private Methods
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
-            NovelData novelData = await scraperStrategy.ScrapeAsync();
+            NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
 
             if (novelData == null)
             {
@@ -84,7 +84,7 @@ namespace Benny_Scraper.BusinessLogic
             Novel newNovel = CreateNovel(novelData, novelTableOfContentsUri);
             Logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
-            IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
+            IEnumerable<ChapterDataBuffer> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
             newNovel.Chapters = CreateChapters(chapterDatas, newNovel.Id);
 
             string documentsFolder = GetDocumentsFolder(newNovel.Title);
@@ -104,7 +104,7 @@ namespace Benny_Scraper.BusinessLogic
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
-            NovelData novelData = await scraperStrategy.ScrapeAsync();
+            NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
 
             if (novelData == null)
             {
@@ -112,7 +112,7 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            IEnumerable<ChapterData> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
+            IEnumerable<ChapterDataBuffer> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
             List<Models.Chapter> newChapters = CreateChapters(chapterDatas, novel.Id);
 
             UpdateNovel(novel, novelData, newChapters);
@@ -151,7 +151,7 @@ namespace Benny_Scraper.BusinessLogic
             return epubFile;
         }
 
-        private void CreatePdf(Novel novel, IEnumerable<ChapterData> chapterDatas, string documentsFolder)
+        private void CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDatas, string documentsFolder)
         {
             Logger.Info("Creating PDFs for {0}", novel.Title);
             int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
@@ -190,7 +190,7 @@ namespace Benny_Scraper.BusinessLogic
 
         }
 
-        private void CreatePdfByChapter(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
+        private void CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterData, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -231,7 +231,7 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        private void CreateSinglePdf(Novel novel, IEnumerable<ChapterData> chapterData, string pdfDirectoryPath)
+        private void CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterData, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -284,7 +284,7 @@ namespace Benny_Scraper.BusinessLogic
         }
 
 
-        private void UpdateNovel(Novel novel, NovelData novelData, List<Models.Chapter> newChapters)
+        private void UpdateNovel(Novel novel, NovelDataBuffer novelData, List<Models.Chapter> newChapters)
         {
             novel.Chapters.AddRange(newChapters);
             novel.LastTableOfContentsUrl = (!string.IsNullOrEmpty(novelData.LastTableOfContentsPageUrl)) ? novelData.LastTableOfContentsPageUrl : novel.LastTableOfContentsUrl;
@@ -296,7 +296,7 @@ namespace Benny_Scraper.BusinessLogic
         }
 
 
-        private Novel CreateNovel(NovelData novelData, Uri novelTableOfContentsUri)
+        private Novel CreateNovel(NovelDataBuffer novelData, Uri novelTableOfContentsUri)
         {
             return new Novel
             {
@@ -317,7 +317,7 @@ namespace Benny_Scraper.BusinessLogic
             };
         }
 
-        private List<Chapter> CreateChapters(IEnumerable<ChapterData> chapterDatas, Guid novelId)
+        private List<Chapter> CreateChapters(IEnumerable<ChapterDataBuffer> chapterDatas, Guid novelId)
         {
             return chapterDatas.Select(data => new Chapter
             {

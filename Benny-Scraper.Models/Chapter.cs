@@ -22,7 +22,7 @@ namespace Benny_Scraper.Models
         public virtual ICollection<Page>? Pages { get; set; } // New property for manga pages
     }
 
-    public class ChapterData
+    public class ChapterDataBuffer
     {
         public string Url { get; set; }
         public string? Content { get; set; }

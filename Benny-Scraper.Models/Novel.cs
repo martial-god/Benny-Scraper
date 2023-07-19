@@ -41,9 +41,9 @@ namespace Benny_Scraper.Models
     /// <summary>
     /// Class for storing pertinent data about a novel, usually things found on table of centents page like title description, genres, etc.
     /// </summary>
-    public class NovelData
+    public class NovelDataBuffer
     {
-        public NovelData()
+        public NovelDataBuffer()
         {
             ChapterUrls = new List<string>();
             Description = new List<string>();

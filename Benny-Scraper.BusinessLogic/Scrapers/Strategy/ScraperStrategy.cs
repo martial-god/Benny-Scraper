@@ -19,7 +19,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
     namespace Impl
     {
-        //The NovelDataInitializer represents an abstraction around populating a NovelData object with its required content.
+        //The NovelDataInitializer represents an abstraction around populating a NovelDataBuffer object with its required content.
         //Each strategy implements a corresponding child of the NovelDataInitializer class which is used to neatly
         //encapsulate the strategy-specific content fetching functions in the Impl namespace.
         //
@@ -38,7 +38,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Description,
                 Genres,
                 AlternativeNames,
-                //TODO: 'Status' is ambiguous. Should this attribute and the corresponding data member of NovelData be renamed
+                //TODO: 'Status' is ambiguous. Should this attribute and the corresponding data member of NovelDataBuffer be renamed
                 //  to clarify it's purpose?
                 Status,
                 ThumbnailUrl,
@@ -48,7 +48,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 LatestChapter
             }
 
-            protected static void FetchContentByAttribute(Attr attr, NovelData novelData, HtmlDocument htmlDocument, ScraperData scraperData)
+            protected static void FetchContentByAttribute(Attr attr, NovelDataBuffer novelData, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 switch (attr)
                 {
@@ -232,9 +232,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         };
         private static int _userAgentIndex = 0;
 
-        public abstract Task<NovelData> ScrapeAsync();
-        public abstract NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
-        public virtual Task<NovelData> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        public abstract Task<NovelDataBuffer> ScrapeAsync();
+        public abstract NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
+        public virtual Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             // this method should always be overridden, I just needed a default implementation so other Strategies would not require it
             return Task.Run(() => FetchNovelDataFromTableOfContents(htmlDocument));
@@ -437,14 +437,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterUrls;
         }
 
-        public virtual async Task<List<ChapterData>> GetChaptersDataAsync(List<string> chapterUrls)
+        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls)
         {
             var tempImageDirectory = string.Empty;
             try
             {
                 Logger.Info("Getting chapters data");
-                var tasks = new List<Task<ChapterData>>();
-                var chapterDatas = new List<ChapterData>();
+                var tasks = new List<Task<ChapterDataBuffer>>();
+                var chapterDatas = new List<ChapterDataBuffer>();
                 
                 if (_scraperData.SiteConfig.HasImagesForChapterContent)
                 {
@@ -526,8 +526,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-
-
         protected virtual List<string> GetChapterUrlsInRange(HtmlDocument htmlDocument, Uri baseSiteUri, int? startChapter = null, int? endChapter = null)
         {
             Logger.Info($"Getting chapter urls from table of contents");
@@ -601,13 +599,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             _scraperData.SiteTableOfContents = siteTableOfContents;
         }        
 
-        private async Task<ChapterData> GetChapterDataAsync(IWebDriver driver, string urls, string tempImageDirectory)
+        private async Task<ChapterDataBuffer> GetChapterDataAsync(IWebDriver driver, string urls, string tempImageDirectory)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
             var uriLastSegment = new Uri(urls).Segments.Last();
 
-            var chapterData = new ChapterData();
+            var chapterData = new ChapterDataBuffer();
             chapterData.TempDirectory = tempImageDirectory;
             chapterData.Url = urls;
 
@@ -662,19 +660,20 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
 
-        private async Task<ChapterData> GetChapterDataAsync(string url)
+        private async Task<ChapterDataBuffer> GetChapterDataAsync(string url)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var chapterData = new ChapterData();
-            Logger.Info($"Navigating to {url}");
-            var htmlDocument = await LoadHtmlAsync(new Uri(url));
-            Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Restart();
+            var chapterData = new ChapterDataBuffer();           
 
             try
             {
+                Logger.Info($"Navigating to {url}");
+                var htmlDocument = await LoadHtmlAsync(new Uri(url));
+                Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                stopwatch.Restart();
+
                 HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
                 chapterData.Title = titleNode.InnerText.Trim();
                 Logger.Debug($"Chapter title: {chapterData.Title}");
@@ -713,6 +712,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error(ex);
+                return chapterData;
                 throw;
             }
             finally

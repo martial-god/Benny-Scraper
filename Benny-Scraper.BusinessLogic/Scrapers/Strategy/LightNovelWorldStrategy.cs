@@ -11,7 +11,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     {
         public class WebNovelPubInitializer : NovelDataInitializer
         {
-            public static void FetchNovelContent(NovelData novelData, HtmlDocument htmlDocument, ScraperData scraperData)
+            public static void FetchNovelContent(NovelDataBuffer novelData, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 var attributesToFetch = new List<Attr>()
                 {
@@ -33,7 +33,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     {
         private Uri? _chaptersUri;
 
-        public override async Task<NovelData> ScrapeAsync()
+        public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Starting scraper for {this.GetType().Name}");
 
@@ -58,9 +58,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelData;
         }
 
-        public override NovelData FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
-            var novelData = new NovelData();
+            var novelData = new NovelDataBuffer();
             try
             {
                 WebNovelPubInitializer.FetchNovelContent(novelData, htmlDocument, _scraperData);
