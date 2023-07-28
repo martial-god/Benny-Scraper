@@ -41,7 +41,7 @@ namespace Benny_Scraper.Models
     /// <summary>
     /// Class for storing pertinent data about a novel, usually things found on table of centents page like title description, genres, etc.
     /// </summary>
-    public class NovelDataBuffer
+    public class NovelDataBuffer : IDisposable
     {
         public NovelDataBuffer()
         {
@@ -67,5 +67,14 @@ namespace Benny_Scraper.Models
         public string CurrentChapterUrl { get; set; }
         public string FirstChapter { get; set; }
         public byte[]? ThumbnailImage { get; set; }
+
+        public void Dispose()
+        {
+            ChapterUrls.Clear();
+            Description?.Clear();
+            Genres.Clear();
+            AlternativeNames.Clear();
+            ThumbnailImage = null;
+        }
     }
 }

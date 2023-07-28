@@ -1,5 +1,4 @@
-﻿using AngleSharp.Dom;
-using Benny_Scraper.BusinessLogic.Config;
+﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.Models;
@@ -9,11 +8,9 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using Polly;
 using SeleniumExtras.WaitHelpers;
-using ShellProgressBar;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using System.Xml.Linq;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -112,7 +109,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         Uri absoluteUri = isValidHttpUrl ? new Uri(url) : new Uri(scraperData.BaseUri, url);
                         using (var client = new HttpClient())
                         {
-                            try 
+                            try
                             {
                                 var thumbnailBytes = client.GetByteArrayAsync(absoluteUri).Result;
                                 novelData.ThumbnailImage = thumbnailBytes;
@@ -121,7 +118,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             {
                                 Console.WriteLine($"Failed to download thumbnail image for novel {novelData.Title} at url {absoluteUri}. Exception: {e}");
                             }
-                            
                         }
                         novelData.ThumbnailUrl = url;
                         break;
@@ -445,12 +441,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Info("Getting chapters data");
                 var tasks = new List<Task<ChapterDataBuffer>>();
                 var chapterDatas = new List<ChapterDataBuffer>();
-                
+
                 if (_scraperData.SiteConfig.HasImagesForChapterContent)
                 {
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
-                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: false);
 
                     //if (_scraperData.SiteConfig.Name == "mangareader") // element is visisble while not in headless mode
                     //{
@@ -511,7 +507,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     Logger.Info("Finished getting chapters data");
                 }
-                
+
                 return chapterDatas;
             }
             catch (Exception ex)
@@ -597,7 +593,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private void SetSiteTableOfContents(Uri siteTableOfContents)
         {
             _scraperData.SiteTableOfContents = siteTableOfContents;
-        }        
+        }
 
         private async Task<ChapterDataBuffer> GetChapterDataAsync(IWebDriver driver, string urls, string tempImageDirectory)
         {
@@ -622,11 +618,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 chapterData.Title = uriLastSegment;
                 return chapterData;
             }
-            
+
             Logger.Info($"Finished navigating to {urls} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
-            
+
 
             HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
             chapterData.Title = titleNode.InnerText.Trim() ?? uriLastSegment;
@@ -665,7 +661,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var chapterData = new ChapterDataBuffer();           
+            var chapterData = new ChapterDataBuffer();
 
             try
             {

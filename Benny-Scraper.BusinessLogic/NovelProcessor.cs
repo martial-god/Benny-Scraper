@@ -73,7 +73,7 @@ namespace Benny_Scraper.BusinessLogic
         #region Private Methods
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
-            NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
+            using NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
 
             if (novelData == null)
             {
@@ -92,6 +92,10 @@ namespace Benny_Scraper.BusinessLogic
             if (newNovel.Chapters.Any(chapter => chapter?.Pages != null))
             {
                 CreatePdf(newNovel, chapterDatas, documentsFolder);
+                foreach (var chapterData in chapterDatas)
+                {
+                    chapterData.Dispose();
+                }
             }
             else
             {
@@ -104,7 +108,7 @@ namespace Benny_Scraper.BusinessLogic
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
-            NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
+            using NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
 
             if (novelData == null)
             {
@@ -122,6 +126,10 @@ namespace Benny_Scraper.BusinessLogic
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
                 CreatePdf(novel, chapterDatas, documentsFolder);
+                foreach (var chapterData in chapterDatas)
+                {
+                    chapterData.Dispose();
+                }
             }
             else
             {

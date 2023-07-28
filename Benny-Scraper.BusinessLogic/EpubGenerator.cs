@@ -206,9 +206,16 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Info(new string('=', 50));
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.Write($"Total chapters: {chapters.Count()}\nEpub file created at: {outputFilePath}\n");
-                Logger.Info($"Adding Epub to Calibredb");
-                var result = ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
-                Logger.Info($"Command executed with code: {result}");
+                try
+                {
+                    Logger.Info($"Adding Epub to Calibredb");
+                    var result = ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
+                    Logger.Info($"Command executed with code: {result}");
+                }
+                catch
+                {
+                }
+                
                 Console.ResetColor();
                 Logger.Info(new string('=', 50));
             }

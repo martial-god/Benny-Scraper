@@ -52,9 +52,9 @@ namespace Benny_Scraper
 
         private static async Task RunAsync()
         {
+            //create methods to check for updates for each novel in our database
             using (var scope = Container.BeginLifetimeScope())
-            {
-                
+            {                
                 var logger = NLog.LogManager.GetCurrentClassLogger();
                 Logger.Info("Initializing Database");
                 DbInitializer dbInitializer = scope.Resolve<DbInitializer>();

@@ -22,7 +22,7 @@ namespace Benny_Scraper.Models
         public virtual ICollection<Page>? Pages { get; set; } // New property for manga pages
     }
 
-    public class ChapterDataBuffer
+    public class ChapterDataBuffer : IDisposable
     {
         public string Url { get; set; }
         public string? Content { get; set; }
@@ -38,6 +38,17 @@ namespace Benny_Scraper.Models
         public DateTime DateLastModified { get; set; }
         public ICollection<PageData>? Pages { get; set; }
         public string TempDirectory { get; set; }
+
+        public void Dispose()
+        {
+            if (Pages != null)
+            {
+                foreach (var page in Pages)
+                {
+                    page.ImagePath = null;
+                }
+            }
+        }
     }
 
     public class PageData
