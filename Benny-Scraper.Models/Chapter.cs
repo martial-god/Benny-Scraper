@@ -16,7 +16,7 @@ namespace Benny_Scraper.Models
         public string? Title { get; set; }
         public string Url { get; set; }
         public string? Content { get; set; }
-        public string Number { get; set; }
+        public int Number { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }
         public virtual ICollection<Page>? Pages { get; set; } // New property for manga pages
@@ -27,12 +27,14 @@ namespace Benny_Scraper.Models
         public string Url { get; set; }
         public string? Content { get; set; }
         public string Title { get; set; }
-        public string Number
+        public int Number
         {
             get
             {
+                if (Title == null)
+                    return 0;
                 var digitMatch = Regex.Match(Title, @"\d+");
-                return (digitMatch.Success ? digitMatch.Groups[0].Value : "0");
+                return (digitMatch.Success ? int.Parse(digitMatch.Groups[0].Value) : 0);
             }
         }
         public DateTime DateLastModified { get; set; }

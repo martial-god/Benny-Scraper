@@ -17,6 +17,8 @@ using NLog;
 using NLog.Targets;
 using System.Diagnostics;
 using System.Text;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Benny_Scraper
 {
@@ -73,8 +75,9 @@ namespace Benny_Scraper
                 while (isApplicationRunning)
                 {
                     // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-                    Console.WriteLine("\nEnter the site url (or 'exit' to quit): ");
+                    Console.WriteLine("\nEnter the site url (or 'recreate' {site url} to create from saved webnovel)(or 'exit' to quit): ");
                     string siteUrl = Console.ReadLine();
+                    string[] input = siteUrl.Split(' ');
 
                     if (string.IsNullOrWhiteSpace(siteUrl))
                     {
@@ -85,6 +88,39 @@ namespace Benny_Scraper
                     if (siteUrl.ToLower() == "exit")
                     {
                         isApplicationRunning = false;
+                        continue;
+                    }
+
+                    //split the input into an array of strings then check if the first string has recreate as the first word, if so resolve epubgenerator and call CreateEpub
+                    if (input[0].ToLower() == "recreate")
+                    {
+                        if (input.Length < 2)
+                        {
+                            Console.WriteLine("Invalid input. Please enter a valid URL.");
+                            continue;
+                        }
+                        try
+                        {
+                            IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
+                            INovelService novelService = scope.Resolve<INovelService>();
+                            Uri.TryCreate(input[1], UriKind.Absolute, out Uri tableOfContentUri);
+                            bool isNovelInDatabase = await novelService.IsNovelInDatabaseAsync(tableOfContentUri.ToString());
+                            if (isNovelInDatabase)
+                            {
+                                var novel = await novelService.GetByUrlAsync(tableOfContentUri);
+                                Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count()}");
+                                var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
+                                var documentsFolder = GetDocumentsFolder(novel.Title);
+                                Directory.CreateDirectory(documentsFolder);
+                                string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
+                                epubGenerator.CreateEpub(novel, chapters, epubFile, null);
+                            }
+                            
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Exception when trying to recreate novel. {ex}");
+                        }
                         continue;
                     }
 
@@ -171,6 +207,17 @@ namespace Benny_Scraper
             }
         }
 
+        private static string GetDocumentsFolder(string title)
+        {
+            string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (string.Equals(Environment.UserName, "emiya", StringComparison.OrdinalIgnoreCase))
+                documentsFolder = DriveInfo.GetDrives().FirstOrDefault(drive => drive.Name == @"H:\")?.Name ?? documentsFolder;
+            string fileRegex = @"[^a-zA-Z0-9-\s]";
+            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
+            return Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
+        }
+
         private static void SetupLogger()
         {
             var config = new NLog.Config.LoggingConfiguration();
@@ -193,7 +240,7 @@ namespace Benny_Scraper
                 ConsoleOutputColor.Green, ConsoleOutputColor.Black));
             logconsole.RowHighlightingRules.Add(new NLog.Targets.ConsoleRowHighlightingRule(
                 NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Warn"),
-                ConsoleOutputColor.Yellow, ConsoleOutputColor.Black));
+                ConsoleOutputColor.DarkYellow, ConsoleOutputColor.Black));
             logconsole.RowHighlightingRules.Add(new NLog.Targets.ConsoleRowHighlightingRule(
                 NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Error"),
                 ConsoleOutputColor.Red, ConsoleOutputColor.Black));

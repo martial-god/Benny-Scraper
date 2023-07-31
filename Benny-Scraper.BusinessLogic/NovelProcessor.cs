@@ -89,9 +89,12 @@ namespace Benny_Scraper.BusinessLogic
 
             string documentsFolder = GetDocumentsFolder(newNovel.Title);
 
-            if (newNovel.Chapters.Any(chapter => chapter?.Pages != null))
+            Novel novel = await GetNovelFromDataBase(novelTableOfContentsUri, newNovel);
+
+            Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
+            if (novel.Chapters.Any(chapter => chapter?.Pages != null))
             {
-                CreatePdf(newNovel, chapterDatas, documentsFolder);
+                CreatePdf(novel, chapterDatas, documentsFolder);
                 foreach (var chapterData in chapterDatas)
                 {
                     chapterData.Dispose();
@@ -99,12 +102,9 @@ namespace Benny_Scraper.BusinessLogic
             }
             else
             {
-                newNovel.SaveLocation = CreateEpub(newNovel, novelData.ThumbnailImage, documentsFolder);
-            }
-
-            await _novelService.CreateAsync(newNovel);
-            Logger.Info("Finished adding novel {0} to database", newNovel.Title);
-        }
+                novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
+            }            
+        }        
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
@@ -123,6 +123,8 @@ namespace Benny_Scraper.BusinessLogic
 
             string documentsFolder = GetDocumentsFolder(novel.Title);
 
+            await _novelService.UpdateAndAddChapters(novel, newChapters);
+
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
                 CreatePdf(novel, chapterDatas, documentsFolder);
@@ -135,9 +137,15 @@ namespace Benny_Scraper.BusinessLogic
             {
                 novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
             }
+        }
 
+        private async Task<Novel> GetNovelFromDataBase(Uri novelTableOfContentsUri, Novel newNovel)
+        {
+            await _novelService.CreateAsync(newNovel);
+            Logger.Info("Finished adding novel {0} to database", newNovel.Title);
 
-            await _novelService.UpdateAndAddChapters(novel, newChapters);
+            Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
+            return novel;
         }
 
         private string GetDocumentsFolder(string title)

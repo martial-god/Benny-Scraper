@@ -116,7 +116,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             }
                             catch (Exception e)
                             {
+                                Console.ForegroundColor = ConsoleColor.Red;
                                 Console.WriteLine($"Failed to download thumbnail image for novel {novelData.Title} at url {absoluteUri}. Exception: {e}");
+                                Console.ResetColor();
                             }
                         }
                         novelData.ThumbnailUrl = url;
@@ -278,7 +280,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 requestMessage.Properties.Add("RequestTimeout", TimeSpan.FromSeconds(10));
                 Logger.Debug($"Sending request to {uri}");
                 var response = await _client.SendAsync(requestMessage);
-                Logger.Debug($"Received response from {response.StatusCode}");
+                Logger.Info($"Response status code: {response.StatusCode}");
                 if (!response.IsSuccessStatusCode)
                 {
                     if (response.StatusCode == HttpStatusCode.TooManyRequests && (int)context["RetryCount"] >= 4)
@@ -696,12 +698,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 if (string.IsNullOrWhiteSpace(chapterData.Content) || contentCount < 5)
                 {
-                    Logger.Debug($"No content found found for {url}");
+                    Logger.Debug($"No content found for {url}");
                     chapterData.Content = "No content found";
                 }
 
-                chapterData.Url = url;
-                chapterData.DateLastModified = DateTime.Now;
 
                 Logger.Info($"Finished processing chapter data. Time taken: {stopwatch.ElapsedMilliseconds} ms");
             }
@@ -713,6 +713,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
             finally
             {
+                chapterData.DateLastModified = DateTime.Now;
+                chapterData.Url = url;
                 _semaphoreSlim.Release();
             }
 

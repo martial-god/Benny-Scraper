@@ -111,7 +111,7 @@ namespace Benny_Scraper.BusinessLogic
                     string chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
                     string chapterFilePath = Path.Combine(textDirectory, chapterFileName);
 
-                    string chapterContent = BuildXhtmlContent(chapter.Title, chapter.Content);
+                    string chapterContent = BuildXhtmlContent(chapter.Title, chapter.Content, chapter.Url);
                     File.WriteAllText(chapterFilePath, chapterContent);
 
                     manifestItems += $"<item id=\"chapter{chapterIndex}\" href=\"Text/{chapterFileName}\" media-type=\"application/xhtml+xml\"/>";
@@ -277,14 +277,22 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        private string BuildXhtmlContent(string title, string content)
+        private string BuildXhtmlContent(string title, string content, string url)
         {
             StringBuilder xhtmlContentBuilder = new StringBuilder();
 
             xhtmlContentBuilder.AppendLine("<div>");
             xhtmlContentBuilder.AppendFormat("<h2>{0}</h2>", title);
 
-            string[] paragraphs = content.Split(new[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[]? paragraphs = content?.Split(new[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            if (paragraphs == null || paragraphs.Length == 0)
+            {
+                xhtmlContentBuilder.AppendFormat("<p>{0} {1}</p>", "Error getting chapter content from ", url);
+                xhtmlContentBuilder.AppendLine("</div>");
+
+                return string.Format(_epubTemplates.ChapterContent, title, xhtmlContentBuilder.ToString());
+            }
+
             foreach (string paragraph in paragraphs)
             {
                 xhtmlContentBuilder.AppendFormat("<p>{0}</p>", paragraph.Trim());
