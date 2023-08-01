@@ -150,12 +150,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         {
                             return;
                         }
-                        var currentChapterUrl = latestChapterNode.Attributes["href"].Value;
-                        if (!IsValidHttpUrl(currentChapterUrl))
+                        if (latestChapterNode?.Attributes["href"] != null) //chapter url is most likely on this page
                         {
-                            currentChapterUrl = new Uri(scraperData.BaseUri, currentChapterUrl).ToString();
+                            var currentChapterUrl = latestChapterNode.Attributes["href"].Value;
+
+                            if (!IsValidHttpUrl(currentChapterUrl))
+                            {
+                                currentChapterUrl = new Uri(scraperData.BaseUri, currentChapterUrl).ToString();
+                            }
+                            novelData.CurrentChapterUrl = currentChapterUrl;
                         }
-                        novelData.CurrentChapterUrl = currentChapterUrl;
+                        
                         novelData.MostRecentChapterTitle = HtmlEntity.DeEntitize(latestChapterNode.InnerText).Trim();
                         break;
                 }

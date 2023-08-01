@@ -9,7 +9,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
     namespace Impl
     {
-        public class WebNovelPubInitializer : NovelDataInitializer
+        public class LightNovelWorldInitializer : NovelDataInitializer
         {
             public static void FetchNovelContent(NovelDataBuffer novelData, HtmlDocument htmlDocument, ScraperData scraperData)
             {
@@ -20,7 +20,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Attr.Status,
                     Attr.Description,
                     Attr.ThumbnailUrl,
-                    Attr.Genres
+                    Attr.Genres,
+                    Attr.LatestChapter
                 };
                 foreach (var attribute in attributesToFetch)
                 {
@@ -32,6 +33,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     public class LightNovelWorldStrategy : ScraperStrategy
     {
         private Uri? _chaptersUri;
+        private readonly string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
 
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
@@ -40,7 +42,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetBaseUri(_scraperData.SiteTableOfContents);
 
             var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
-            //htmlDocument = DecodeHtml(htmlDocument);
             var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
 
             _chaptersUri = new Uri(_scraperData.SiteTableOfContents + "/chapters");
@@ -50,6 +51,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var decodedHtmlDocument = DecodeHtml(htmlDocument);
 
             int pageToStopAt = GetLastTableOfContentsPageNumber(decodedHtmlDocument);
+            SetCurrentChapterUrl(htmlDocument, novelData); // buffer is passed by reference so this will update the novelData object
 
             var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_chaptersUri, true, pageToStopAt);
             novelData.ChapterUrls = chapterUrls;
@@ -63,7 +65,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var novelData = new NovelDataBuffer();
             try
             {
-                WebNovelPubInitializer.FetchNovelContent(novelData, htmlDocument, _scraperData);
+                LightNovelWorldInitializer.FetchNovelContent(novelData, htmlDocument, _scraperData);
                 return novelData;
             }
             catch (Exception e)
@@ -77,6 +79,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         List<string> GetGenres(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
         {
             throw new NotImplementedException();
+        }
+
+        private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelData)
+        {
+            var currentChapterNode = htmlDocument.DocumentNode.SelectSingleNode(_latestChapterXpath);
+            var currentChapterUrl = currentChapterNode.Attributes["href"].Value;
+            if (!NovelDataInitializer.IsValidHttpUrl(currentChapterUrl))
+            {
+                currentChapterUrl = new Uri(_scraperData.BaseUri, currentChapterUrl).ToString();
+                novelData.CurrentChapterUrl = currentChapterUrl;
+            }
         }
 
         private int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
