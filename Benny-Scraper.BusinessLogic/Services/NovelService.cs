@@ -39,6 +39,12 @@ namespace Benny_Scraper.BusinessLogic.Services
             _unitOfWork.Chapter.AddRange(newChapters);
             await _unitOfWork.SaveAsync();
         }
+
+        public async Task<IEnumerable<Novel>> GetAllAsync()
+        {
+            return await _unitOfWork.Novel.GetAllAsync();
+        }
+
         public async Task<Novel> GetByUrlAsync(Uri uri)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString);

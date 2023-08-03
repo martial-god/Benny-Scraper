@@ -183,19 +183,36 @@ namespace Benny_Scraper
             using (var scope = Container.BeginLifetimeScope())
             {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
+                INovelService novelService = scope.Resolve<INovelService>();
+
                 switch (args[0])
                 {
+                    case "list":
+                        {
+                            var novels = await novelService.GetAllAsync();
+
+                            // Calculate the maximum lengths of each column
+                            int maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
+                            int maxTitleLength = novels.Max(novel => novel.Title.Length);
+
+                            Console.ForegroundColor = ConsoleColor.Blue;
+                            Console.WriteLine($"Id:".PadRight(maxIdLength) + "\tTitle:".PadRight(maxTitleLength));
+                            Console.ResetColor();
+                            foreach (var novel in novels)
+                            {                                
+                                Console.WriteLine($"{novel.Id.ToString().PadRight(maxIdLength)}\t{novel.Title.PadRight(maxTitleLength)}");
+                            }
+                            break;
+                        }
                     case "clear_database":
                         {
                             logger.Info("Clearing all novels and chapter from database");
-                            INovelService novelService = scope.Resolve<INovelService>();
                             await novelService.RemoveAllAsync();
                         }
                         break;
                     case "delete_novel_by_id": // only way to resovle the same variable, in the case novelService is to surround the case statement in curly braces
                         {
                             logger.Info($"Deleting novel with id {args[1]}");
-                            INovelService novelService = scope.Resolve<INovelService>();
                             Guid.TryParse(args[1], out Guid novelId);
                             await novelService.RemoveByIdAsync(novelId);
                             logger.Info($"Novel with id: {args[1]} deleted.");
