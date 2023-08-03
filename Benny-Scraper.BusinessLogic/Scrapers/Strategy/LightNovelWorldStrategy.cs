@@ -11,7 +11,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     {
         public class LightNovelWorldInitializer : NovelDataInitializer
         {
-            public static void FetchNovelContent(NovelDataBuffer novelData, HtmlDocument htmlDocument, ScraperData scraperData)
+            public static void FetchNovelContent(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 var attributesToFetch = new List<Attr>()
                 {
@@ -25,7 +25,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 };
                 foreach (var attribute in attributesToFetch)
                 {
-                    FetchContentByAttribute(attribute, novelData, htmlDocument, scraperData);
+                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
                 }
             }
         }
@@ -42,7 +42,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetBaseUri(_scraperData.SiteTableOfContents);
 
             var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
-            var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
+            var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
 
             _chaptersUri = new Uri(_scraperData.SiteTableOfContents + "/chapters");
 
@@ -51,29 +51,29 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var decodedHtmlDocument = DecodeHtml(htmlDocument);
 
             int pageToStopAt = GetLastTableOfContentsPageNumber(decodedHtmlDocument);
-            SetCurrentChapterUrl(htmlDocument, novelData); // buffer is passed by reference so this will update the novelData object
+            SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
 
             var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_chaptersUri, true, pageToStopAt);
-            novelData.ChapterUrls = chapterUrls;
-            novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+            novelDataBuffer.ChapterUrls = chapterUrls;
+            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
 
-            return novelData;
+            return novelDataBuffer;
         }
 
         public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
-            var novelData = new NovelDataBuffer();
+            var novelDataBuffer = new NovelDataBuffer();
             try
             {
-                LightNovelWorldInitializer.FetchNovelContent(novelData, htmlDocument, _scraperData);
-                return novelData;
+                LightNovelWorldInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, _scraperData);
+                return novelDataBuffer;
             }
             catch (Exception e)
             {
                 Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
             }
 
-            return novelData;
+            return novelDataBuffer;
         }
 
         List<string> GetGenres(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
@@ -81,14 +81,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             throw new NotImplementedException();
         }
 
-        private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelData)
+        private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelDataBuffer)
         {
             var currentChapterNode = htmlDocument.DocumentNode.SelectSingleNode(_latestChapterXpath);
             var currentChapterUrl = currentChapterNode.Attributes["href"].Value;
             if (!NovelDataInitializer.IsValidHttpUrl(currentChapterUrl))
             {
                 currentChapterUrl = new Uri(_scraperData.BaseUri, currentChapterUrl).ToString();
-                novelData.CurrentChapterUrl = currentChapterUrl;
+                novelDataBuffer.CurrentChapterUrl = currentChapterUrl;
             }
         }
 

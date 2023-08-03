@@ -5,6 +5,7 @@ using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.BusinessLogic.Validators;
 using Benny_Scraper.Models;
+using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
 using NLog;
 using PdfSharp.Drawing;
@@ -73,53 +74,54 @@ namespace Benny_Scraper.BusinessLogic
         #region Private Methods
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
-            using NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
+            using NovelDataBuffer novelDataBuffer = await scraperStrategy.ScrapeAsync();
 
-            if (novelData == null)
+            if (novelDataBuffer == null)
             {
                 Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
                 return;
             }
 
-            Novel newNovel = CreateNovel(novelData, novelTableOfContentsUri);
+            Novel newNovel = CreateNovel(novelDataBuffer, novelTableOfContentsUri);
             Logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
-            IEnumerable<ChapterDataBuffer> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
-            newNovel.Chapters = CreateChapters(chapterDatas, newNovel.Id);
+            IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls);
+            newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
 
             string documentsFolder = GetDocumentsFolder(newNovel.Title);
 
             Novel novel = await GetNovelFromDataBase(novelTableOfContentsUri, newNovel);
+            
 
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
             if (novel.Chapters.Any(chapter => chapter?.Pages != null))
             {
-                CreatePdf(novel, chapterDatas, documentsFolder);
-                foreach (var chapterData in chapterDatas)
+                CreatePdf(novel, chapterDataBuffers, documentsFolder);
+                foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
-                    chapterData.Dispose();
+                    chapterDataBuffer.Dispose();
                 }
             }
             else
             {
-                novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
+                novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, documentsFolder);
             }            
         }        
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
-            using NovelDataBuffer novelData = await scraperStrategy.ScrapeAsync();
+            using NovelDataBuffer novelDataBuffer = await scraperStrategy.ScrapeAsync();
 
-            if (novelData == null)
+            if (novelDataBuffer == null)
             {
                 Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
                 return;
             }
 
-            IEnumerable<ChapterDataBuffer> chapterDatas = await scraperStrategy.GetChaptersDataAsync(novelData.ChapterUrls);
-            List<Models.Chapter> newChapters = CreateChapters(chapterDatas, novel.Id);
+            IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls);
+            List<Models.Chapter> newChapters = CreateChapters(chapterDataBuffers, novel.Id);
 
-            UpdateNovel(novel, novelData, newChapters);
+            UpdateNovel(novel, novelDataBuffer, newChapters);
 
             string documentsFolder = GetDocumentsFolder(novel.Title);
 
@@ -127,15 +129,15 @@ namespace Benny_Scraper.BusinessLogic
 
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
-                CreatePdf(novel, chapterDatas, documentsFolder);
-                foreach (var chapterData in chapterDatas)
+                CreatePdf(novel, chapterDataBuffers, documentsFolder);
+                foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
-                    chapterData.Dispose();
+                    chapterDataBuffer.Dispose();
                 }
             }
             else
             {
-                novel.SaveLocation = CreateEpub(novel, novelData.ThumbnailImage, documentsFolder);
+                novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, documentsFolder);
             }
         }
 
@@ -145,6 +147,8 @@ namespace Benny_Scraper.BusinessLogic
             Logger.Info("Finished adding novel {0} to database", newNovel.Title);
 
             Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
+            if (novel != null)
+                novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList();
             return novel;
         }
 
@@ -167,7 +171,7 @@ namespace Benny_Scraper.BusinessLogic
             return epubFile;
         }
 
-        private void CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDatas, string documentsFolder)
+        private void CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string documentsFolder)
         {
             Logger.Info("Creating PDFs for {0}", novel.Title);
             int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
@@ -176,7 +180,7 @@ namespace Benny_Scraper.BusinessLogic
 
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
-            CreateSinglePdf(novel, chapterDatas, documentsFolder);
+            CreateSinglePdf(novel, chapterDataBuffers, documentsFolder);
 
             Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {documentsFolder}\n");
             if (totalMissingChapters > 0)
@@ -206,11 +210,11 @@ namespace Benny_Scraper.BusinessLogic
 
         }
 
-        private void CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterData, string pdfDirectoryPath)
+        private void CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
-            foreach (var chapter in chapterData)
+            foreach (var chapter in chapterDataBuffer)
             {
                 if (chapter.Pages == null)
                     continue;
@@ -247,7 +251,7 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        private void CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterData, string pdfDirectoryPath)
+        private void CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -259,7 +263,7 @@ namespace Benny_Scraper.BusinessLogic
             document.Info.Keywords = novel.Genre;
             document.Info.CreationDate = DateTime.Now;
 
-            foreach (var chapter in chapterData)
+            foreach (var chapter in chapterDataBuffer)
             {
                 if (chapter.Pages == null)
                     continue;
@@ -285,7 +289,7 @@ namespace Benny_Scraper.BusinessLogic
                     File.Delete(imagePath);
                 }
             }
-            DeleteTempFolder(chapterData.First().Pages.First().ImagePath);
+            DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
 
             var sanitizedTitle = SanitizeFileName($"{novel.Title}");
             var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{sanitizedTitle}.pdf");
@@ -300,47 +304,47 @@ namespace Benny_Scraper.BusinessLogic
         }
 
 
-        private void UpdateNovel(Novel novel, NovelDataBuffer novelData, List<Models.Chapter> newChapters)
+        private void UpdateNovel(Novel novel, NovelDataBuffer novelDataBuffer, List<Models.Chapter> newChapters)
         {
             novel.Chapters.AddRange(newChapters);
-            novel.LastTableOfContentsUrl = (!string.IsNullOrEmpty(novelData.LastTableOfContentsPageUrl)) ? novelData.LastTableOfContentsPageUrl : novel.LastTableOfContentsUrl;
-            novel.Status = (!string.IsNullOrEmpty(novelData.NovelStatus)) ? novelData.NovelStatus : novel.Status;
-            novel.LastChapter = novelData.IsNovelCompleted;
+            novel.LastTableOfContentsUrl = (!string.IsNullOrEmpty(novelDataBuffer.LastTableOfContentsPageUrl)) ? novelDataBuffer.LastTableOfContentsPageUrl : novel.LastTableOfContentsUrl;
+            novel.Status = (!string.IsNullOrEmpty(novelDataBuffer.NovelStatus)) ? novelDataBuffer.NovelStatus : novel.Status;
+            novel.LastChapter = novelDataBuffer.IsNovelCompleted;
             novel.DateLastModified = DateTime.Now;
             novel.TotalChapters = novel.Chapters.Count;
             novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title;
         }
 
 
-        private Novel CreateNovel(NovelDataBuffer novelData, Uri novelTableOfContentsUri)
+        private Novel CreateNovel(NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)
         {
             return new Novel
             {
-                Title = novelData.Title ?? string.Empty,
-                Author = novelData.Author,
+                Title = novelDataBuffer.Title ?? string.Empty,
+                Author = novelDataBuffer.Author,
                 Url = novelTableOfContentsUri.ToString(),
-                Genre = string.Join(", ", novelData.Genres),
-                Description = string.Join(" ", novelData.Description),
+                Genre = string.Join(", ", novelDataBuffer.Genres),
+                Description = string.Join(" ", novelDataBuffer.Description),
                 DateCreated = DateTime.Now,
                 DateLastModified = DateTime.Now,
-                Status = novelData.NovelStatus,
-                LastTableOfContentsUrl = novelData.LastTableOfContentsPageUrl,
-                LastChapter = novelData.IsNovelCompleted,
-                CurrentChapter = novelData.MostRecentChapterTitle ?? string.Empty,
+                Status = novelDataBuffer.NovelStatus,
+                LastTableOfContentsUrl = novelDataBuffer.LastTableOfContentsPageUrl,
+                LastChapter = novelDataBuffer.IsNovelCompleted,
+                CurrentChapter = novelDataBuffer.MostRecentChapterTitle ?? string.Empty,
                 SiteName = novelTableOfContentsUri.Host ?? string.Empty,
-                FirstChapter = novelData.FirstChapter ?? string.Empty,
-                CurrentChapterUrl = novelData.CurrentChapterUrl ?? string.Empty
+                FirstChapter = novelDataBuffer.FirstChapter ?? string.Empty,
+                CurrentChapterUrl = novelDataBuffer.CurrentChapterUrl ?? string.Empty
             };
         }
 
-        private List<Chapter> CreateChapters(IEnumerable<ChapterDataBuffer> chapterDatas, Guid novelId)
+        private List<Chapter> CreateChapters(IEnumerable<ChapterDataBuffer> chapterDataBuffers, Guid novelId)
         {
-            return chapterDatas.Select(data => new Chapter
+            return chapterDataBuffers.Select(data => new Chapter
             {
                 NovelId = novelId,
                 Url = data.Url ?? string.Empty,
-                Content = data.Content,
-                Title = data.Title ?? string.Empty,
+                Content = HtmlEntity.DeEntitize(data.Content),
+                Title = HtmlEntity.DeEntitize(data.Title) ?? string.Empty,
                 Number = data.Number,
                 Pages = data.Pages?.Select(p => new Page
                 {
