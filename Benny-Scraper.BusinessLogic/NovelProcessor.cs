@@ -1,5 +1,6 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
+using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services.Interface;
@@ -70,6 +71,8 @@ namespace Benny_Scraper.BusinessLogic
             }
 
         }
+
+        
 
         #region Private Methods
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
@@ -157,16 +160,14 @@ namespace Benny_Scraper.BusinessLogic
             string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             if (string.Equals(Environment.UserName, "emiya", StringComparison.OrdinalIgnoreCase))
                 documentsFolder = DriveInfo.GetDrives().FirstOrDefault(drive => drive.Name == @"H:\")?.Name ?? documentsFolder;
-            string fileRegex = @"[^a-zA-Z0-9-\s]";
-            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
+            var novelFileSafeTitle = CommonHelper.GetFileSafeName(title);
             return Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
         }
 
         private string CreateEpub(Novel novel, byte[]? thumbnailImage, string documentsFolder)
         {
             Directory.CreateDirectory(documentsFolder);
-            string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
+            string epubFile = Path.Combine(documentsFolder, $"{CommonHelper.GetFileSafeName(novel.Title)}.epub");
             _epubGenerator.CreateEpub(novel, novel.Chapters, epubFile, thumbnailImage);
             return epubFile;
         }

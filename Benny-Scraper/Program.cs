@@ -19,6 +19,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Benny_Scraper.BusinessLogic.Helper;
 
 namespace Benny_Scraper
 {
@@ -34,7 +35,6 @@ namespace Benny_Scraper
         {
             SetupLogger();
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            Logger.Info("Application Started");
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();
 
@@ -48,6 +48,7 @@ namespace Benny_Scraper
             }
             else
             {
+                Logger.Info("Application Started");
                 await RunAsync();
             }
         }
@@ -110,9 +111,10 @@ namespace Benny_Scraper
                                 var novel = await novelService.GetByUrlAsync(tableOfContentUri);
                                 Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count()}");
                                 var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
-                                var documentsFolder = GetDocumentsFolder(novel.Title);
+                                string safeTitle = CommonHelper.GetFileSafeName(novel.Title);
+                                var documentsFolder = GetDocumentsFolder(safeTitle);
                                 Directory.CreateDirectory(documentsFolder);
-                                string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
+                                string epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
                                 epubGenerator.CreateEpub(novel, chapters, epubFile, null);
                             }
                             
