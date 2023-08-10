@@ -1,9 +1,9 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Collections.Specialized;
 using System.Web;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -25,7 +25,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 };
                 foreach (var attribute in attributesToFetch)
                 {
-                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                    if (attribute == Attr.ThumbnailUrl) // always get a 403 forbidden error when trying to get the thumbnail image from lightnovelworld
+                    {
+                        HttpClient client = new HttpClient();
+                        var response = client.GetAsync($"https://webnovelpub.com{scraperData.SiteTableOfContents.AbsolutePath}").Result;
+                        HtmlDocument htmlDocumentForThumbnail = new HtmlDocument();
+                        htmlDocumentForThumbnail.LoadHtml(response.Content.ReadAsStringAsync().Result);
+                        FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForThumbnail, scraperData);
+                    }
+                    else
+                    {
+                        FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                    }
                 }
             }
         }

@@ -281,9 +281,11 @@ namespace Benny_Scraper
         /// <returns>The loaded configuration object.</returns>
         private static IConfigurationRoot BuildConfiguration()
         {
+            var appSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile(appSettingsPath, optional: false, reloadOnChange: true)
                 .Build();
 
             return configuration;
