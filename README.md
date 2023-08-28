@@ -36,7 +36,8 @@ So long as the error isn't highlighted while the application is running, they ar
 * Make sure executable has been added to the environment variables
 ```bash
 dotnet Benny-Scraper.dll [COMMAND] [OPTIONS] [--] [URL...]
-
+```
+```bash
 Commands:
   list                           List all novels in the database
   clear_database                 Clear all novels and chapters from the database
