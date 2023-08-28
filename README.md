@@ -17,6 +17,7 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [ ] Add UI
 - [ ] Make changes to database, use ints instead of unique identifiers as Shane mentioned. Guid should be used from the outside in, where someone wants to get data through an api, for that having the main id be a int and having a column like UUID which is the guid that will be used to find the item.
 - [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites
+- [ ] Add Cbz filetype as an option for Mangas
 
 ## Getting Started
 https://www.webnovelpub.com/
