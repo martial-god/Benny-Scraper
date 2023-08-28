@@ -22,7 +22,7 @@ https://www.novelfull.com/
 2. *Note* : all epubs will be stored in you Documents folder BennyScrapedNovels/{Novel Name} . Get an epub reader to read the contents, chrome extensions are available like `EPUB Reader`
 3. Click a novel and copy the url at the top ![msedge_kXe7ITKmKp](https://github.com/feahnthor/Benny-Scraper/assets/8980094/23edc857-1e5c-4a08-9482-ee594bcb9133)
 ![chrome_s3toEMlclt](https://github.com/feahnthor/Benny-Scraper/assets/8980094/76e1c90f-7638-4585-bbcf-3b6e51334434)
-4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on server response of the site.![Benny-Scraper_s1UZSARERa](https://github.com/feahnthor/Benny-Scraper/assets/8980094/6be17188-e9ce-4fd2-89fd-2c575a4b97c6)
+4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on server response of the site.![Benny-Scraper_s1UZSARERa](https://github.com/feahnthor/Benny-Scraper/assets/8980094/6be17188-e9ce-4fd2-89fd-2c575a4b97c6) SPEED HAS ALSO BEEN LIMITED TO 2 CUNCURRENT REQUEST. To change this change the variable `ConcurrentRequestLimit` Benny_Scraper.BusinessLogic.Scrapers.Strategy.ScarperStrategy, the rebuild
 
 
 ## Errors
