@@ -22,10 +22,13 @@ https://www.webnovelpub.com/
 https://www.novelfull.com/
 1. For both sites, the url for the `Table of Contents` page for the novel is needed. 
 2. *Note* : all epubs will be stored in you Documents folder BennyScrapedNovels/{Novel Name} . Get an epub reader to read the contents, chrome extensions are available like `EPUB Reader`
-3. Click a novel and copy the url at the top ![msedge_kXe7ITKmKp](https://github.com/feahnthor/Benny-Scraper/assets/8980094/23edc857-1e5c-4a08-9482-ee594bcb9133)
-![chrome_s3toEMlclt](https://github.com/feahnthor/Benny-Scraper/assets/8980094/76e1c90f-7638-4585-bbcf-3b6e51334434)![chrome_fWN6VSKOKQ](https://github.com/martial-god/Benny-Scraper/assets/8980094/b0760e27-f094-4ed7-8a33-473739078241)
+3. Click a novel and copy the url at the top ![chrome_Y234bE9Ce6](https://github.com/martial-god/PageShaver/assets/8980094/31b6190b-439a-4550-aaf3-3b05b3c24a13)![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
 
-4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on server response of the site.![Benny-Scraper_s1UZSARERa](https://github.com/feahnthor/Benny-Scraper/assets/8980094/6be17188-e9ce-4fd2-89fd-2c575a4b97c6) SPEED
+ ![chrome_fWN6VSKOKQ](https://github.com/martial-god/PageShaver/assets/8980094/7f97cd67-772c-4f60-a3d9-856337c3a987)
+
+
+4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on server response of the site. ![cmd_R4W67LuIR7](https://github.com/martial-god/PageShaver/assets/8980094/d682f498-54f3-40b1-ba6b-4998bd14b863)
+
 5. SPEED HAS ALSO BEEN LIMITED TO 2 CUNCURRENT REQUEST. To change this change the variable `ConcurrentRequestLimit` Benny_Scraper.BusinessLogic.Scrapers.Strategy.ScarperStrategy, the rebuild. The limit was due to certain sites bot protection measures.
 
 
