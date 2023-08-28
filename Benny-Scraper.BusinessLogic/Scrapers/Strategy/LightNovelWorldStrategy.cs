@@ -87,11 +87,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelDataBuffer;
         }
 
-        List<string> GetGenres(HtmlDocument htmlDocument, SiteConfiguration siteConfig)
-        {
-            throw new NotImplementedException();
-        }
-
         private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelDataBuffer)
         {
             var currentChapterNode = htmlDocument.DocumentNode.SelectSingleNode(_latestChapterXpath);

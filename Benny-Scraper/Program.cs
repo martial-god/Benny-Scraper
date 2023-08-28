@@ -90,41 +90,7 @@ namespace Benny_Scraper
                     {
                         isApplicationRunning = false;
                         continue;
-                    }
-
-                    //split the input into an array of strings then check if the first string has recreate as the first word, if so resolve epubgenerator and call CreateEpub
-                    if (input[0].ToLower() == "recreate")
-                    {
-                        if (input.Length < 2)
-                        {
-                            Console.WriteLine("Invalid input. Please enter a valid URL.");
-                            continue;
-                        }
-                        try
-                        {
-                            IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
-                            INovelService novelService = scope.Resolve<INovelService>();
-                            Uri.TryCreate(input[1], UriKind.Absolute, out Uri tableOfContentUri);
-                            bool isNovelInDatabase = await novelService.IsNovelInDatabaseAsync(tableOfContentUri.ToString());
-                            if (isNovelInDatabase)
-                            {
-                                var novel = await novelService.GetByUrlAsync(tableOfContentUri);
-                                Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count()}");
-                                var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
-                                string safeTitle = CommonHelper.GetFileSafeName(novel.Title);
-                                var documentsFolder = GetDocumentsFolder(safeTitle);
-                                Directory.CreateDirectory(documentsFolder);
-                                string epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
-                                epubGenerator.CreateEpub(novel, chapters, epubFile, null);
-                            }
-                            
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"Exception when trying to recreate novel. {ex}");
-                        }
-                        continue;
-                    }
+                    }                    
 
                     if (!Uri.TryCreate(siteUrl, UriKind.Absolute, out Uri novelTableOfContentUri))
                     {
@@ -218,6 +184,31 @@ namespace Benny_Scraper
                             Guid.TryParse(args[1], out Guid novelId);
                             await novelService.RemoveByIdAsync(novelId);
                             logger.Info($"Novel with id: {args[1]} deleted.");
+                        }
+                        break;
+                    case "recreate": // at this momement should only work for webnovels not mangas. Need to create something to distinguish between the two in the database
+                        {
+                            try
+                            {
+                                IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
+                                Uri.TryCreate(args[1], UriKind.Absolute, out Uri tableOfContentUri);
+                                bool isNovelInDatabase = await novelService.IsNovelInDatabaseAsync(tableOfContentUri.ToString());
+                                if (isNovelInDatabase)
+                                {
+                                    var novel = await novelService.GetByUrlAsync(tableOfContentUri);
+                                    Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count()}");
+                                    var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
+                                    string safeTitle = CommonHelper.GetFileSafeName(novel.Title);
+                                    var documentsFolder = GetDocumentsFolder(safeTitle);
+                                    Directory.CreateDirectory(documentsFolder);
+                                    string epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
+                                    epubGenerator.CreateEpub(novel, chapters, epubFile, null);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Error($"Exception when trying to recreate novel. {ex}");
+                            }
                         }
                         break;
                     default:
