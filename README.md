@@ -1,5 +1,5 @@
 # Benny-Scraper
-Webscraper that sets out make listening to webnovels easier for myself. Creates Epubs, at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project
+Webscraper that sets out make listening to webnovels easier for myself. Turned into project that let users store all chapters of their favorite Mangas or Webnovels offline in one file. Creates Epubs, at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project
 
 # TO DO
 - [x] Figure out how to properly construct an Epub. https://validator.w3.org/check for chapter validations
@@ -8,11 +8,12 @@ Webscraper that sets out make listening to webnovels easier for myself. Creates 
 - [x] Switch from SQL to MySql to embedd database
 - [x] Test on computers without sql installed
 - [x] Test on Linux machine - in this Case Ubuntu 20.04-x64
+- [x] Add Calibre integration - completed novels will be added to the Calibredb if it is installed on host computer
 - [ ] Verify the update novel works
 - [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
 - [x] Try Manga sites
 - [ ] Add UI
-- [ ] make changes to database, use ints instead of unique identifiers as Shane mentioned. Guid should be used from the outside in, where someone wants to get data through an api, for that having the main id be a int and having a column like UUID which is the guid that will be used to find the item.
+- [ ] Make changes to database, use ints instead of unique identifiers as Shane mentioned. Guid should be used from the outside in, where someone wants to get data through an api, for that having the main id be a int and having a column like UUID which is the guid that will be used to find the item.
 
 ## Getting Started
 https://www.webnovelpub.com/
@@ -27,6 +28,42 @@ https://www.novelfull.com/
 ## Errors
 So long as the error isn't highlighted while the application is running, they are just Warnings or Errors. Nothing Fatal
 
-## Publishing for linux and windows
-`dotnet publish -c Release --self-contained true -r ubuntu.20.04-x64 -o C:\Users\Mime\Downloads\BennyScraperLinux`
+## Publishing for linux and Windows for standalone Builds
+`dotnet publish -c Release --self-contained true -r ubuntu.20.04-x64 -o C:\Users\Mime\Downloads\BennyScraperLinux`         // the path can be whichever you want
 `dotnet publish -c Release --self-contained true -r win-x64 -o C:\Users\Mime\Downloads\BennyScraper`
+
+## USAGE AND OPTIONS
+* Make sure executable has been added to the environment variables
+```bash
+dotnet Benny-Scraper.dll [COMMAND] [OPTIONS] [--] [URL...]
+
+Commands:
+  list                           List all novels in the database
+  clear_database                 Clear all novels and chapters from the database
+  delete_novel_by_id [ID]        Delete a novel by its ID
+  recreate [URL]                 Recreate a novel EPUB by its URL, currently not implemented to handle Mangas
+
+Options:
+  -h, --help                     Show this help text and exit
+
+Usage examples:
+  List all novels:
+    dotnet Benny-Scraper.dll list
+    Benny-Scraper list
+
+  Clear database:
+    dotnet Benny-Scraper.dll clear_database
+    Benny-Scraper clear_database
+
+  Delete a novel by ID:
+    dotnet Benny-Scraper.dll delete_novel_by_id [ID]
+    dotnet Benny-Scraper delete_novel_by_id
+
+  Recreate a novel EPUB by URL:
+    dotnet Benny-Scraper.dll recreate [URL]
+    Benny-Scraper recreate [URL]
+
+For more information about each command and option, run:
+  dotnet Benny-Scraper.dll [COMMAND] --help
+```
+
