@@ -19,6 +19,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Benny_Scraper.BusinessLogic.Helper;
 
 namespace Benny_Scraper
 {
@@ -34,7 +35,6 @@ namespace Benny_Scraper
         {
             SetupLogger();
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            Logger.Info("Application Started");
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();
 
@@ -48,6 +48,7 @@ namespace Benny_Scraper
             }
             else
             {
+                Logger.Info("Application Started");
                 await RunAsync();
             }
         }
@@ -110,9 +111,10 @@ namespace Benny_Scraper
                                 var novel = await novelService.GetByUrlAsync(tableOfContentUri);
                                 Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count()}");
                                 var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
-                                var documentsFolder = GetDocumentsFolder(novel.Title);
+                                string safeTitle = CommonHelper.GetFileSafeName(novel.Title);
+                                var documentsFolder = GetDocumentsFolder(safeTitle);
                                 Directory.CreateDirectory(documentsFolder);
-                                string epubFile = Path.Combine(documentsFolder, $"{novel.Title}.epub");
+                                string epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
                                 epubGenerator.CreateEpub(novel, chapters, epubFile, null);
                             }
                             
@@ -183,19 +185,36 @@ namespace Benny_Scraper
             using (var scope = Container.BeginLifetimeScope())
             {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
+                INovelService novelService = scope.Resolve<INovelService>();
+
                 switch (args[0])
                 {
+                    case "list":
+                        {
+                            var novels = await novelService.GetAllAsync();
+
+                            // Calculate the maximum lengths of each column
+                            int maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
+                            int maxTitleLength = novels.Max(novel => novel.Title.Length);
+
+                            Console.ForegroundColor = ConsoleColor.Blue;
+                            Console.WriteLine($"Id:".PadRight(maxIdLength) + "\tTitle:".PadRight(maxTitleLength));
+                            Console.ResetColor();
+                            foreach (var novel in novels)
+                            {                                
+                                Console.WriteLine($"{novel.Id.ToString().PadRight(maxIdLength)}\t{novel.Title.PadRight(maxTitleLength)}");
+                            }
+                            break;
+                        }
                     case "clear_database":
                         {
                             logger.Info("Clearing all novels and chapter from database");
-                            INovelService novelService = scope.Resolve<INovelService>();
                             await novelService.RemoveAllAsync();
                         }
                         break;
                     case "delete_novel_by_id": // only way to resovle the same variable, in the case novelService is to surround the case statement in curly braces
                         {
                             logger.Info($"Deleting novel with id {args[1]}");
-                            INovelService novelService = scope.Resolve<INovelService>();
                             Guid.TryParse(args[1], out Guid novelId);
                             await novelService.RemoveByIdAsync(novelId);
                             logger.Info($"Novel with id: {args[1]} deleted.");
@@ -262,9 +281,11 @@ namespace Benny_Scraper
         /// <returns>The loaded configuration object.</returns>
         private static IConfigurationRoot BuildConfiguration()
         {
+            var appSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile(appSettingsPath, optional: false, reloadOnChange: true)
                 .Build();
 
             return configuration;

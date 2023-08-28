@@ -14,7 +14,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             //Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
             //child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
             //the implementation would require both.
-            public static void FetchNovelContent(NovelDataBuffer novelData, HtmlDocument htmlDocument, ScraperData scraperData)
+            public static void FetchNovelContent(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 var tableOfContents = scraperData.SiteTableOfContents;
                 var attributesToFetch = new List<Attr>()
@@ -34,20 +34,20 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 };
                 foreach (var attribute in attributesToFetch)
                 {
-                    FetchContentByAttribute(attribute, novelData, htmlDocument, scraperData);
+                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
                 }
 
                 //TODO: Brad: I notice that the name LatestChapter and CurrentChapter are both used to refer to the same thing.
                 //  As is, FetchContentByAttribute(Attr.LatestChapter ...) sets the NovelDataBuffer's CurrentChapterUrl property.
                 //  It is probably best if the two naming schemes are unified, but I don't want to change the data members
                 //  of NovelDataBuffer without consulting you first.
-                var fullLatestChapterUrl = new Uri(tableOfContents, novelData.CurrentChapterUrl?.TrimStart('/')).ToString();
-                var fullThumbnailUrl = new Uri(tableOfContents, novelData.ThumbnailUrl?.TrimStart('/')).ToString();
-                var fullLastTableOfContentUrl = new Uri(tableOfContents, novelData.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
+                var fullLatestChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
+                var fullThumbnailUrl = new Uri(tableOfContents, novelDataBuffer.ThumbnailUrl?.TrimStart('/')).ToString();
+                var fullLastTableOfContentUrl = new Uri(tableOfContents, novelDataBuffer.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
 
-                novelData.ThumbnailUrl = fullThumbnailUrl;
-                novelData.LastTableOfContentsPageUrl = fullLatestChapterUrl;
-                novelData.LastTableOfContentsPageUrl = fullLastTableOfContentUrl;
+                novelDataBuffer.ThumbnailUrl = fullThumbnailUrl;
+                novelDataBuffer.LastTableOfContentsPageUrl = fullLatestChapterUrl;
+                novelDataBuffer.LastTableOfContentsPageUrl = fullLastTableOfContentUrl;
             }
         }
     }
@@ -63,9 +63,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             
             try
             {
-                NovelDataBuffer novelData = await BuildNovelDataAsync(htmlDocument);
+                NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
 
-                return novelData;
+                return novelDataBuffer;
             }
             catch (Exception e)
             {
@@ -76,31 +76,31 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
-            var novelData = FetchNovelDataFromTableOfContents(htmlDocument);
+            var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
 
             int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
             var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_scraperData.SiteTableOfContents, true, pageToStopAt);
 
-            novelData.ChapterUrls = chapterUrls;
-            novelData.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+            novelDataBuffer.ChapterUrls = chapterUrls;
+            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
 
-            return novelData;
+            return novelDataBuffer;
         }
 
         public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
-            var novelData = new NovelDataBuffer();
+            var novelDataBuffer = new NovelDataBuffer();
             try
             {
-                NovelFullInitializer.FetchNovelContent(novelData, htmlDocument, _scraperData);
-                return novelData;
+                NovelFullInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, _scraperData);
+                return novelDataBuffer;
             }
             catch (Exception e)
             {
                 Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
             }
 
-            return novelData;
+            return novelDataBuffer;
         }
 
         private int FetchLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
