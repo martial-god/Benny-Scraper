@@ -37,6 +37,7 @@ So long as the error isn't highlighted while the application is running, they ar
 
 ## Publishing for linux and Windows for standalone Builds
 `dotnet publish -c Release --self-contained true -r ubuntu.20.04-x64 -o C:\Users\Mime\Downloads\BennyScraperLinux`         // the path can be whichever you want
+
 `dotnet publish -c Release --self-contained true -r win-x64 -o C:\Users\Mime\Downloads\BennyScraper`
 
 ## USAGE AND OPTIONS
