@@ -9,7 +9,6 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
-using ShellProgressBar;
 
 namespace Benny_Scraper.BusinessLogic
 {

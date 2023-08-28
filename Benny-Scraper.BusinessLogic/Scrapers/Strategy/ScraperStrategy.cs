@@ -453,7 +453,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     Logger.Info("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
-                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: false);
+                    var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
 
                     //if (_scraperData.SiteConfig.Name == "mangareader") // element is visisble while not in headless mode
                     //{
