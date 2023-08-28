@@ -76,7 +76,7 @@ namespace Benny_Scraper
                 while (isApplicationRunning)
                 {
                     // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
-                    Console.WriteLine("\nEnter the site url (or 'recreate' {site url} to create from saved webnovel)(or 'exit' to quit): ");
+                    Console.WriteLine("\nEnter the site url (or 'exit' to quit): ");
                     string siteUrl = Console.ReadLine();
                     string[] input = siteUrl.Split(' ');
 
