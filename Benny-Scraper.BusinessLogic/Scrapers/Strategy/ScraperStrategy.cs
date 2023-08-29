@@ -55,11 +55,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         {
                             novelDataBuffer.Title = titleNodes != null ? HtmlEntity.DeEntitize(titleNodes.First().InnerText.Trim()) : string.Empty;
                         }
+                        Console.WriteLine($"Title: {novelDataBuffer.Title}");
                         break;
 
                     case Attr.Author:
                         var authorNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelAuthor);
                         novelDataBuffer.Author = authorNode != null ? HtmlEntity.DeEntitize(authorNode.InnerText.Trim()) : string.Empty;
+                        Console.WriteLine($"Author: {novelDataBuffer.Author}");
                         break;
 
                     case Attr.Category:
@@ -69,21 +71,27 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     case Attr.NovelRating:
                         var novelRatingNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelRating);
                         novelDataBuffer.Rating = double.Parse(novelRatingNode.InnerText.Trim());
+                        Console.WriteLine($"Rating: {novelDataBuffer.Rating}");
                         break;
 
                     case Attr.TotalRatings:
                         var totalRatingsNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.TotalRatings);
                         novelDataBuffer.TotalRatings = int.Parse(totalRatingsNode.InnerText.Trim());
+                        Console.WriteLine($"Total Ratings: {novelDataBuffer.TotalRatings}");
                         break;
 
                     case Attr.Description:
                         var descriptionNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelDescription);
                         novelDataBuffer.Description = descriptionNodes.Select(description => HtmlEntity.DeEntitize(description.InnerText.Trim())).ToList();
+                        Console.BackgroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine($"Description: {novelDataBuffer.Description}");
+                        Console.ResetColor();
                         break;
 
                     case Attr.Genres:
                         var genreNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelGenres);
                         novelDataBuffer.Genres = genreNodes.Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())).ToList();
+                        Console.WriteLine($"Genres: {novelDataBuffer.Genres}");
                         break;
 
                     case Attr.AlternativeNames:
@@ -94,12 +102,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             // SelectMany flattens a list of lists into a single list.
                             novelDataBuffer.AlternativeNames = alternateNames.SelectMany(altName => SplitByLanguage(altName)).ToList();
                         }
+                        Console.WriteLine($"Alternative Names: {novelDataBuffer.AlternativeNames}");
                         break;
 
                     case Attr.Status:
                         var statusNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelStatus);
                         novelDataBuffer.NovelStatus = statusNode.InnerText.Trim();
                         novelDataBuffer.IsNovelCompleted = novelDataBuffer.NovelStatus.ToLower().Contains(scraperData.SiteConfig.CompletedStatus);
+                        Console.WriteLine($"Status: {novelDataBuffer.NovelStatus}");
                         break;
 
                     case Attr.ThumbnailUrl:
@@ -128,6 +138,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var lastTableOfContentsPageNode =
                             htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
                         novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsPageNode.Attributes["href"].Value;
+                        Console.WriteLine($"Last Table of Contents Page: {novelDataBuffer.LastTableOfContentsPageUrl}");
                         break;
 
                     case Attr.ChapterUrls:
@@ -137,7 +148,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         {
                             chapterUrls = chapterUrls.Select(chapterUrl => new Uri(scraperData.BaseUri, chapterUrl).ToString()).ToList();
                         }
+                        if (!chapterUrls.Any())
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine($"Failed to get chapter urls for novel {novelDataBuffer.Title} at url {scraperData.BaseUri}");
+                            Console.WriteLine($"Please check the appsettings.json for {scraperData.SiteConfig.Name} the chapterLinks key");
+                        }
                         novelDataBuffer.ChapterUrls = chapterUrls;
+                        Console.WriteLine($"Got chapter urls, total: {chapterUrls.Count}");
                         break;
 
                     case Attr.FirstChapterUrl:
@@ -162,6 +180,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         }
                         
                         novelDataBuffer.MostRecentChapterTitle = HtmlEntity.DeEntitize(latestChapterNode.InnerText).Trim();
+                        Console.WriteLine($"Latest Chapter: {novelDataBuffer.MostRecentChapterTitle}");
                         break;
                 }
             }
