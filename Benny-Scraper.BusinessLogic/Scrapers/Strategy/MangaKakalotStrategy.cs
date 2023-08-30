@@ -1,6 +1,12 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using AngleSharp.Dom;
+using Benny_Scraper.BusinessLogic.Factory;
+using Benny_Scraper.BusinessLogic.Factory.Interfaces;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using OpenQA.Selenium.Support.UI;
+using OpenQA.Selenium;
+using SeleniumExtras.WaitHelpers;
 using System.Text;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
@@ -35,7 +41,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {                
                 if (attribute == Attr.ChapterUrls)
                 {
-                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                    var htmlDocumentForChapterUrls = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
+                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForChapterUrls, scraperData);
                     if (novelDataBuffer.ChapterUrls.Any())
                     {
                         // chapters are in reverse order
@@ -81,12 +88,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
-        {
-            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-            return novelDataBuffer;
-        }
-
         public override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
@@ -107,5 +108,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             throw new NotImplementedException();
         }
+
+        #region Private Methods
+        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
+        {
+            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+            return novelDataBuffer;
+        }
+        #endregion
+
     }
 }
