@@ -299,7 +299,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
                 var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
                 requestMessage.Headers.Add("User-Agent", userAgent);
-                requestMessage.Properties.Add("RequestTimeout", TimeSpan.FromSeconds(10));
+                requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
                 Logger.Debug($"Sending request to {uri}");
                 var response = await _client.SendAsync(requestMessage);
                 Logger.Info($"Response status code: {response.StatusCode}");
@@ -310,10 +310,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         // Skip this chapter and return null
                         return null;
                     }
-                    else
-                    {
-                        throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts. Status code: {response.StatusCode}");
-                    }
+                    throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts. Status code: {response.StatusCode}");
                 }
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync();
@@ -376,6 +373,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         protected void SetBaseUri(Uri siteUri)
         {
+            if (siteUri == null)
+            {
+                Logger.Error($"siteUri, which is the url that was provided by the user is null.");
+                throw new ArgumentNullException(nameof(siteUri));
+            }
             _scraperData.BaseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
         }
 
@@ -472,16 +474,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     IDriverFactory driverFactory = new DriverFactory();
                     var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
 
-                    //if (_scraperData.SiteConfig.Name == "mangareader") // element is visisble while not in headless mode
-                    //{
-                    //    WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
-                    //    wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")));
-                    //    var chapterContent = driver.FindElement(By.XPath("//*[@id=\"first-read\"]/div[1]/div/div[3]/a[1]")); //element that decides orientation of pages
-                    //    if (chapterContent != null)
-                    //    {
-                    //        ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", chapterContent);
-                    //    }
-                    //}
                     tempImageDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
                     Directory.CreateDirectory(tempImageDirectory);
 
@@ -625,9 +617,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             stopwatch.Start();
             var uriLastSegment = new Uri(urls).Segments.Last();
 
-            var chapterDataBuffer = new ChapterDataBuffer();
-            chapterDataBuffer.TempDirectory = tempImageDirectory;
-            chapterDataBuffer.Url = urls;
+            var chapterDataBuffer = new ChapterDataBuffer()
+            {
+                TempDirectory = tempImageDirectory,
+                Url = urls
+            };
 
             Logger.Info($"Navigating to {urls}");
             driver.Navigate().GoToUrl(urls);
@@ -733,7 +727,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Error(ex);
                 return chapterDataBuffer;
-                throw;
             }
             finally
             {
