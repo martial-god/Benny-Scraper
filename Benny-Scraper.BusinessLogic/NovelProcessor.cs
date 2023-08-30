@@ -293,6 +293,7 @@ namespace Benny_Scraper.BusinessLogic
             DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
 
             var sanitizedTitle = SanitizeFileName($"{novel.Title}");
+            Logger.Info($"Saving PDF to {pdfDirectoryPath}");
             var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{sanitizedTitle}.pdf");
             document.Save(pdfFilePath);
         }

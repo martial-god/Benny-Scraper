@@ -1,4 +1,7 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
+﻿using System.Diagnostics;
+using System.Net;
+using System.Text;
+using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.Models;
@@ -8,9 +11,6 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using Polly;
 using SeleniumExtras.WaitHelpers;
-using System.Diagnostics;
-using System.Net;
-using System.Text;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -83,15 +83,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     case Attr.Description:
                         var descriptionNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelDescription);
                         novelDataBuffer.Description = descriptionNodes.Select(description => HtmlEntity.DeEntitize(description.InnerText.Trim())).ToList();
-                        Console.BackgroundColor = ConsoleColor.DarkGray;
-                        Console.WriteLine($"Description: {novelDataBuffer.Description}");
-                        Console.ResetColor();
+                        Console.WriteLine($"Description word count: {novelDataBuffer.Description.Count}");
                         break;
 
                     case Attr.Genres:
                         var genreNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelGenres);
                         novelDataBuffer.Genres = genreNodes.Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())).ToList();
-                        Console.WriteLine($"Genres: {novelDataBuffer.Genres}");
+                        Console.WriteLine($"Total Genres: {novelDataBuffer.Genres.Count}");
                         break;
 
                     case Attr.AlternativeNames:
@@ -102,7 +100,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             // SelectMany flattens a list of lists into a single list.
                             novelDataBuffer.AlternativeNames = alternateNames.SelectMany(altName => SplitByLanguage(altName)).ToList();
                         }
-                        Console.WriteLine($"Alternative Names: {novelDataBuffer.AlternativeNames}");
+                        Console.WriteLine($"Checked for alternate names");
                         break;
 
                     case Attr.Status:
@@ -178,7 +176,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             }
                             novelDataBuffer.CurrentChapterUrl = currentChapterUrl;
                         }
-                        
+
                         novelDataBuffer.MostRecentChapterTitle = HtmlEntity.DeEntitize(latestChapterNode.InnerText).Trim();
                         Console.WriteLine($"Latest Chapter: {novelDataBuffer.MostRecentChapterTitle}");
                         break;
@@ -635,8 +633,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             driver.Navigate().GoToUrl(urls);
             try
             {
+                Logger.Info($"Waiting for images on page {urls} to load.");
                 WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
                 wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
+                Logger.Info("Images have been loaded.");
             }
             catch (WebDriverTimeoutException ex)
             {

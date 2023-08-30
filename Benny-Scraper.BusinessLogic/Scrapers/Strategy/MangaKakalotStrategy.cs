@@ -1,7 +1,7 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using System.Text;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using System.Text;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -32,10 +32,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             };
 
             foreach (var attribute in attributesToFetch)
-            {                
+            {
                 if (attribute == Attr.ChapterUrls)
                 {
-                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                    var htmlDocumentForChapterUrls = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
+                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForChapterUrls, scraperData);
                     if (novelDataBuffer.ChapterUrls.Any())
                     {
                         // chapters are in reverse order
@@ -81,12 +82,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
-        {
-            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-            return novelDataBuffer;
-        }
-
         public override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
@@ -107,5 +102,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             throw new NotImplementedException();
         }
+
+        #region Private Methods
+        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
+        {
+            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+            return novelDataBuffer;
+        }
+        #endregion
+
     }
 }
