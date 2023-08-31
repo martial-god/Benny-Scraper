@@ -485,19 +485,30 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     {
                         var taskResults = await Task.WhenAll(tasks);
                         chapterDataBuffers.AddRange(taskResults);
-                        driver.Quit();
+                        Logger.Info($"Finished getting chapters data. Total chapters: {chapterDataBuffers.Count}");
+                        Logger.Info("Disposing all drivers");
+                        Console.WriteLine($"Total drivers: {driverFactory.GetAllDrivers().Count}");
+                        driverFactory.DisposeAllDrivers();
+                        Logger.Info("Finished disposing all drivers");
                     }
                     catch (Exception ex)
                     {
                         Logger.Error($"Error while getting chapters data. {ex}");
-                        Directory.Delete(tempImageDirectory, true);
-                        Logger.Info("Finished deleting temp image directory");
+                        if (Directory.Exists(tempImageDirectory))
+                        {
+                            Directory.Delete(tempImageDirectory, true);
+                            Logger.Info("Finished deleting temp image directory");
+                        }
+                        else
+                        {
+                            Logger.Warn($"Was unable to find temp directory {tempImageDirectory}. Please verify it was deleted successfully");
+                        }
                         throw;
                     }
                     finally
                     {
                         Logger.Info("Closing driver");
-                        driver.Quit();
+                        driverFactory.DisposeAllDrivers();
                         Logger.Info("Finished closing driver");
                     }
 
@@ -532,7 +543,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 if (!string.IsNullOrEmpty(tempImageDirectory))
                 {
                     Directory.Delete(tempImageDirectory, true);
-                    Logger.Info("Finished deleting temp image directory");
+                    Logger.Info("Finished deleting temp directory");
                 }
                 throw;
             }

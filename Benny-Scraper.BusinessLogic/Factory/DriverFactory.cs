@@ -127,7 +127,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
         {
             foreach (IWebDriver driver in _drivers.Values)
             {
-                Console.WriteLine($"Window handles {driver.WindowHandles.ToList()}");
+                Console.WriteLine($"Window handles {driver.WindowHandles.ToString()}");
                 driver.Dispose(); // Clears up unmanaged resources.
                 driver.Quit(); // will also call Dispose
             }
