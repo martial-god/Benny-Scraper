@@ -121,7 +121,37 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls);
+            if (novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl && novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
+            {
+                Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
+                return;
+            }
+
+            novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList(); //order chapters by number
+            var indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.CurrentChapterUrl);
+            if (indexOfLastChapter == -1)
+                indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.Chapters.Last().Url);
+            if (indexOfLastChapter == -1)
+            {
+                Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novel.Id}");
+                var getDllLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var getDllDir = System.IO.Path.GetDirectoryName(getDllLocation);
+                var mainDll = System.IO.Path.Combine(getDllDir, "Benny-Scraper.dll");
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                if (System.IO.File.Exists(mainDll))
+                {
+                    Console.Write($"Please delete the novel from the database using\n\t\t{mainDll} delete_novel_by_id {novel.Id} and try again.");
+                }
+                else
+                {
+                    Console.Write($"Please delete the novel from the database using\n\t\tBenny-Scraper delete_novel_by_id {novel.Id} and try again.");
+                }
+                Console.ResetColor();
+
+            }
+            var newChapterUrls = novelDataBuffer.ChapterUrls.Skip(indexOfLastChapter + 1).ToList();
+
+            IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls);
             List<Models.Chapter> newChapters = CreateChapters(chapterDataBuffers, novel.Id);
 
             UpdateNovel(novel, novelDataBuffer, newChapters);
@@ -315,6 +345,7 @@ namespace Benny_Scraper.BusinessLogic
             novel.DateLastModified = DateTime.Now;
             novel.TotalChapters = novel.Chapters.Count;
             novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title;
+            novel.CurrentChapterUrl = novel.Chapters.LastOrDefault()?.Url;
         }
 
 
