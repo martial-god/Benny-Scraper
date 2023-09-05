@@ -162,6 +162,7 @@ namespace Benny_Scraper.BusinessLogic
 
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
+                // will need to read in existing pdf and add new chapters to it
                 CreatePdf(novel, chapterDataBuffers, documentsFolder);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
