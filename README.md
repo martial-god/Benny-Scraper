@@ -4,7 +4,7 @@ Webscraper that sets out make listening to webnovels easier for myself. Turned i
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
 
 # TO DO
-- [x] Figure out how to properly construct an Epub. https://validator.w3.org/check for chapter validations
+- [x] Figure out how to properly construct an Epub. [https://validator.w3.org/check](https://validator.w3.org/#validate-by-upload) for chapter validations
 - [x] Code rewrite so process from Scraper to Epub works
 - [x] Update code to accommodate more novel sites
 - [x] Switch from SQL to MySql to embedd database
