@@ -156,12 +156,11 @@ namespace Benny_Scraper.BusinessLogic
             UpdateNovel(novel, novelDataBuffer, newChapters);
 
             string documentsFolder = GetDocumentsFolder(novel.Title);
-            if (string.IsNullOrEmpty(novel.SaveLocation))
-                novel.SaveLocation = Path.Combine(documentsFolder, SanitizeFileName(novel.Title));
-
 
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
+                if (string.IsNullOrEmpty(novel.SaveLocation))
+                    novel.SaveLocation = Path.Combine(documentsFolder, SanitizeFileName(novel.Title) + ".pdf");
                 UpdatePdf(novel, chapterDataBuffers);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
@@ -335,7 +334,7 @@ namespace Benny_Scraper.BusinessLogic
         {
             var pdfFilePath = novel.SaveLocation;
             if (Path.GetExtension(pdfFilePath) != ".pdf")
-                throw new ArgumentException("The path to the pdf file is not a pdf file");
+                throw new ArgumentException("The path to the pdf file is not a pdf file. " + pdfFilePath);
             if (!File.Exists(pdfFilePath))
                 throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath);
 
