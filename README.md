@@ -11,8 +11,7 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [x] Test on computers without sql installed
 - [x] Test on Linux machine - in this Case Ubuntu 20.04-x64
 - [x] Add Calibre integration - completed novels will be added to the Calibredb if it is installed on host computer
-- [x] Verify the update novel works - THIS WORKS ONLY FOR WebNovels at this moment on the Dev branch. Mangas will need to keep track of where the original file is stored
-- [ ] Verify the update novel for Manga works
+- [x] Verify the update novel works - INFO can be found https://github.com/martial-god/Benny-Scraper/pull/24#issue-1885102090
 - [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
 - [x] Try Manga sites
 - [ ] Add UI
