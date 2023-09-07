@@ -11,8 +11,7 @@ using Microsoft.Extensions.Options;
 using NLog;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
-using System.Globalization;
-using System.Text.RegularExpressions;
+using PdfSharp.Pdf.IO;
 
 namespace Benny_Scraper.BusinessLogic
 {
@@ -72,7 +71,7 @@ namespace Benny_Scraper.BusinessLogic
 
         }
 
-        
+
 
         #region Private Methods
         private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
@@ -94,7 +93,7 @@ namespace Benny_Scraper.BusinessLogic
             string documentsFolder = GetDocumentsFolder(newNovel.Title);
 
             Novel novel = await GetNovelFromDataBase(novelTableOfContentsUri, newNovel);
-            
+
 
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
             if (novel.Chapters.Any(chapter => chapter?.Pages != null))
@@ -108,8 +107,8 @@ namespace Benny_Scraper.BusinessLogic
             else
             {
                 novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, documentsFolder);
-            }            
-        }        
+            }
+        }
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy)
         {
@@ -121,25 +120,58 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls);
+            if (novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl && novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
+            {
+                Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
+                return;
+            }
+
+            novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList(); //order chapters by number
+            var indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.CurrentChapterUrl);
+            if (indexOfLastChapter == -1)
+                indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.Chapters.Last().Url);
+            if (indexOfLastChapter == -1)
+            {
+                Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novel.Id}");
+                var getDllLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var getDllDir = System.IO.Path.GetDirectoryName(getDllLocation);
+                var mainDll = System.IO.Path.Combine(getDllDir, "Benny-Scraper.dll");
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                if (System.IO.File.Exists(mainDll))
+                {
+                    Console.Write($"Please delete the novel from the database using\n\t\t{mainDll} delete_novel_by_id {novel.Id} and try again.");
+                }
+                else
+                {
+                    Console.Write($"Please delete the novel from the database using\n\t\tBenny-Scraper delete_novel_by_id {novel.Id} and try again.");
+                }
+                Console.ResetColor();
+
+            }
+            var newChapterUrls = novelDataBuffer.ChapterUrls.Skip(indexOfLastChapter + 1).ToList();
+
+            IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls);
             List<Models.Chapter> newChapters = CreateChapters(chapterDataBuffers, novel.Id);
 
             UpdateNovel(novel, novelDataBuffer, newChapters);
 
             string documentsFolder = GetDocumentsFolder(novel.Title);
+            if (string.IsNullOrEmpty(novel.SaveLocation))
+                novel.SaveLocation = Path.Combine(documentsFolder, SanitizeFileName(novel.Title));
 
-            await _novelService.UpdateAndAddChapters(novel, newChapters);
 
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
-                CreatePdf(novel, chapterDataBuffers, documentsFolder);
+                UpdatePdf(novel, chapterDataBuffers);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
                     chapterDataBuffer.Dispose();
                 }
+                await _novelService.UpdateAndAddChapters(novel, newChapters); //to avoid issues where the database is updated but the pdf is not
             }
             else
             {
+                await _novelService.UpdateAndAddChapters(novel, newChapters);
                 novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, documentsFolder);
             }
         }
@@ -286,7 +318,6 @@ namespace Benny_Scraper.BusinessLogic
 
                         gfx.DrawImage(img, 0, 0, page.Width, page.Height);
                     }
-
                     File.Delete(imagePath);
                 }
             }
@@ -296,6 +327,59 @@ namespace Benny_Scraper.BusinessLogic
             Logger.Info($"Saving PDF to {pdfDirectoryPath}");
             var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{sanitizedTitle}.pdf");
             document.Save(pdfFilePath);
+            Logger.Info($"PDF saved to {pdfFilePath}");
+            Console.WriteLine($"PDF saved to {pdfFilePath}");
+        }
+
+        private void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer)
+        {
+            var pdfFilePath = novel.SaveLocation;
+            if (Path.GetExtension(pdfFilePath) != ".pdf")
+                throw new ArgumentException("The path to the pdf file is not a pdf file");
+            if (!File.Exists(pdfFilePath))
+                throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath);
+
+            var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".pdf");
+
+            Logger.Info("Updating PDF file: " + pdfFilePath);
+            using (FileStream pdfFile = File.OpenRead(pdfFilePath)) // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
+            using (PdfDocument document = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify))
+            {
+                document.Info.ModificationDate = DateTime.Now;
+                foreach (var chapter in chapterDataBuffer)
+                {
+                    if (chapter.Pages == null)
+                        continue;
+
+                    var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
+                    Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
+
+                    foreach (var imagePath in imagePaths)
+                    {
+                        XImage img;
+                        using (var imageStream = File.OpenRead(imagePath))
+                        {
+                            img = XImage.FromStream(imageStream);
+                            PdfPage page = document.AddPage();
+                            page.Width = XUnit.FromPoint(img.PixelWidth);
+                            page.Height = XUnit.FromPoint(img.PixelHeight);
+
+                            XGraphics gfx = XGraphics.FromPdfPage(page);
+
+                            gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                        }
+                        File.Delete(imagePath);
+                        document.Save(tempPdfFilePath);
+                    }
+                }
+            }
+            DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
+
+            Logger.Info($"Saving PDF to {pdfFilePath}");
+            File.Copy(tempPdfFilePath, pdfFilePath, true);
+            File.Delete(tempPdfFilePath);
+            Logger.Info("PDF file updated");
+            Console.WriteLine($"PDF file updated at {pdfFilePath}");
         }
 
 
@@ -315,6 +399,7 @@ namespace Benny_Scraper.BusinessLogic
             novel.DateLastModified = DateTime.Now;
             novel.TotalChapters = novel.Chapters.Count;
             novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title;
+            novel.CurrentChapterUrl = novel.Chapters.LastOrDefault()?.Url;
         }
 
 
