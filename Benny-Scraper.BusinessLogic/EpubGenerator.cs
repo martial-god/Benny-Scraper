@@ -71,7 +71,7 @@ namespace Benny_Scraper.BusinessLogic
                 string spineItems = string.Empty;
                 string subjectItems = string.Empty;
 
-                foreach (var tag in novel.Genre.Split(","))
+                foreach (var tag in novel.Genre.Split(",", StringSplitOptions.RemoveEmptyEntries))
                 {
                     subjectItems += $"<dc:subject>{tag}</dc:subject>";
                 }
@@ -247,11 +247,6 @@ namespace Benny_Scraper.BusinessLogic
         {
             // Do what you want with the output (write to console/log/StringBuilder)
             Console.WriteLine(outLine.Data);
-        }
-
-        private void AddDirectoryToZip(ZipOutputStream zip, string directoryPath, string entryPath)
-        {
-            AddDirectoryToZip(zip, directoryPath, entryPath);
         }
 
         private void AddDirectoryToZip(ZipOutputStream zipStream, string sourceDirectory, string targetDirectory, string baseDirectory)

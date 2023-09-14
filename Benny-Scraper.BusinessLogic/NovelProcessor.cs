@@ -17,6 +17,7 @@ namespace Benny_Scraper.BusinessLogic
 {
     public class NovelProcessor : INovelProcessor
     {
+        private const string PdfFileExtension = ".pdf";
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private readonly INovelService _novelService;
         private readonly IChapterService _chapterService;
@@ -160,7 +161,7 @@ namespace Benny_Scraper.BusinessLogic
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
                 if (string.IsNullOrEmpty(novel.SaveLocation))
-                    novel.SaveLocation = Path.Combine(documentsFolder, SanitizeFileName(novel.Title) + ".pdf");
+                    novel.SaveLocation = Path.Combine(documentsFolder, SanitizeFileName(novel.Title) + PdfFileExtension);
                 UpdatePdf(novel, chapterDataBuffers);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
@@ -278,7 +279,7 @@ namespace Benny_Scraper.BusinessLogic
                 //https://stackoverflow.com/questions/50858209/system-notsupportedexception-no-data-is-available-for-encoding-1252
 
                 var sanitizedTitle = SanitizeFileName($"{novel.Title} - {chapter.Title}");
-                var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{sanitizedTitle}.pdf");
+                var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
                 document.Save(pdfFilePath);
             }
         }
@@ -324,7 +325,7 @@ namespace Benny_Scraper.BusinessLogic
 
             var sanitizedTitle = SanitizeFileName($"{novel.Title}");
             Logger.Info($"Saving PDF to {pdfDirectoryPath}");
-            var pdfFilePath = Path.Combine(pdfDirectoryPath, $"{sanitizedTitle}.pdf");
+            var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
             document.Save(pdfFilePath);
             Logger.Info($"PDF saved to {pdfFilePath}");
             Console.WriteLine($"PDF saved to {pdfFilePath}");
@@ -333,12 +334,12 @@ namespace Benny_Scraper.BusinessLogic
         private void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer)
         {
             var pdfFilePath = novel.SaveLocation;
-            if (Path.GetExtension(pdfFilePath) != ".pdf")
+            if (Path.GetExtension(pdfFilePath) != PdfFileExtension)
                 throw new ArgumentException("The path to the pdf file is not a pdf file. " + pdfFilePath);
             if (!File.Exists(pdfFilePath))
                 throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath);
 
-            var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".pdf");
+            var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
 
             Logger.Info("Updating PDF file: " + pdfFilePath);
             using (FileStream pdfFile = File.OpenRead(pdfFilePath)) // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
