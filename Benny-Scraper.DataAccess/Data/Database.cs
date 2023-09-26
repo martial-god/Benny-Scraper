@@ -25,6 +25,7 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Novel>().ToTable("novel");
             modelBuilder.Entity<Chapter>().ToTable("chapter");
             modelBuilder.Entity<Page>().ToTable("page");
+            modelBuilder.Entity<Configuration>().ToTable("configuration");
 
             // Rename column            
             modelBuilder.Entity<Chapter>().Property(x => x.Id).HasColumnName("id").HasColumnOrder(0);
@@ -58,6 +59,8 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Page>().Property(x => x.ChapterId).HasColumnName("chapter_id");
             modelBuilder.Entity<Page>().Property(x => x.Url).HasColumnName("url");
             modelBuilder.Entity<Page>().Property(x => x.Image).HasColumnName("image");
+
+            modelBuilder.Entity<Configuration>().Property(x => x.Id).HasColumnName("id");
         }
         #endregion
 
