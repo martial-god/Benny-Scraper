@@ -15,9 +15,9 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
 - [x] Try Manga sites
 - [ ] Add UI
-- [ ] Make changes to database, use ints instead of unique identifiers as Shane mentioned. Guid should be used from the outside in, where someone wants to get data through an api, for that having the main id be a int and having a column like UUID which is the guid that will be used to find the item.
 - [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites
 - [ ] Add Cbz filetype as an option for Mangas
+- [ ] Add a Configuration table to have user have more control of settings.
 
 ## Getting Started
 https://www.webnovelpub.com/
@@ -78,3 +78,23 @@ For more information about each command and option, run:
   dotnet Benny-Scraper.dll [COMMAND] --help
 ```
 
+:sparkles: Contribute to This Project :sparkles:
+Hello fellow developer! :wave:
+
+I'm delighted you're taking an interest in this project. Your skills, insights, and perspective could be invaluable in enhancing what's been built so far. Whether it's new features, bug fixes, or general improvements, every contribution is appreciated. Here's how you can pitch in:
+
+Fork & Clone: Begin by forking this repository and cloning it to your machine. This gives you a personal space to work and experiment.
+
+Setup & Run: Make sure to follow the setup instructions in the README for running the project on your local machine.
+
+Find or Report Issues: Have a look at the 'Issues' tab to see if there's something you'd like to work on. If you have new ideas or spot a bug that isn't listed, feel free to open a new issue.
+
+Code: Create a branch on your fork for the specific issue or feature you're addressing. Commit your changes there.
+
+Stay Synced: Regularly sync your fork with this main repository to avoid potential merge conflicts later.
+
+Pull Request: When you're ready, submit a pull request from your branch to the main branch here. Provide a clear description of your changes and any relevant issue numbers.
+
+I value every contribution and am always eager to see how this project can be improved and expanded. Let's collaborate, discuss, and build something great together!
+
+Happy coding! :computer: :heart:
