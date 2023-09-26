@@ -99,6 +99,8 @@ namespace Benny_Scraper.BusinessLogic
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
             if (novel.Chapters.Any(chapter => chapter?.Pages != null))
             {
+                if (string.IsNullOrEmpty(novel.SaveLocation))
+                    novel.SaveLocation = Path.Combine(documentsFolder, SanitizeFileName(novel.Title) + PdfFileExtension);
                 CreatePdf(novel, chapterDataBuffers, documentsFolder);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {

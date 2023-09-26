@@ -102,8 +102,8 @@ namespace Benny_Scraper.DataAccess.Repository
 
             if (includedProperties != null)
             {
-                // Will not brake if there are commas seperating properties, including ,,,
-                foreach (var includedProp in includedProperties.Split(new char[] {','}, StringSplitOptions.RemoveEmptyEntries))
+                // Will not break if there are commas seperating properties, including ,,,
+                foreach (var includedProp in includedProperties.Split(new char[] {','}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     query = query.Include(includedProp);
                 }
@@ -139,7 +139,7 @@ namespace Benny_Scraper.DataAccess.Repository
             if (includeProperties != null)
             {
                 // Will not break if there are commas seperating properties, including ,,,
-                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     query = query.Include(includeProp); // Include property so that our js files don't break when trying to get data from GetAll() from the API get
                 }
@@ -161,7 +161,7 @@ namespace Benny_Scraper.DataAccess.Repository
             if (includeProperties != null)
             {
                 // Will not brak is there are commas seperating properties, including ,,,
-                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     query = query.Include(includeProp); // Include property so that our js files don't break when trying to get data from GetAll() from the API get
                 }
@@ -185,7 +185,7 @@ namespace Benny_Scraper.DataAccess.Repository
             if (includeProperties != null)
             {
                 // Will not brak is there are commas seperating properties, including ,,,
-                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     query = query.Include(includeProp); // Include property so that our js files don't break when trying to get data from GetAll() from the API get
                 }

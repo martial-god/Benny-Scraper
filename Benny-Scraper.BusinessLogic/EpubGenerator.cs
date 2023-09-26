@@ -71,7 +71,7 @@ namespace Benny_Scraper.BusinessLogic
                 string spineItems = string.Empty;
                 string subjectItems = string.Empty;
 
-                foreach (var tag in novel.Genre.Split(",", StringSplitOptions.RemoveEmptyEntries))
+                foreach (var tag in novel.Genre.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     subjectItems += $"<dc:subject>{tag}</dc:subject>";
                 }
@@ -278,7 +278,7 @@ namespace Benny_Scraper.BusinessLogic
             xhtmlContentBuilder.AppendLine("<div>");
             xhtmlContentBuilder.AppendFormat("<h2>{0}</h2>", title);
 
-            string[]? paragraphs = content?.Split(new[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[]? paragraphs = content?.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (paragraphs == null || paragraphs.Length == 0)
             {
                 xhtmlContentBuilder.AppendFormat("<p>{0} {1}</p>", "Error getting chapter content from ", url);

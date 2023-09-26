@@ -55,7 +55,6 @@ namespace Benny_Scraper
 
         private static async Task RunAsync()
         {
-            //create methods to check for updates for each novel in our database
             using (var scope = Container.BeginLifetimeScope())
             {                
                 var logger = NLog.LogManager.GetCurrentClassLogger();
@@ -78,7 +77,7 @@ namespace Benny_Scraper
                     // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
                     Console.WriteLine("\nEnter the site url (or 'exit' to quit): ");
                     string siteUrl = Console.ReadLine();
-                    string[] input = siteUrl.Split(' ');
+                    string[] input = siteUrl.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                     if (string.IsNullOrWhiteSpace(siteUrl))
                     {
