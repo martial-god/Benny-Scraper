@@ -61,6 +61,20 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Page>().Property(x => x.Image).HasColumnName("image");
 
             modelBuilder.Entity<Configuration>().Property(x => x.Id).HasColumnName("id");
+            modelBuilder.Entity<Configuration>().Property(x => x.Name).HasColumnName("name");
+            modelBuilder.Entity<Configuration>().Property(x => x.AutoUpdate).HasColumnName("auto_update");
+            modelBuilder.Entity<Configuration>().Property(x => x.ConcurrencyLimit).HasColumnName("concurrency_limit");
+            modelBuilder.Entity<Configuration>().Property(x => x.SaveLocation).HasColumnName("save_location");
+            modelBuilder.Entity<Configuration>().Property(x => x.NovelSaveLocation).HasColumnName("novel_save_location");
+            modelBuilder.Entity<Configuration>().Property(x => x.MangaSaveLocation).HasColumnName("manga_save_location");
+            modelBuilder.Entity<Configuration>().Property(x => x.LogLocation).HasColumnName("log_location");
+            modelBuilder.Entity<Configuration>().Property(x => x.DatabaseLocation).HasColumnName("database_locatoin");
+            modelBuilder.Entity<Configuration>().Property(x => x.DatabaseFileName).HasColumnName("database_file_name");
+            modelBuilder.Entity<Configuration>().Property(x => x.DefaultMangaFileExtension).HasColumnName("default_manga_file_extension");
+            modelBuilder.Entity<Configuration>().Property(x => x.DefaultLogLevel).HasColumnName("default_log_level");
+            modelBuilder.Entity<Configuration>().Property(x => x.SaveAsSingleFile).HasColumnName("save_as_single_file");
+
+
         }
         #endregion
 
@@ -69,5 +83,6 @@ namespace Benny_Scraper.DataAccess.Data
         public DbSet<NovelList> NovelLists { get; set; }
         public DbSet<Chapter> Chapters { get; set; }
         public DbSet<Page> Pages { get; set; }
+        public DbSet<Configuration> Configurations { get; set; }
     }
 }

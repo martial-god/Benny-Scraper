@@ -11,6 +11,7 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
         INovelRepository Novel { get; }
         INovelListRepository NovelList { get; }
         IPageRepository Page { get; }
+        IConfigurationRepository Configuration { get; }
         Task<int> SaveAsync();
     }
 }

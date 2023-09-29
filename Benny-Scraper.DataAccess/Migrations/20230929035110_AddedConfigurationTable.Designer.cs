@@ -3,6 +3,7 @@ using System;
 using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(Database))]
-    partial class DatabaseModelSnapshot : ModelSnapshot
+    [Migration("20230929035110_AddedConfigurationTable")]
+    partial class AddedConfigurationTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.11");
@@ -115,10 +118,6 @@ namespace BennyScraper.DataAccess.Migrations
                     b.Property<string>("NovelSaveLocation")
                         .HasColumnType("TEXT")
                         .HasColumnName("novel_save_location");
-
-                    b.Property<bool>("SaveAsSingleFile")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("save_as_single_file");
 
                     b.Property<string>("SaveLocation")
                         .HasColumnType("TEXT")

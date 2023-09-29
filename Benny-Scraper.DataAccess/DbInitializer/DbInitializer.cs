@@ -1,4 +1,5 @@
 ﻿using Benny_Scraper.DataAccess.Data;
+using Benny_Scraper.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Benny_Scraper.DataAccess.DbInitializer
@@ -26,10 +27,43 @@ namespace Benny_Scraper.DataAccess.DbInitializer
                 {
                     _db.Database.Migrate();
                 }
+
+                SeedData();
             }
             catch (Exception ex)
             {
                 throw new Exception(ex.Message);
+            }
+        }
+
+        public void SeedData()
+        {
+            try
+            {
+                if (!_db.Configurations.Any())
+                {
+                    var defaultConfig = new Configuration
+                    {
+                        Name = "Default",
+                        AutoUpdate = false,
+                        ConcurrencyLimit = 2,
+                        SaveLocation = string.Empty,
+                        NovelSaveLocation = string.Empty,
+                        MangaSaveLocation = string.Empty,
+                        LogLocation = string.Empty,
+                        DatabaseLocation = string.Empty,
+                        DatabaseFileName = "BennyTestDb.db",
+                        SaveAsSingleFile = false,
+                        DefaultMangaFileExtension = FileExtension.PDF,
+                        DefaultLogLevel = LogLevel.Info
+                    };
+                    _db.Configurations.Add(defaultConfig);
+                    _db.SaveChanges();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while seeding the database: " + ex.Message, ex);
             }
         }
     }

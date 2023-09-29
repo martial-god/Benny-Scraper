@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.RegularExpressions;
+using Benny_Scraper.Models;
 
 namespace Benny_Scraper.BusinessLogic.Helper
 {
@@ -43,6 +44,24 @@ namespace Benny_Scraper.BusinessLogic.Helper
             //{
             //    collection.Add(item);
             //});
+        }
+    }
+
+    public static class FileExtensionExtensions
+    {
+        public static string ToFileString(this FileExtension fileExtension)
+        {
+            switch (fileExtension)
+            {
+                case FileExtension.PDF:
+                    return ".pdf";
+                case FileExtension.CBZ:
+                    return ".cbz";
+                case FileExtension.CBR:
+                    return ".cbr";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(fileExtension), fileExtension, null);
+            }
         }
     }
 }

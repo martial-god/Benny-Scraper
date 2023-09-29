@@ -14,8 +14,25 @@ namespace Benny_Scraper.Models
         public string? MangaSaveLocation { get; set; }
         public string? LogLocation { get; set; }
         public string? DatabaseLocation { get; set; }
-        public string? DatabaseName { get; set; }
-        public string DefaultMangaFileExtension { get; set; } = ".pdf";
-        public int DefaultLogLevel { get; set; } = 2;
+        public string? DatabaseFileName { get; set; }
+        public bool SaveAsSingleFile { get; set; }
+        public FileExtension DefaultMangaFileExtension { get; set; } = FileExtension.PDF;
+        public LogLevel DefaultLogLevel { get; set; } = LogLevel.Info; // 0 = Debug, 1 = Info, 2 = Warning, 3 = Error, 4 = Fatal
+    }
+
+    public enum FileExtension
+    {
+        PDF,
+        CBZ,
+        CBR
+    }
+
+    public enum LogLevel
+    {
+        Debug,
+        Info,
+        Warning,
+        Error,
+        Fatal
     }
 }
