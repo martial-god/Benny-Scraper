@@ -47,7 +47,7 @@ namespace Benny_Scraper.DataAccess.DbInitializer
                         Name = "Default",
                         AutoUpdate = false,
                         ConcurrencyLimit = 2,
-                        SaveLocation = string.Empty,
+                        SaveLocation = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BennyScrapedNovels"),
                         NovelSaveLocation = string.Empty,
                         MangaSaveLocation = string.Empty,
                         LogLocation = string.Empty,
