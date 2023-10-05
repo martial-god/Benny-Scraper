@@ -17,7 +17,7 @@ public class ConfigurationRepository : Repository<Configuration>, IConfiguration
         _db.Configurations.Update(configuration);
     }
 
-    public async Task<Configuration> GetAsync(int id)
+    public async Task<Configuration> GetByIdAsync(int id)
     {
         return await _db.Configurations.FindAsync(id);
     }

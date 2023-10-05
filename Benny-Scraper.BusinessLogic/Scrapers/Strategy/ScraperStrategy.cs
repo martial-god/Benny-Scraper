@@ -232,7 +232,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     public abstract class ScraperStrategy
     {
         protected ScraperData _scraperData = new ScraperData();
-        public static int ConcurrentRequestsLimit { get; set; } = 2;
+        private int ConcurrentRequestsLimit { get; set; } = 2;
 
         public const int MaxRetries = 6;
         public const int MinimumParagraphThreshold = 5;
@@ -241,7 +241,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         protected static readonly NovelScraperSettings _settings = new NovelScraperSettings();
         protected static readonly HttpClient _client = new HttpClient(); // better to keep one instance through the life of the method
-        protected static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit, ConcurrentRequestsLimit); // limit the number of concurrent requests, prevent posssible rate limiting
+        private SemaphoreSlim _semaphoreSlim; // limit the number of concurrent requests, prevent posssible rate limiting
         private static readonly List<string> _userAgents = new List<string>
         {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537",
@@ -260,10 +260,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return Task.Run(() => FetchNovelDataFromTableOfContents(htmlDocument));
         }
 
-        public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents)
+        public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents, Configuration configuration)
         {
             SetSiteConfiguration(siteConfig);
             SetSiteTableOfContents(siteTableOfContents);
+            SetConcurrentRequestLimit(configuration.ConcurrencyLimit);
+            SetSemaphoreLimit(this.ConcurrentRequestsLimit);
         }
 
         public async Task<HtmlDocument> LoadHtmlPublicAsync(Uri uri)
@@ -620,6 +622,21 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private void SetSiteTableOfContents(Uri siteTableOfContents)
         {
             _scraperData.SiteTableOfContents = siteTableOfContents;
+        }
+
+        private void SetConcurrentRequestLimit(int concurrentRequestLimit)
+        {
+            if (concurrentRequestLimit < 1)
+                throw new ArgumentException("Concurrent request limit must be greater than 0");
+            if (concurrentRequestLimit > Environment.ProcessorCount)
+                concurrentRequestLimit = Environment.ProcessorCount;
+
+            this.ConcurrentRequestsLimit = concurrentRequestLimit;
+        }
+
+        public void SetSemaphoreLimit(int concurrentRequestLimit)
+        {
+            _semaphoreSlim = new SemaphoreSlim(concurrentRequestLimit);
         }
 
         private async Task<ChapterDataBuffer> GetChapterDataAsync(IWebDriver driver, string urls, string tempImageDirectory)

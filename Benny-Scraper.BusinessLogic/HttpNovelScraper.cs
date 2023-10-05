@@ -36,7 +36,7 @@ namespace Benny_Scraper.BusinessLogic
         #endregion
 
         /// <summary>
-        /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Class are added to the map in the constructor.
+        /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Classes are added to the map in the constructor.
         /// </summary>
         /// <param name="novelTableOfContentsUri"></param>
         /// <param name="siteConfig"></param>

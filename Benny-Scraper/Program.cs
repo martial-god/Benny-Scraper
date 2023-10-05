@@ -30,7 +30,6 @@ namespace Benny_Scraper
         public static IConfiguration Configuration { get; set; }
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
 
-
         static async Task Main(string[] args)
         {
             SetupLogger();
@@ -151,6 +150,7 @@ namespace Benny_Scraper
             {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
                 INovelService novelService = scope.Resolve<INovelService>();
+                IConfigurationRepository configurationRepository = scope.Resolve<IConfigurationRepository>();
 
                 switch (args[0])
                 {
@@ -210,7 +210,42 @@ namespace Benny_Scraper
                             }
                         }
                         break;
+                    case "concurreny_limit":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            Console.WriteLine($"Concurrency limit: {configuration.ConcurrencyLimit}");
+                        }
+                        break;
+                    case "set_concurrency_limit":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            try
+                            {
+                                configuration.ConcurrencyLimit = int.Parse(args[1]);
+                                configurationRepository.Update(configuration); /// need to addd valid way to update this. May need to create a service for this.
+                                Console.WriteLine($"Concurrency limit updated: {configuration.ConcurrencyLimit}");
+
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Invalid Concurrency limit. {ex}");
+                            }
+                        }
+                        break;
+                    case "help":
+                        {
+                            Console.WriteLine("list - list all novels in database");
+                            Console.WriteLine("clear_database - clear all novels and chapters from database");
+                            Console.WriteLine("delete_novel_by_id [ID]        Delete a novel by its ID");
+                            Console.WriteLine("recreate [URL]                 Recreate a novel EPUB by its URL, currently not implemented to handle Mangas");
+                            Console.WriteLine("concurreny_limit              Get the concurrency limit for the application. i.e. How many simultaneous request are made");
+                            Console.WriteLine("set_concurrency_limit [LIMIT]     Set the concurrency limit for the application. i.e. How many simultaneous request are made");
+                        }
+                        break;
                     default:
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"The command '{args[0]}' is not a valid command.");
+                        Console.ResetColor();
                         break;
                 }
             }
@@ -218,6 +253,7 @@ namespace Benny_Scraper
 
         private static string GetDocumentsFolder(string title)
         {
+
             string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             if (string.Equals(Environment.UserName, "emiya", StringComparison.OrdinalIgnoreCase))
                 documentsFolder = DriveInfo.GetDrives().FirstOrDefault(drive => drive.Name == @"H:\")?.Name ?? documentsFolder;
@@ -301,6 +337,7 @@ namespace Benny_Scraper
             builder.RegisterType<NovelService>().As<INovelService>().InstancePerLifetimeScope();
             builder.RegisterType<ChapterService>().As<IChapterService>().InstancePerLifetimeScope();
             builder.RegisterType<NovelRepository>().As<INovelRepository>();
+            builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>(); 
             builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
 
             builder.Register(c =>

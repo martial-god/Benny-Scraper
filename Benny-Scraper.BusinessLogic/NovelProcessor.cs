@@ -5,6 +5,7 @@ using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.BusinessLogic.Validators;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
@@ -24,18 +25,21 @@ namespace Benny_Scraper.BusinessLogic
         private readonly INovelScraperFactory _novelScraper;
         private readonly NovelScraperSettings _novelScraperSettings;
         private readonly IEpubGenerator _epubGenerator;
+        private readonly IConfigurationRepository _configurationRepository;
 
         public NovelProcessor(INovelService novelService,
             IChapterService chapterService,
             INovelScraperFactory novelScraper,
             IOptions<NovelScraperSettings> novelScraperSettings,
-            IEpubGenerator epubGenerator)
+            IEpubGenerator epubGenerator,
+            IConfigurationRepository configurationRepository)
         {
             _novelService = novelService;
             _chapterService = chapterService;
             _novelScraper = novelScraper;
             _novelScraperSettings = novelScraperSettings.Value;
             _epubGenerator = epubGenerator;
+            _configurationRepository = configurationRepository;
         }
 
         public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
@@ -52,9 +56,10 @@ namespace Benny_Scraper.BusinessLogic
             SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
                                                                                           // Retrieve novel information
             INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
+            Configuration configuration = await _configurationRepository.GetByIdAsync(1);
             ScraperStrategy scraperStrategy = scraper.GetScraperStrategy(novelTableOfContentsUri, siteConfig);
 
-            scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri);
+            scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
 
             if (novel == null) // Novel is not in database so add it
             {
