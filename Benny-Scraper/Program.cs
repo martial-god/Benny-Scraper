@@ -1,25 +1,25 @@
 ﻿using Autofac;
-using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Factory.Interfaces;
-using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic;
+using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Factory;
+using Benny_Scraper.BusinessLogic.Factory.Interfaces;
+using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Services;
 using Benny_Scraper.BusinessLogic.Services.Interface;
 using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.DataAccess.DbInitializer;
-using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.DataAccess.Repository;
+using Benny_Scraper.DataAccess.Repository.IRepository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Targets;
 using System.Diagnostics;
-using System.Text;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
-using Benny_Scraper.BusinessLogic.Helper;
 
 namespace Benny_Scraper
 {
@@ -55,13 +55,13 @@ namespace Benny_Scraper
         private static async Task RunAsync()
         {
             using (var scope = Container.BeginLifetimeScope())
-            {                
+            {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
                 Logger.Info("Initializing Database");
                 DbInitializer dbInitializer = scope.Resolve<DbInitializer>();
                 dbInitializer.Initialize();
                 Logger.Info("Database Initialized");
-                
+
                 string instructions = GetInstructions();
 
                 Console.ForegroundColor = ConsoleColor.Blue;
@@ -88,7 +88,7 @@ namespace Benny_Scraper
                     {
                         isApplicationRunning = false;
                         continue;
-                    }                    
+                    }
 
                     if (!Uri.TryCreate(siteUrl, UriKind.Absolute, out Uri novelTableOfContentUri))
                     {
@@ -101,7 +101,7 @@ namespace Benny_Scraper
                     try
                     {
                         await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
-                        
+
                     }
                     catch (Exception ex)
                     {
@@ -166,7 +166,7 @@ namespace Benny_Scraper
                             Console.WriteLine($"Id:".PadRight(maxIdLength) + "\tTitle:".PadRight(maxTitleLength));
                             Console.ResetColor();
                             foreach (var novel in novels)
-                            {                                
+                            {
                                 Console.WriteLine($"{novel.Id.ToString().PadRight(maxIdLength)}\t{novel.Title.PadRight(maxTitleLength)}");
                             }
                             break;
@@ -210,7 +210,7 @@ namespace Benny_Scraper
                             }
                         }
                         break;
-                    case "concurreny_limit":
+                    case "concurrency_limit":
                         {
                             var configuration = await configurationRepository.GetByIdAsync(1);
                             Console.WriteLine($"Concurrency limit: {configuration.ConcurrencyLimit}");
@@ -222,9 +222,8 @@ namespace Benny_Scraper
                             try
                             {
                                 configuration.ConcurrencyLimit = int.Parse(args[1]);
-                                configurationRepository.Update(configuration); /// need to addd valid way to update this. May need to create a service for this.
+                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
                                 Console.WriteLine($"Concurrency limit updated: {configuration.ConcurrencyLimit}");
-
                             }
                             catch (Exception ex)
                             {
@@ -238,7 +237,7 @@ namespace Benny_Scraper
                             Console.WriteLine("clear_database - clear all novels and chapters from database");
                             Console.WriteLine("delete_novel_by_id [ID]        Delete a novel by its ID");
                             Console.WriteLine("recreate [URL]                 Recreate a novel EPUB by its URL, currently not implemented to handle Mangas");
-                            Console.WriteLine("concurreny_limit              Get the concurrency limit for the application. i.e. How many simultaneous request are made");
+                            Console.WriteLine("concurrency_limit              Get the concurrency limit for the application. i.e. How many simultaneous request are made");
                             Console.WriteLine("set_concurrency_limit [LIMIT]     Set the concurrency limit for the application. i.e. How many simultaneous request are made");
                         }
                         break;
@@ -337,7 +336,7 @@ namespace Benny_Scraper
             builder.RegisterType<NovelService>().As<INovelService>().InstancePerLifetimeScope();
             builder.RegisterType<ChapterService>().As<IChapterService>().InstancePerLifetimeScope();
             builder.RegisterType<NovelRepository>().As<INovelRepository>();
-            builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>(); 
+            builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>();
             builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
 
             builder.Register(c =>
