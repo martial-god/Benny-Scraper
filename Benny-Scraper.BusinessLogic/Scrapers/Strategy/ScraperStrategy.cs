@@ -268,6 +268,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetSemaphoreLimit(this.ConcurrentRequestsLimit);
         }
 
+        public SiteConfiguration GetSiteConfiguration()
+        {
+            return _scraperData.SiteConfig ?? throw new NullReferenceException("SiteConfiguration is null");
+        }
+
         public async Task<HtmlDocument> LoadHtmlPublicAsync(Uri uri)
         {
             return await LoadHtmlAsync(uri);

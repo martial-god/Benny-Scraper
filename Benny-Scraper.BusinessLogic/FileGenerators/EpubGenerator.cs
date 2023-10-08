@@ -1,5 +1,5 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Interfaces;
+using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
 using Benny_Scraper.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Options;
@@ -10,7 +10,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 
-namespace Benny_Scraper.BusinessLogic
+namespace Benny_Scraper.BusinessLogic.FileGenerators
 {
     /// <summary>
     /// Generates an epub file from a novel and its chapters. Using Epub Version 3.2 https://en.wikipedia.org/wiki/EPUB#Open_Container_Format_3.2
@@ -214,13 +214,13 @@ namespace Benny_Scraper.BusinessLogic
                 catch
                 {
                 }
-                
+
                 Console.ResetColor();
                 Logger.Info(new string('=', 50));
             }
         }
 
-        public string ExecuteCommand(string command)
+        public static string ExecuteCommand(string command)
         {
             // able to get this working thanks to https://stackoverflow.com/questions/4291912/process-start-how-to-get-the-output
             Process process = new Process();

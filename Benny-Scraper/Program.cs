@@ -3,6 +3,8 @@ using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
+using Benny_Scraper.BusinessLogic.FileGenerators;
+using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
 using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Services;
@@ -28,8 +30,8 @@ namespace Benny_Scraper
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
         private static IContainer Container { get; set; }
         public static IConfiguration Configuration { get; set; }
-        // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
 
+        // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
             SetupLogger();
@@ -143,7 +145,6 @@ namespace Benny_Scraper
         }
 
 
-        // create private RunAsync that accepts args and then call it from Main, also make it so that args are used, accepting multiple arguments 'clear_database' should be an argument that will clear the database using the removeall method. Case statement should be used to check for the argument and then call the removeall method.
         private static async Task RunAsync(string[] args)
         {
             using (var scope = Container.BeginLifetimeScope())
@@ -189,6 +190,7 @@ namespace Benny_Scraper
                         {
                             try
                             {
+                                var configuration = await configurationRepository.GetByIdAsync(1);
                                 IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
                                 Uri.TryCreate(args[1], UriKind.Absolute, out Uri tableOfContentUri);
                                 bool isNovelInDatabase = await novelService.IsNovelInDatabaseAsync(tableOfContentUri.ToString());
@@ -197,8 +199,8 @@ namespace Benny_Scraper
                                     var novel = await novelService.GetByUrlAsync(tableOfContentUri);
                                     Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count()}");
                                     var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
-                                    string safeTitle = CommonHelper.GetFileSafeName(novel.Title);
-                                    var documentsFolder = GetDocumentsFolder(safeTitle);
+                                    string safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
+                                    var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
                                     Directory.CreateDirectory(documentsFolder);
                                     string epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
                                     epubGenerator.CreateEpub(novel, chapters, epubFile, null);
@@ -231,6 +233,57 @@ namespace Benny_Scraper
                             }
                         }
                         break;
+                    case "set_save_location":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            try
+                            {
+                                configuration.SaveLocation = args[1];
+                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
+                                Console.WriteLine($"Save location updated: {configuration.SaveLocation}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Invalid save location. {ex}");
+                            }
+                        }
+                        break;
+                    case "set_manga_save_location":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            try
+                            {
+                                configuration.MangaSaveLocation = args[1];
+                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
+                                Console.WriteLine($"Manga save location updated: {configuration.MangaSaveLocation}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Invalid manga save location. {ex}");
+                            }
+                        }
+                        break;
+                    case "set_novel_save_location":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            try
+                            {
+                                configuration.NovelSaveLocation = args[1];
+                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
+                                Console.WriteLine($"Novel save location updated: {configuration.NovelSaveLocation}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Invalid novel save location. {ex}");
+                            }
+                        }
+                        break;
+                    case "save_location":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            Console.WriteLine($"Save location: {configuration.SaveLocation}");
+                        }
+                        break;
                     case "help":
                         {
                             Console.WriteLine("list - list all novels in database");
@@ -239,6 +292,10 @@ namespace Benny_Scraper
                             Console.WriteLine("recreate [URL]                 Recreate a novel EPUB by its URL, currently not implemented to handle Mangas");
                             Console.WriteLine("concurrency_limit              Get the concurrency limit for the application. i.e. How many simultaneous request are made");
                             Console.WriteLine("set_concurrency_limit [LIMIT]     Set the concurrency limit for the application. i.e. How many simultaneous request are made");
+                            Console.WriteLine("set_save_location [PATH]          Set the save location for the application. i.e. Where the EPUBs are saved");
+                            Console.WriteLine("save_location                    Get the save location for the application. i.e. Where the EPUBs are saved");
+                            Console.WriteLine("set_manga_save_location [PATH]    Set the manga save location for the application. i.e. Where the EPUBs are saved");
+                            Console.WriteLine("set_novel_save_location [PATH]    Set the novel save location for the application. i.e. Where the EPUBs are saved");
                         }
                         break;
                     default:
@@ -266,7 +323,6 @@ namespace Benny_Scraper
         {
             var config = new NLog.Config.LoggingConfiguration();
 
-            //write log file using date as day-month-year
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             string directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
 
@@ -278,7 +334,6 @@ namespace Benny_Scraper
                 Layout = @"${date:format=HH\:mm\:ss} ${level} ${message} ${exception}"
             };
 
-            // Set up colors
             logconsole.RowHighlightingRules.Add(new NLog.Targets.ConsoleRowHighlightingRule(
                 NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Info"),
                 ConsoleOutputColor.Green, ConsoleOutputColor.Black));
@@ -338,6 +393,7 @@ namespace Benny_Scraper
             builder.RegisterType<NovelRepository>().As<INovelRepository>();
             builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>();
             builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
+            builder.RegisterType<PdfGenerator>().As<PdfGenerator>().InstancePerDependency();
 
             builder.Register(c =>
             {
