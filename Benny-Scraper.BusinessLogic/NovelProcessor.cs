@@ -1,5 +1,4 @@
-﻿using AngleSharp;
-using Benny_Scraper.BusinessLogic.Config;
+﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.FileGenerators;
 using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
@@ -100,6 +99,8 @@ namespace Benny_Scraper.BusinessLogic
             var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
             string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(newNovel.Title, outputDirectory = userOutputDirectory);
 
+            await _novelService.CreateAsync(newNovel);
+            Logger.Info("Finished adding novel {0} to database", newNovel.Title);
             Novel novel = await GetNovelFromDataBase(novelTableOfContentsUri, newNovel);
 
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
@@ -117,6 +118,7 @@ namespace Benny_Scraper.BusinessLogic
             {
                 novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
             }
+            await _novelService.UpdateAsync(novel);
         }
 
         private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration)
@@ -180,21 +182,18 @@ namespace Benny_Scraper.BusinessLogic
             }
             else
             {
-                await _novelService.UpdateAndAddChapters(novel, newChapters);
                 novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
+                await _novelService.UpdateAndAddChapters(novel, newChapters);
             }
         }
 
         private async Task<Novel> GetNovelFromDataBase(Uri novelTableOfContentsUri, Novel newNovel)
         {
-            await _novelService.CreateAsync(newNovel);
-            Logger.Info("Finished adding novel {0} to database", newNovel.Title);
-
             Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
             if (novel != null)
                 novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList();
             return novel;
-        }        
+        }
 
         private string CreateEpub(Novel novel, byte[]? thumbnailImage, string outputDirectory)
         {

@@ -9,6 +9,7 @@ namespace Benny_Scraper.BusinessLogic.Services.Interface
         public Task<bool> IsNovelInDatabaseAsync(string tableOfContentsUrl);
         public Task<Novel> GetByUrlAsync(Uri uri);
         public Task<IEnumerable<Novel>> GetAllAsync();
+        public Task UpdateAsync(Novel novel);
         public Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> chapters);
         public Task RemoveAllAsync();
         public Task RemoveByIdAsync(Guid id);

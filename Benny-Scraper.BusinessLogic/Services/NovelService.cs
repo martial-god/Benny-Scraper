@@ -40,6 +40,17 @@ namespace Benny_Scraper.BusinessLogic.Services
             await _unitOfWork.SaveAsync();
         }
 
+        /// <summary>
+        /// Updates existing novel
+        /// </summary>
+        /// <param name="novel"></param>
+        /// <returns></returns>
+        public async Task UpdateAsync(Novel novel)
+        {
+            _unitOfWork.Novel.Update(novel);
+            await _unitOfWork.SaveAsync();
+        }
+
         public async Task<IEnumerable<Novel>> GetAllAsync()
         {
             return await _unitOfWork.Novel.GetAllAsync();
