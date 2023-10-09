@@ -107,7 +107,7 @@ namespace Benny_Scraper.BusinessLogic
             {
                 if (string.IsNullOrEmpty(novel.SaveLocation))
                     novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
-                _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory);
+                _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
                     chapterDataBuffer.Dispose();
@@ -171,7 +171,7 @@ namespace Benny_Scraper.BusinessLogic
             {
                 if (string.IsNullOrEmpty(novel.SaveLocation))
                     novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
-                _pdfGenerator.UpdatePdf(novel, chapterDataBuffers);
+                _pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
                     chapterDataBuffer.Dispose();
@@ -194,9 +194,7 @@ namespace Benny_Scraper.BusinessLogic
             if (novel != null)
                 novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList();
             return novel;
-        }
-
-        
+        }        
 
         private string CreateEpub(Novel novel, byte[]? thumbnailImage, string outputDirectory)
         {

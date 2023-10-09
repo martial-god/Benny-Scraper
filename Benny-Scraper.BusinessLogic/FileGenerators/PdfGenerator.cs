@@ -13,7 +13,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
         public const string PdfFileExtension = ".pdf";
 
-        public void CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory)
+        public void CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
         {
             Logger.Info("Creating PDFs for {0}", novel.Title);
             int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
@@ -22,13 +22,16 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
-            CreateSinglePdf(novel, chapterDataBuffers, outputDirectory);
+            if (configuration.SaveAsSingleFile)
+                CreateSinglePdf(novel, chapterDataBuffers, outputDirectory);
+            else
+                CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory);
 
             Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
             if (totalMissingChapters > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Theere were {totalMissingChapters} chapters with no pages");
+                Console.WriteLine($"There were {totalMissingChapters} chapters with no pages");
                 Console.WriteLine($"Missing chapter urls: {string.Join("\n", missingChapterUrls)}");
             }
             Console.ForegroundColor = ConsoleColor.DarkCyan;
@@ -67,9 +70,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                     PdfPage page = document.AddPage();
                     page.Width = XUnit.FromPoint(img.PixelWidth);
                     page.Height = XUnit.FromPoint(img.PixelHeight);
-
                     XGraphics gfx = XGraphics.FromPdfPage(page);
-
                     gfx.DrawImage(img, 0, 0, page.Width, page.Height);
                 }
                 // to avoid the System.NotSupportedException: No data is available for encoding 1252. we have to install the Nugget package System.Text.Encoding.CodePages
@@ -110,9 +111,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                         PdfPage page = document.AddPage();
                         page.Width = XUnit.FromPoint(img.PixelWidth);
                         page.Height = XUnit.FromPoint(img.PixelHeight);
-
                         XGraphics gfx = XGraphics.FromPdfPage(page);
-
                         gfx.DrawImage(img, 0, 0, page.Width, page.Height);
                     }
                     File.Delete(imagePath);
@@ -128,7 +127,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Console.WriteLine($"PDF saved to {pdfFilePath}");
         }
 
-        public void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer)
+        public void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Configuration configuration)
         {
             var pdfFilePath = novel.SaveLocation;
             if (Path.GetExtension(pdfFilePath) != PdfFileExtension)

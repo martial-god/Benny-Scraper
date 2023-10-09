@@ -53,7 +53,7 @@ namespace Benny_Scraper.DataAccess.DbInitializer
                         LogLocation = string.Empty,
                         DatabaseLocation = string.Empty,
                         DatabaseFileName = "BennyTestDb.db",
-                        SaveAsSingleFile = false,
+                        SaveAsSingleFile = true,
                         DefaultMangaFileExtension = FileExtension.PDF,
                         DefaultLogLevel = LogLevel.Info,
                         FontType = "Arial"
