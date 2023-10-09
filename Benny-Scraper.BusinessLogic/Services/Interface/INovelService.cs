@@ -5,9 +5,10 @@ namespace Benny_Scraper.BusinessLogic.Services.Interface
 {
     public interface INovelService
     {
-        public Task CreateAsync(Novel novel);
+        public Task<Guid> CreateAsync(Novel novel);
         public Task<bool> IsNovelInDatabaseAsync(string tableOfContentsUrl);
         public Task<Novel> GetByUrlAsync(Uri uri);
+        public Task<Novel> GetByIdAsync(Guid id);
         public Task<IEnumerable<Novel>> GetAllAsync();
         public Task UpdateAsync(Novel novel);
         public Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> chapters);

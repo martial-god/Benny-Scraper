@@ -16,7 +16,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         #endregion
 
         // CreateScraper new novel with a passed in novel
-        public async Task CreateAsync(Novel novel)
+        public async Task<Guid> CreateAsync(Novel novel)
         {
             novel.DateLastModified = DateTime.Now;
             novel.TotalChapters = novel.Chapters.Count;
@@ -24,6 +24,7 @@ namespace Benny_Scraper.BusinessLogic.Services
             
             //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
+            return novel.Id;
         }
 
         /// <summary>
@@ -59,6 +60,17 @@ namespace Benny_Scraper.BusinessLogic.Services
         public async Task<Novel> GetByUrlAsync(Uri uri)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString);
+            if (context != null)
+            {
+                var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
+                context.Chapters = chapterContext.ToList();
+            }
+            return context;
+        }
+
+        public async Task<Novel> GetByIdAsync(Guid id)
+        {
+            var context = await _unitOfWork.Novel.GetByIdAsync(id);
             if (context != null)
             {
                 var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
@@ -103,13 +115,6 @@ namespace Benny_Scraper.BusinessLogic.Services
             _unitOfWork.Chapter.RemoveRange(chapters);
             _unitOfWork.Novel.Remove(novel);
             await _unitOfWork.SaveAsync();
-        }
-
-
-        public void ReportServiceLifetimeDetails(string lifetimeDetails)
-        {
-            Console.WriteLine(lifetimeDetails);
-            Console.WriteLine("Changes only with lifetime");
         }
     }
 }

@@ -99,9 +99,9 @@ namespace Benny_Scraper.BusinessLogic
             var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
             string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(newNovel.Title, outputDirectory = userOutputDirectory);
 
-            await _novelService.CreateAsync(newNovel);
+            var novelId = await _novelService.CreateAsync(newNovel);
             Logger.Info("Finished adding novel {0} to database", newNovel.Title);
-            Novel novel = await GetNovelFromDataBase(novelTableOfContentsUri, newNovel);
+            Novel novel = await GetNovelFromDataBase(novelId);
 
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
             if (novel.Chapters.Any(chapter => chapter?.Pages != null))
@@ -187,9 +187,9 @@ namespace Benny_Scraper.BusinessLogic
             }
         }
 
-        private async Task<Novel> GetNovelFromDataBase(Uri novelTableOfContentsUri, Novel newNovel)
+        private async Task<Novel> GetNovelFromDataBase(Guid id)
         {
-            Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
+            Novel novel = await _novelService.GetByIdAsync(id);
             if (novel != null)
                 novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList();
             return novel;
