@@ -30,9 +30,14 @@ namespace Benny_Scraper.BusinessLogic.Helper
 
         public static void DeleteTempFolder(string tempFile)
         {
+            string directory = string.Empty;
             if (string.IsNullOrEmpty(tempFile))
                 return;
-            string directory = Path.GetDirectoryName(tempFile);
+            FileAttributes attr = File.GetAttributes(tempFile);
+            if (!attr.HasFlag(FileAttributes.Directory))
+                directory = Path.GetDirectoryName(tempFile);
+            else
+                directory = tempFile;
             if (Directory.Exists(directory))
             {
                 Directory.Delete(directory, false);
@@ -49,6 +54,17 @@ namespace Benny_Scraper.BusinessLogic.Helper
             string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             var novelFileSafeTitle = CommonHelper.SanitizeFileName(title, true);
             return Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
+        }
+
+        /// <summary>
+        /// Creates a temporary file in the user's temp directory
+        /// </summary>
+        /// <returns></returns>
+        public static string CreateTempDirectory()
+        {
+            var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempDirectory);
+            return tempDirectory;
         }
     }
 

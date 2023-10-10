@@ -1,5 +1,8 @@
-﻿using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
+﻿using System.IO.Compression;
+using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
+using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
+using PdfSharp.Drawing;
 
 namespace Benny_Scraper.BusinessLogic.FileGenerators
 {
@@ -16,7 +19,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
             if (configuration.SaveAsSingleFile)
-                CreateSigleComicBookArchive(novel, chapterDataBuffers, outputDirectory);
+                CreateSigleComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration.DefaultMangaFileExtension);
             else
                 CreateComicBookArchiveByChapter(novel, chapterDataBuffers, outputDirectory);
             
@@ -29,7 +32,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 Console.WriteLine($"Missing chapter urls: {string.Join("\n", missingChapterUrls)}");
             }
             Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine($"Adding PDFs to Calibre database");
+            Console.WriteLine($"Adding {Enum.GetName(configuration.DefaultMangaFileExtension)} to Calibre database");
             var result = EpubGenerator.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
@@ -37,24 +40,51 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Logger.Info($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
         }
 
-        public void CreateSigleComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string outputDirectory)
+        private void CreateSigleComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string outputDirectory, FileExtension fileExtension)
         {
-            // create directory, then add each image to the folder and zip it up into a cbr
             Directory.CreateDirectory(outputDirectory);
+            var tempDirectory = CommonHelper.CreateTempDirectory();
+            var sanitzedTitle = CommonHelper.SanitizeFileName(novel.Title);
+
+            var maxPages = chapterDataBuffer.Max(chapter => chapter.Pages?.Count() ?? 0);
+            var padLength = maxPages.ToString().Length;
 
             foreach (var chapter in chapterDataBuffer)
             {
                 if (chapter.Pages == null)
                     continue;
 
-                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList(); // only Page from PageData has ImagePath as a member variable
-                foreach (var imagePath in imagePaths)
+                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
+                for (int i = 0; i < imagePaths.Count; i++)
                 {
+                    var imageName = $"Chapter_{chapter.Number}_Page{((i + 1).ToString().PadLeft(padLength, '0'))}.{Path.GetExtension(imagePaths[i])}";
+                    using (var fileStream = File.OpenRead(imagePaths[i]))
+                    {
+                        var destinationStream = File.Create(Path.Combine(tempDirectory, imageName));
+                        fileStream.CopyTo(destinationStream);
+                        destinationStream.Close();
+                    }
+                    File.Delete(imagePaths[i]);
                 }
             }
+
+            var outputFilePath = Path.Combine(outputDirectory, $"{sanitzedTitle}.{Enum.GetName(fileExtension)}");
+            try
+            {
+                File.Delete(Path.Combine(outputDirectory, outputFilePath));
+                ZipFile.CreateFromDirectory(tempDirectory, outputFilePath); // does not allow for duplicates files or an IO exception will be thrown
+                CommonHelper.DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
+                CommonHelper.DeleteTempFolder(tempDirectory);
+
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex.Message, $"Error creating comic book archive for {novel.Title}");
+            }
+            
         }
 
-        public void CreateComicBookArchiveByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
+        private void CreateComicBookArchiveByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             throw new NotImplementedException();
         }

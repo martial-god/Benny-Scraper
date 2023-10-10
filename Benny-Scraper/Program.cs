@@ -13,6 +13,7 @@ using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
+using Benny_Scraper.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -22,6 +23,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using LogLevel = NLog.LogLevel;
 
 namespace Benny_Scraper
 {
@@ -284,18 +286,47 @@ namespace Benny_Scraper
                             Console.WriteLine($"Save location: {configuration.SaveLocation}");
                         }
                         break;
+                    case "default_manga_extension":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            var extensions = Enum.GetValues(typeof(FileExtension)).Cast<FileExtension>().Select(extension => $"{(int)extension} - {extension}");
+                            Console.WriteLine($"Default manga extension: {configuration.DefaultMangaFileExtension}");
+                            Console.ForegroundColor = ConsoleColor.Magenta;
+                            Console.WriteLine($"Available extensions: {string.Join(", ", extensions)}");
+                            Console.ResetColor();
+                        }
+                        break;
+                    case "set_default_manga_extension":
+                        {
+                            var configuration = await configurationRepository.GetByIdAsync(1);
+                            try
+                            {
+                                configuration.DefaultMangaFileExtension = (FileExtension)int.Parse(args[1]); // still need to check if valid
+                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
+                                Console.WriteLine($"Default manga extension updated: {configuration.DefaultMangaFileExtension}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.ForegroundColor = ConsoleColor.DarkGray;
+                                Console.WriteLine($"Invalid default manga extension. {ex}");
+                                Console.ResetColor();
+                            }
+                        }
+                        break;
                     case "help":
                         {
-                            Console.WriteLine("list - list all novels in database");
-                            Console.WriteLine("clear_database - clear all novels and chapters from database");
+                            Console.WriteLine("list \t\t\tlist all novels in database");
+                            Console.WriteLine("clear_database \t\t\tclear all novels and chapters from database");
                             Console.WriteLine("delete_novel_by_id [ID]        Delete a novel by its ID");
                             Console.WriteLine("recreate [URL]                 Recreate a novel EPUB by its URL, currently not implemented to handle Mangas");
                             Console.WriteLine("concurrency_limit              Get the concurrency limit for the application. i.e. How many simultaneous request are made");
                             Console.WriteLine("set_concurrency_limit [LIMIT]     Set the concurrency limit for the application. i.e. How many simultaneous request are made");
-                            Console.WriteLine("set_save_location [PATH]          Set the save location for the application. i.e. Where the EPUBs are saved");
-                            Console.WriteLine("save_location                    Get the save location for the application. i.e. Where the EPUBs are saved");
-                            Console.WriteLine("set_manga_save_location [PATH]    Set the manga save location for the application. i.e. Where the EPUBs are saved");
-                            Console.WriteLine("set_novel_save_location [PATH]    Set the novel save location for the application. i.e. Where the EPUBs are saved");
+                            Console.WriteLine("set_save_location [PATH]          Set the save location for the application, set_manga_save_location or set_novel_save_location will supercede this. i.e. Where the files are saved");
+                            Console.WriteLine("save_location                    Get the save location for the application, if ei. ");
+                            Console.WriteLine("set_manga_save_location [PATH]    Set the manga save location for the application. Supercedes 'save_location', if this has a value, mangas/comics will be saved here");
+                            Console.WriteLine("set_novel_save_location [PATH]    Set the novel save location for the application. Supercedes 'save_location', if this has a value, Epubs will be saved here");
+                            Console.WriteLine("default_manga_extension           Get the default manga extension for the application. i.e. PDF, CBZ, CBR...");
+                            Console.ResetColor();
                         }
                         break;
                     default:
@@ -394,6 +425,7 @@ namespace Benny_Scraper
             builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>();
             builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
             builder.RegisterType<PdfGenerator>().As<PdfGenerator>().InstancePerDependency();
+            builder.RegisterType<ComicBookArchiveGenerator>().As<IComicBookArchiveGenerator>().InstancePerDependency();
 
             builder.Register(c =>
             {

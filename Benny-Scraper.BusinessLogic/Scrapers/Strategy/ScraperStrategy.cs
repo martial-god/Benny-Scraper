@@ -4,6 +4,7 @@ using System.Text;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
+using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
@@ -481,8 +482,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     IDriverFactory driverFactory = new DriverFactory();
                     var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
 
-                    tempImageDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                    Directory.CreateDirectory(tempImageDirectory);
+                    tempImageDirectory = CommonHelper.CreateTempDirectory();
 
                     foreach (var url in chapterUrls)
                     {

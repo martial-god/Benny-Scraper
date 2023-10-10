@@ -25,6 +25,7 @@ namespace Benny_Scraper.BusinessLogic
         private readonly NovelScraperSettings _novelScraperSettings;
         private readonly IEpubGenerator _epubGenerator;
         private readonly PdfGenerator _pdfGenerator;
+        private readonly IComicBookArchiveGenerator _comicBookArchiveGenerator;
         private readonly IConfigurationRepository _configurationRepository;
 
         public NovelProcessor(INovelService novelService,
@@ -33,6 +34,7 @@ namespace Benny_Scraper.BusinessLogic
             IOptions<NovelScraperSettings> novelScraperSettings,
             IEpubGenerator epubGenerator,
             PdfGenerator pdfGenerator,
+            IComicBookArchiveGenerator comicBookArchiveGenerator,
             IConfigurationRepository configurationRepository)
         {
             _novelService = novelService;
@@ -41,6 +43,7 @@ namespace Benny_Scraper.BusinessLogic
             _novelScraperSettings = novelScraperSettings.Value;
             _epubGenerator = epubGenerator;
             _pdfGenerator = pdfGenerator;
+            _comicBookArchiveGenerator = comicBookArchiveGenerator;
             _configurationRepository = configurationRepository;
         }
 
@@ -66,7 +69,7 @@ namespace Benny_Scraper.BusinessLogic
             if (novel == null) // Novel is not in database so add it
             {
                 Logger.Info($"Novel with url {novelTableOfContentsUri} is not in database, adding it now.");
-                await AddNewNovelAsync(novelTableOfContentsUri, scraperStrategy, configuration);
+                await AddNewNovelAsync(novelTableOfContentsUri, scraperStrategy, configuration); // consider creating something to decide whi
                 Logger.Info($"Added novel with url {novelTableOfContentsUri} to database.");
             }
             else // make changes or update novelToAdd and newChapters
@@ -108,7 +111,10 @@ namespace Benny_Scraper.BusinessLogic
             {
                 if (string.IsNullOrEmpty(novel.SaveLocation))
                     novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
-                _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
+                if (configuration.DefaultMangaFileExtension == FileExtension.PDF)
+                    _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
+                else
+                    _comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
                     chapterDataBuffer.Dispose();
