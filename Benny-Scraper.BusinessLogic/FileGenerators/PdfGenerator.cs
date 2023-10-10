@@ -27,7 +27,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             else
                 CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory);
 
-            Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
+            Console.Write($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
             if (totalMissingChapters > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -40,7 +40,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
             Logger.Info(new string('=', 50));
-            Logger.Info($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
+            Logger.Info($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
         }
 
         public void CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)

@@ -34,7 +34,11 @@ namespace Benny_Scraper.Models
     {
         PDF,
         CBZ,
-        CBR
+        CBR,
+        CB7,
+        CBT,
+        CBA,
+
     }
 
     public enum LogLevel

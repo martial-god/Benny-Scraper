@@ -36,6 +36,7 @@ namespace Benny_Scraper
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
         static async Task Main(string[] args)
         {
+            DeleteOldLogs();
             SetupLogger();
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             SQLitePCL.Batteries.Init();
@@ -146,7 +147,6 @@ namespace Benny_Scraper
             return instructions;
         }
 
-
         private static async Task RunAsync(string[] args)
         {
             using (var scope = Container.BeginLifetimeScope())
@@ -199,7 +199,7 @@ namespace Benny_Scraper
                                 if (isNovelInDatabase)
                                 {
                                     var novel = await novelService.GetByUrlAsync(tableOfContentUri);
-                                    Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count()}");
+                                    Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
                                     var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
                                     string safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
                                     var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
@@ -326,6 +326,7 @@ namespace Benny_Scraper
                             Console.WriteLine("set_manga_save_location [PATH]    Set the manga save location for the application. Supercedes 'save_location', if this has a value, mangas/comics will be saved here");
                             Console.WriteLine("set_novel_save_location [PATH]    Set the novel save location for the application. Supercedes 'save_location', if this has a value, Epubs will be saved here");
                             Console.WriteLine("default_manga_extension           Get the default manga extension for the application. i.e. PDF, CBZ, CBR...");
+                            Console.WriteLine("set_default_manga_extension [INT]    Set the default manga extension for the application. Value should be a number.");
                             Console.ResetColor();
                         }
                         break;
@@ -336,18 +337,6 @@ namespace Benny_Scraper
                         break;
                 }
             }
-        }
-
-        private static string GetDocumentsFolder(string title)
-        {
-
-            string documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            if (string.Equals(Environment.UserName, "emiya", StringComparison.OrdinalIgnoreCase))
-                documentsFolder = DriveInfo.GetDrives().FirstOrDefault(drive => drive.Name == @"H:\")?.Name ?? documentsFolder;
-            string fileRegex = @"[^a-zA-Z0-9-\s]";
-            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-            var novelFileSafeTitle = textInfo.ToTitleCase(Regex.Replace(title, fileRegex, string.Empty).ToLower().ToLowerInvariant());
-            return Path.Combine(documentsFolder, "BennyScrapedNovels", novelFileSafeTitle);
         }
 
         private static void SetupLogger()
@@ -384,6 +373,25 @@ namespace Benny_Scraper
             NLog.LogManager.Configuration = config;
         }
 
+        private static void DeleteOldLogs()
+        {
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            var directory = new DirectoryInfo(directoryPath);
+            var files = directory.GetFiles("*.log")
+                .OrderByDescending(file => file.LastWriteTime)
+                .Skip(5);
+
+            foreach (var file in files)
+            {
+                file.Delete();
+            }
+        }
 
         /// <summary>
         /// Loads the configuration for the application from appsettings.json. The configuration is used to configure the application's services, and will be 

@@ -17,14 +17,10 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             var missingChapterUrls = novel.Chapters.Where(chapter => chapter.Pages == null).Select(chapter => chapter.Url);
 
             Logger.Info(new string('=', 50));
-            Console.ForegroundColor = ConsoleColor.Blue;
-            if (configuration.SaveAsSingleFile)
-                CreateSigleComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration.DefaultMangaFileExtension);
-            else
-                CreateComicBookArchiveByChapter(novel, chapterDataBuffers, outputDirectory);
-            
+            CreateSigleComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration.DefaultMangaFileExtension);
 
-            Console.Write($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.Write($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
             if (totalMissingChapters > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -37,16 +33,16 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
             Logger.Info(new string('=', 50));
-            Logger.Info($"Total chapters: {novel.Chapters.Count()}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
+            Logger.Info($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
         }
 
-        private void CreateSigleComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string outputDirectory, FileExtension fileExtension)
+        private static void CreateSigleComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string outputDirectory, FileExtension fileExtension)
         {
             Directory.CreateDirectory(outputDirectory);
             var tempDirectory = CommonHelper.CreateTempDirectory();
             var sanitzedTitle = CommonHelper.SanitizeFileName(novel.Title);
 
-            var maxPages = chapterDataBuffer.Max(chapter => chapter.Pages?.Count() ?? 0);
+            var maxPages = chapterDataBuffer.Max(chapter => chapter.Pages?.Count ?? 0);
             var padLength = maxPages.ToString().Length;
 
             foreach (var chapter in chapterDataBuffer)
@@ -82,11 +78,6 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 Logger.Error(ex.Message, $"Error creating comic book archive for {novel.Title}");
             }
             
-        }
-
-        private void CreateComicBookArchiveByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
-        {
-            throw new NotImplementedException();
         }
     }
 }
