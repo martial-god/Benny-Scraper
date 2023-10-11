@@ -47,6 +47,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
             foreach (var chapter in chapterDataBuffer)
             {
+                var chapterDirectory = Directory.CreateDirectory(Path.Combine(tempDirectory, $"Chapter_{chapter.Number}"));
                 if (chapter.Pages == null)
                     continue;
 
@@ -56,7 +57,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                     var imageName = $"Chapter_{chapter.Number}_Page{((i + 1).ToString().PadLeft(padLength, '0'))}.{Path.GetExtension(imagePaths[i])}";
                     using (var fileStream = File.OpenRead(imagePaths[i]))
                     {
-                        var destinationStream = File.Create(Path.Combine(tempDirectory, imageName));
+                        var destinationStream = File.Create(Path.Combine(chapterDirectory.FullName, imageName));
                         fileStream.CopyTo(destinationStream);
                         destinationStream.Close();
                     }
