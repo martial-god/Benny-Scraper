@@ -23,6 +23,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using CommandLine;
 using LogLevel = NLog.LogLevel;
 
 namespace Benny_Scraper
@@ -148,6 +149,21 @@ namespace Benny_Scraper
         }
 
         private static async Task RunAsync(string[] args)
+        {
+            var result = Parser.Default.ParseArguments<Benny_Scraper.CommandLineOptions>(args);
+            await result.MapResult(
+                async options =>
+                {
+                    if (options.List)
+                        await ListNovels();
+                    else if (options.ClearDatabase)
+                        await ClearDatabase();
+                },
+                _ => Task.FromResult(1)); // Handle parsing errors, if needed
+        }
+
+        #region CommandLine Methods
+        private static async Task RunsAsync(string[] args)
         {
             using (var scope = Container.BeginLifetimeScope())
             {
@@ -325,7 +341,7 @@ namespace Benny_Scraper
                             Console.WriteLine("save_location                    Get the save location for the application, if ei. ");
                             Console.WriteLine("set_manga_save_location [PATH]    Set the manga save location for the application. Supercedes 'save_location', if this has a value, mangas/comics will be saved here");
                             Console.WriteLine("set_novel_save_location [PATH]    Set the novel save location for the application. Supercedes 'save_location', if this has a value, Epubs will be saved here");
-                            Console.WriteLine("default_manga_extension           Get the default manga extension for the application. i.e. PDF, CBZ, CBR...");
+                            Console.WriteLine("default_manga_extension           Get the default manga extension for the application. i.e. Pdf, Cbz, Cbr...");
                             Console.WriteLine("set_default_manga_extension [INT]    Set the default manga extension for the application. Value should be a number.");
                             Console.ResetColor();
                         }
@@ -338,6 +354,40 @@ namespace Benny_Scraper
                 }
             }
         }
+
+        private static async Task ListNovels()
+        {
+            using var scope = Container.BeginLifetimeScope();
+            var novelService = scope.Resolve<INovelService>();
+
+            var novels = await novelService.GetAllAsync();
+
+            int maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
+            int maxTitleLength = novels.Max(novel => novel.Title.Length);
+
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine($"Id:".PadRight(maxIdLength) + "\tTitle:".PadRight(maxTitleLength));
+            Console.ResetColor();
+
+            foreach (var novel in novels)
+            {
+                Console.WriteLine($"{novel.Id.ToString().PadRight(maxIdLength)}\t{novel.Title.PadRight(maxTitleLength)}");
+            }
+        }
+
+        private static async Task ClearDatabase()
+        {
+            using (var scope = Container.BeginLifetimeScope())
+            {
+                var logger = NLog.LogManager.GetCurrentClassLogger();
+                var novelService = scope.Resolve<INovelService>();
+
+                logger.Info("Clearing all novels and chapters from database");
+                await novelService.RemoveAllAsync();
+            }
+        }
+
+        #endregion
 
         private static void SetupLogger()
         {

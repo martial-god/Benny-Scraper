@@ -32,13 +32,12 @@ namespace Benny_Scraper.Models
 
     public enum FileExtension
     {
-        PDF,
-        CBZ,
-        CBR,
-        CB7,
-        CBT,
-        CBA,
-
+        Pdf,
+        Cbz,
+        Cbr,
+        Cb7,
+        Cbt,
+        Cba
     }
 
     public enum LogLevel

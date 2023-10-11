@@ -111,7 +111,7 @@ namespace Benny_Scraper.BusinessLogic
             {
                 if (string.IsNullOrEmpty(novel.SaveLocation))
                     novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
-                if (configuration.DefaultMangaFileExtension == FileExtension.PDF)
+                if (configuration.DefaultMangaFileExtension == FileExtension.Pdf)
                     _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
                 else
                     _comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);

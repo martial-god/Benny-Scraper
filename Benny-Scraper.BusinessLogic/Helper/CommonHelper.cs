@@ -94,12 +94,18 @@ namespace Benny_Scraper.BusinessLogic.Helper
         {
             switch (fileExtension)
             {
-                case FileExtension.PDF:
+                case FileExtension.Pdf:
                     return ".pdf";
-                case FileExtension.CBZ:
+                case FileExtension.Cbz:
                     return ".cbz";
-                case FileExtension.CBR:
+                case FileExtension.Cbr:
                     return ".cbr";
+                case FileExtension.Cb7:
+                    return ".cb7";
+                case FileExtension.Cbt:
+                    return ".cbt";
+                case FileExtension.Cba:
+                    return ".cba";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(fileExtension), fileExtension, null);
             }

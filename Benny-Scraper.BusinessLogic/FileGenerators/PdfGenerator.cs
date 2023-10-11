@@ -120,11 +120,11 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             CommonHelper.DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
 
             var sanitizedTitle = CommonHelper.SanitizeFileName(novel.Title, true);
-            Logger.Info($"Saving PDF to {pdfDirectoryPath}");
+            Logger.Info($"Saving Pdf to {pdfDirectoryPath}");
             var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
             document.Save(pdfFilePath);
-            Logger.Info($"PDF saved to {pdfFilePath}");
-            Console.WriteLine($"PDF saved to {pdfFilePath}");
+            Logger.Info($"Pdf saved to {pdfFilePath}");
+            Console.WriteLine($"Pdf saved to {pdfFilePath}");
         }
 
         public void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Configuration configuration)
@@ -137,7 +137,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
             var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
 
-            Logger.Info("Updating PDF file: " + pdfFilePath);
+            Logger.Info("Updating Pdf file: " + pdfFilePath);
             using (FileStream pdfFile = File.OpenRead(pdfFilePath)) // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
             using (PdfDocument document = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify))
             {
@@ -171,11 +171,11 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             }
             CommonHelper.DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
 
-            Logger.Info($"Saving PDF to {pdfFilePath}");
+            Logger.Info($"Saving Pdf to {pdfFilePath}");
             File.Copy(tempPdfFilePath, pdfFilePath, true);
             File.Delete(tempPdfFilePath);
-            Logger.Info("PDF file updated");
-            Console.WriteLine($"PDF file updated at {pdfFilePath}");
+            Logger.Info("Pdf file updated");
+            Console.WriteLine($"Pdf file updated at {pdfFilePath}");
         }
     }
 }
