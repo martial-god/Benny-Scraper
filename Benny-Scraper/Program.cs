@@ -24,6 +24,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using CommandLine;
+using OpenQA.Selenium.DevTools.V115.Network;
 using LogLevel = NLog.LogLevel;
 
 namespace Benny_Scraper
@@ -32,6 +33,7 @@ namespace Benny_Scraper
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
         private static IContainer Container { get; set; }
+        private const string AreYouSure = "Are you sure you want to {0}? (y/n)";
         public static IConfiguration Configuration { get; set; }
 
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
@@ -150,16 +152,33 @@ namespace Benny_Scraper
 
         private static async Task RunAsync(string[] args)
         {
-            var result = Parser.Default.ParseArguments<Benny_Scraper.CommandLineOptions>(args);
+            var result = Parser.Default.ParseArguments<CommandLineOptions>(args);
             await result.MapResult(
                 async options =>
                 {
                     if (options.List)
-                        await ListNovels();
+                        await ListNovelsAsync();
                     else if (options.ClearDatabase)
-                        await ClearDatabase();
+                    {
+                        var userQuery = string.Format(AreYouSure, "clear the database");
+                        Console.WriteLine(userQuery);
+                        var confirmation = Console.ReadLine();
+                        if (confirmation.ToLower() == "y")
+                            await ClearDatabaseAsync();
+                    }
+                    else if (options.DeleteNovelById != Guid.Empty)
+                    {
+                        await DeleteNovelByIdAsync(options.DeleteNovelById);
+                    }
                 },
                 _ => Task.FromResult(1)); // Handle parsing errors, if needed
+        }
+
+        private static Task Test(IEnumerable<Error> enumerable)
+        {
+            var errors = enumerable.ToList();
+            errors.ForEach(error => Console.WriteLine(error.ToString()));
+            return errors.Any() ? Task.FromResult(1) : Task.FromResult(0);
         }
 
         #region CommandLine Methods
@@ -355,9 +374,9 @@ namespace Benny_Scraper
             }
         }
 
-        private static async Task ListNovels()
+        private static async Task ListNovelsAsync()
         {
-            using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container.BeginLifetimeScope();
             var novelService = scope.Resolve<INovelService>();
 
             var novels = await novelService.GetAllAsync();
@@ -375,18 +394,31 @@ namespace Benny_Scraper
             }
         }
 
-        private static async Task ClearDatabase()
+        private static async Task ClearDatabaseAsync()
         {
-            using (var scope = Container.BeginLifetimeScope())
-            {
-                var logger = NLog.LogManager.GetCurrentClassLogger();
-                var novelService = scope.Resolve<INovelService>();
+            await using var scope = Container.BeginLifetimeScope();
+            var Logger = NLog.LogManager.GetCurrentClassLogger();
+            var novelService = scope.Resolve<INovelService>();
 
-                logger.Info("Clearing all novels and chapters from database");
-                await novelService.RemoveAllAsync();
-            }
+            Logger.Info("Clearing all novels and chapters from database");
+            await novelService.RemoveAllAsync();
+            Logger.Info("Database cleared");
         }
 
+        private static async Task DeleteNovelByIdAsync(Guid id)
+        {
+            await using var scope = Container.BeginLifetimeScope();
+            var novelService = scope.Resolve<INovelService>();
+            var novel = await novelService.GetByIdAsync(id);
+            if (novel == null)
+                Console.WriteLine($"Novel with id: {id} not found.");
+            else
+            {
+                Logger.Info($"Deleting novel {novel.Title} with id {id}");
+                await novelService.RemoveByIdAsync(id);
+                Logger.Info($"Novel with id: {id} deleted.");
+            }
+        }
         #endregion
 
         private static void SetupLogger()
