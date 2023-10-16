@@ -33,9 +33,6 @@ https://www.novelfull.com/
 
 4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on server response of the site. ![cmd_R4W67LuIR7](https://github.com/martial-god/PageShaver/assets/8980094/d682f498-54f3-40b1-ba6b-4998bd14b863)
 
-5. SPEED HAS ALSO BEEN LIMITED TO 2 CUNCURRENT REQUEST. To change this change the variable `ConcurrentRequestLimit` Benny_Scraper.BusinessLogic.Scrapers.Strategy.ScarperStrategy, the rebuild. The limit was due to certain sites bot protection measures.
-
-
 ## Errors
 So long as the error isn't highlighted while the application is running, they are just Warnings or Errors. Nothing Fatal
 
