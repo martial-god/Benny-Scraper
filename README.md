@@ -3,9 +3,11 @@ Webscraper that sets out make listening to webnovels easier for myself. Turned i
 
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
 ## IN PROGRESS - ON DEV BRANCH
-- [ ] Add Cbz filetype as an option for Mangas
-- [ ] Add a Configuration table to have user have more control of settings.
+- [x] Add a Configuration table to have user have more control of settings. *STILL NEED TO ADD COMMANDLINE OPTIONS TO RETRIEVE VALUES*
+- [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites - *COMING SOON* https://feahnthor.github.io/
+- [ ] Add drivers needed for selenium into the project folder to avoid users being forced to update either their browsers or the package.
 ## COMPLETED - or Things to Do
+- [x] Add Cbz filetype as an option for Mangas
 - [x] Figure out how to properly construct an Epub. https://validator.w3.org/#validate-by-upload for chapter validations
 - [x] Code rewrite so process from Scraper to Epub works
 - [x] Update code to accommodate more novel sites
@@ -14,10 +16,9 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [x] Test on Linux machine - in this Case Ubuntu 20.04-x64
 - [x] Add Calibre integration - completed novels will be added to the Calibredb if it is installed on host computer
 - [x] Verify the update novel works - INFO can be found https://github.com/martial-god/Benny-Scraper/pull/24#issue-1885102090
-- [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
 - [x] Try Manga sites
+- [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
 - [ ] Add UI
-- [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites
 
 
 ## Getting Started
@@ -46,34 +47,61 @@ So long as the error isn't highlighted while the application is running, they ar
 ## USAGE AND OPTIONS
 * Make sure executable has been added to the environment variables
 ```bash
-dotnet Benny-Scraper.dll [COMMAND] [OPTIONS] [--] [URL...]
+dotnet Benny-Scraper.dll [COMMAND] [OPTIONS] [--] [VALUES]
 ```
 ```bash
 Commands:
-  list                           List all novels in the database
-  clear_database                 Clear all novels and chapters from the database
-  delete_novel_by_id [ID]        Delete a novel by its ID
-  recreate [URL]                 Recreate a novel EPUB by its URL, currently not implemented to handle Mangas
+    -l, --list                   List all novels in database.
 
-Options:
-  -h, --help                     Show this help text and exit
+  --clear-database             Clear all novels and chapters from database.
+
+  -d, --delete-novel-by-id     Deletes a novel by its ID
+
+  -r, --recreate-epub-by-id    Recreates Epub novel using the [ID].
+
+  -c, --concurrent-request     Set the number [INT] of concurrent requests to a website. Default is 2, value will be limited to number
+                               of CPU cores on your computer. *Some websites may block your ip if too many requests are made in a short
+                               time*
+
+  -s, --save-location          Set default save location [PATH]. Overridden by specific 'manga' or 'novel' locations if set.
+
+  -m, --manga-save-location    Set manga-specific save location [PATH]. Overrides 'save-location'.
+
+  -n, --novel-save-location    Set novel-specific save location [PATH]. Overrides 'save-location'.
+
+  -e, --manga-extension        (Default: -1) Default extension for mangas (any image based novel) [INT] *count starts a 0*. Default is
+                               PDF.
+
+  --get-extension              Gets the saved default extensions for mangas.
+
+  --help                       Display this help screen.
+
+  --version                    Display version information.
 
 Usage examples:
   List all novels:
-    dotnet Benny-Scraper.dll list
-    Benny-Scraper list
+    dotnet Benny-Scraper.dll --list
+    Benny-Scraper -l
 
   Clear database:
-    dotnet Benny-Scraper.dll clear_database
-    Benny-Scraper clear_database
+    dotnet Benny-Scraper.dll --clear-database
+    Benny-Scraper --clear-database
 
   Delete a novel by ID:
-    dotnet Benny-Scraper.dll delete_novel_by_id [ID]
-    dotnet Benny-Scraper delete_novel_by_id
+    dotnet Benny-Scraper.dll --delete-novel-by-id [ID]    ex: 00000000-0000-0000-0000-000000000000
+    dotnet Benny-Scraper -d [ID]
 
-  Recreate a novel EPUB by URL:
-    dotnet Benny-Scraper.dll recreate [URL]
-    Benny-Scraper recreate [URL]
+  Recreate a novel EPUB by ID:
+    dotnet Benny-Scraper.dll --recreate-epub-by-id [ID]
+    Benny-Scraper -r [ID]
+
+  Set the Default location where both webnovels and Mangas will be saved.
+    dotnet Benny-Scraper.dll --save-location [PATH]    ex: C:\Users\test\Downloads
+    Benny-Scraper -s
+
+  Sets the default file extension for Comicbook Archive, i.e. .cbz, .cbr, .cbt
+    dotnet Benny-Scraper.dll --manga-extension [INT]    ex: 1
+    Benny-Scraper -E
 
 For more information about each command and option, run:
   dotnet Benny-Scraper.dll [COMMAND] --help
