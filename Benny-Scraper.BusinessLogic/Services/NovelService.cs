@@ -16,7 +16,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         #endregion
 
         // CreateScraper new novel with a passed in novel
-        public async Task CreateAsync(Novel novel)
+        public async Task<Guid> CreateAsync(Novel novel)
         {
             novel.DateLastModified = DateTime.Now;
             novel.TotalChapters = novel.Chapters.Count;
@@ -24,6 +24,7 @@ namespace Benny_Scraper.BusinessLogic.Services
             
             //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
+            return novel.Id;
         }
 
         /// <summary>
@@ -37,6 +38,17 @@ namespace Benny_Scraper.BusinessLogic.Services
             _unitOfWork.Novel.Update(novel); //update existing
 
             _unitOfWork.Chapter.AddRange(newChapters);
+            await _unitOfWork.SaveAsync();
+        }
+
+        /// <summary>
+        /// Updates existing novel
+        /// </summary>
+        /// <param name="novel"></param>
+        /// <returns></returns>
+        public async Task UpdateAsync(Novel novel)
+        {
+            _unitOfWork.Novel.Update(novel);
             await _unitOfWork.SaveAsync();
         }
 
@@ -56,6 +68,17 @@ namespace Benny_Scraper.BusinessLogic.Services
             return context;
         }
 
+        public async Task<Novel> GetByIdAsync(Guid id)
+        {
+            var context = await _unitOfWork.Novel.GetByIdAsync(id);
+            if (context != null)
+            {
+                var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
+                context.Chapters = chapterContext.ToList();
+            }
+            return context;
+        }
+
         /// <summary>
         /// Check for novel in database by url
         /// </summary>
@@ -64,6 +87,14 @@ namespace Benny_Scraper.BusinessLogic.Services
         public async Task<bool> IsNovelInDatabaseAsync(string tableOfContentsUrl)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == tableOfContentsUrl);
+            if (context == null)
+                return false;
+            return true;
+        }
+
+        public async Task<bool> IsNovelInDatabaseAsync(Guid id)
+        {
+            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Id == id);
             if (context == null)
                 return false;
             return true;
@@ -92,13 +123,6 @@ namespace Benny_Scraper.BusinessLogic.Services
             _unitOfWork.Chapter.RemoveRange(chapters);
             _unitOfWork.Novel.Remove(novel);
             await _unitOfWork.SaveAsync();
-        }
-
-
-        public void ReportServiceLifetimeDetails(string lifetimeDetails)
-        {
-            Console.WriteLine(lifetimeDetails);
-            Console.WriteLine("Changes only with lifetime");
         }
     }
 }

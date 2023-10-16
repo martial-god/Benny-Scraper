@@ -3,6 +3,7 @@ using System;
 using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(Database))]
-    partial class DatabaseModelSnapshot : ModelSnapshot
+    [Migration("20230929035110_AddedConfigurationTable")]
+    partial class AddedConfigurationTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.11");
@@ -100,13 +103,6 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("default_manga_file_extension");
 
-                    b.Property<int>("FontSize")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("FontType")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("LogLocation")
                         .HasColumnType("TEXT")
                         .HasColumnName("log_location");
@@ -122,10 +118,6 @@ namespace BennyScraper.DataAccess.Migrations
                     b.Property<string>("NovelSaveLocation")
                         .HasColumnType("TEXT")
                         .HasColumnName("novel_save_location");
-
-                    b.Property<bool>("SaveAsSingleFile")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("save_as_single_file");
 
                     b.Property<string>("SaveLocation")
                         .HasColumnType("TEXT")
@@ -252,7 +244,7 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.HasIndex("NovelId");
 
-                    b.ToTable("NovelLists", (string)null);
+                    b.ToTable("NovelLists");
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.Page", b =>

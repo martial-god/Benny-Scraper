@@ -12,7 +12,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     {
         public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
         {
-            int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split("-").Last(), out int novelId);
+            int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
             StringBuilder queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
             queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
             queryBuilder.Append(novelId);
@@ -45,7 +45,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
             if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
             {
-                novelDataBuffer.MostRecentChapterTitle = novelDataBuffer.MostRecentChapterTitle.Split("\n").First(); // remove new line and everything after
+                novelDataBuffer.MostRecentChapterTitle = novelDataBuffer.MostRecentChapterTitle.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).First(); // remove new line and everything after
             }
         }
 
