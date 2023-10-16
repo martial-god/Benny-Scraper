@@ -70,7 +70,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             {
                 File.Delete(Path.Combine(outputDirectory, outputFilePath));
                 ZipFile.CreateFromDirectory(tempDirectory, outputFilePath); // does not allow for duplicates files or an IO exception will be thrown
-                CommonHelper.DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
+                CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
                 CommonHelper.DeleteTempFolder(tempDirectory);
 
             }

@@ -1,4 +1,6 @@
-﻿using Autofac;
+﻿using System.Diagnostics;
+using System.Text;
+using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
@@ -14,17 +16,12 @@ using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
 using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
+using CommandLine;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Targets;
-using System.Diagnostics;
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
-using CommandLine;
-using OpenQA.Selenium.DevTools.V115.Network;
 using LogLevel = NLog.LogLevel;
 
 namespace Benny_Scraper
@@ -150,6 +147,7 @@ namespace Benny_Scraper
             return instructions;
         }
 
+        #region CommandLine Methods
         private static async Task RunAsync(string[] args)
         {
             var result = Parser.Default.ParseArguments<CommandLineOptions>(args);
@@ -170,208 +168,39 @@ namespace Benny_Scraper
                     {
                         await DeleteNovelByIdAsync(options.DeleteNovelById);
                     }
+                    else if (options.RecreateEpubById != Guid.Empty)
+                    {
+                        await RecreateEpubByIdAsync(options.RecreateEpubById);
+                    }
+                    else if (options.ConcurrentRequests > 0)
+                    {
+                        await SetConcurrentRequestsAsync(options.ConcurrentRequests);
+                    }
+                    else if (!string.IsNullOrEmpty(options.SaveLocation))
+                    {
+                        await SetSaveLocationAsync(options.SaveLocation);
+                    }
+                    else if (!string.IsNullOrEmpty(options.MangaSaveLocation))
+                    {
+                        await SetMangaSaveLocationAsync(options.MangaSaveLocation);
+                    }
+                    else if (!string.IsNullOrEmpty(options.NovelSaveLocation))
+                    {
+                        await SetNovelSaveLocationAsync(options.NovelSaveLocation);
+                    }
+                    else if (options.MangaExtension >= 0 && options.MangaExtension < Enum.GetNames(typeof(FileExtension)).Length)
+                    {
+                        int extension = (int)options.MangaExtension;
+                        await SetDefaultMangaExtensionAsync(extension);
+                    }
+                    else if (options.ExtensionType)
+                    {
+                        await GetDefaultMangaExtensionAsync();
+                    }
+                    else
+                        Console.WriteLine("Invalid command. Please try again.");
                 },
                 _ => Task.FromResult(1)); // Handle parsing errors, if needed
-        }
-
-        private static Task Test(IEnumerable<Error> enumerable)
-        {
-            var errors = enumerable.ToList();
-            errors.ForEach(error => Console.WriteLine(error.ToString()));
-            return errors.Any() ? Task.FromResult(1) : Task.FromResult(0);
-        }
-
-        #region CommandLine Methods
-        private static async Task RunsAsync(string[] args)
-        {
-            using (var scope = Container.BeginLifetimeScope())
-            {
-                var logger = NLog.LogManager.GetCurrentClassLogger();
-                INovelService novelService = scope.Resolve<INovelService>();
-                IConfigurationRepository configurationRepository = scope.Resolve<IConfigurationRepository>();
-
-                switch (args[0])
-                {
-                    case "list":
-                        {
-                            var novels = await novelService.GetAllAsync();
-
-                            // Calculate the maximum lengths of each column
-                            int maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
-                            int maxTitleLength = novels.Max(novel => novel.Title.Length);
-
-                            Console.ForegroundColor = ConsoleColor.Blue;
-                            Console.WriteLine($"Id:".PadRight(maxIdLength) + "\tTitle:".PadRight(maxTitleLength));
-                            Console.ResetColor();
-                            foreach (var novel in novels)
-                            {
-                                Console.WriteLine($"{novel.Id.ToString().PadRight(maxIdLength)}\t{novel.Title.PadRight(maxTitleLength)}");
-                            }
-                            break;
-                        }
-                    case "clear_database":
-                        {
-                            logger.Info("Clearing all novels and chapter from database");
-                            await novelService.RemoveAllAsync();
-                        }
-                        break;
-                    case "delete_novel_by_id": // only way to resovle the same variable, in the case novelService is to surround the case statement in curly braces
-                        {
-                            logger.Info($"Deleting novel with id {args[1]}");
-                            Guid.TryParse(args[1], out Guid novelId);
-                            await novelService.RemoveByIdAsync(novelId);
-                            logger.Info($"Novel with id: {args[1]} deleted.");
-                        }
-                        break;
-                    case "recreate": // at this momement should only work for webnovels not mangas. Need to create something to distinguish between the two in the database
-                        {
-                            try
-                            {
-                                var configuration = await configurationRepository.GetByIdAsync(1);
-                                IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
-                                Uri.TryCreate(args[1], UriKind.Absolute, out Uri tableOfContentUri);
-                                bool isNovelInDatabase = await novelService.IsNovelInDatabaseAsync(tableOfContentUri.ToString());
-                                if (isNovelInDatabase)
-                                {
-                                    var novel = await novelService.GetByUrlAsync(tableOfContentUri);
-                                    Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
-                                    var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
-                                    string safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
-                                    var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
-                                    Directory.CreateDirectory(documentsFolder);
-                                    string epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
-                                    epubGenerator.CreateEpub(novel, chapters, epubFile, null);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Logger.Error($"Exception when trying to recreate novel. {ex}");
-                            }
-                        }
-                        break;
-                    case "concurrency_limit":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            Console.WriteLine($"Concurrency limit: {configuration.ConcurrencyLimit}");
-                        }
-                        break;
-                    case "set_concurrency_limit":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            try
-                            {
-                                configuration.ConcurrencyLimit = int.Parse(args[1]);
-                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
-                                Console.WriteLine($"Concurrency limit updated: {configuration.ConcurrencyLimit}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Invalid Concurrency limit. {ex}");
-                            }
-                        }
-                        break;
-                    case "set_save_location":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            try
-                            {
-                                configuration.SaveLocation = args[1];
-                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
-                                Console.WriteLine($"Save location updated: {configuration.SaveLocation}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Invalid save location. {ex}");
-                            }
-                        }
-                        break;
-                    case "set_manga_save_location":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            try
-                            {
-                                configuration.MangaSaveLocation = args[1];
-                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
-                                Console.WriteLine($"Manga save location updated: {configuration.MangaSaveLocation}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Invalid manga save location. {ex}");
-                            }
-                        }
-                        break;
-                    case "set_novel_save_location":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            try
-                            {
-                                configuration.NovelSaveLocation = args[1];
-                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
-                                Console.WriteLine($"Novel save location updated: {configuration.NovelSaveLocation}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Invalid novel save location. {ex}");
-                            }
-                        }
-                        break;
-                    case "save_location":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            Console.WriteLine($"Save location: {configuration.SaveLocation}");
-                        }
-                        break;
-                    case "default_manga_extension":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            var extensions = Enum.GetValues(typeof(FileExtension)).Cast<FileExtension>().Select(extension => $"{(int)extension} - {extension}");
-                            Console.WriteLine($"Default manga extension: {configuration.DefaultMangaFileExtension}");
-                            Console.ForegroundColor = ConsoleColor.Magenta;
-                            Console.WriteLine($"Available extensions: {string.Join(", ", extensions)}");
-                            Console.ResetColor();
-                        }
-                        break;
-                    case "set_default_manga_extension":
-                        {
-                            var configuration = await configurationRepository.GetByIdAsync(1);
-                            try
-                            {
-                                configuration.DefaultMangaFileExtension = (FileExtension)int.Parse(args[1]); // still need to check if valid
-                                configurationRepository.Update(configuration); // need to add valid way to update this. May need to create a service for this.
-                                Console.WriteLine($"Default manga extension updated: {configuration.DefaultMangaFileExtension}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.ForegroundColor = ConsoleColor.DarkGray;
-                                Console.WriteLine($"Invalid default manga extension. {ex}");
-                                Console.ResetColor();
-                            }
-                        }
-                        break;
-                    case "help":
-                        {
-                            Console.WriteLine("list \t\t\tlist all novels in database");
-                            Console.WriteLine("clear_database \t\t\tclear all novels and chapters from database");
-                            Console.WriteLine("delete_novel_by_id [ID]        Delete a novel by its ID");
-                            Console.WriteLine("recreate [URL]                 Recreate a novel EPUB by its URL, currently not implemented to handle Mangas");
-                            Console.WriteLine("concurrency_limit              Get the concurrency limit for the application. i.e. How many simultaneous request are made");
-                            Console.WriteLine("set_concurrency_limit [LIMIT]     Set the concurrency limit for the application. i.e. How many simultaneous request are made");
-                            Console.WriteLine("set_save_location [PATH]          Set the save location for the application, set_manga_save_location or set_novel_save_location will supercede this. i.e. Where the files are saved");
-                            Console.WriteLine("save_location                    Get the save location for the application, if ei. ");
-                            Console.WriteLine("set_manga_save_location [PATH]    Set the manga save location for the application. Supercedes 'save_location', if this has a value, mangas/comics will be saved here");
-                            Console.WriteLine("set_novel_save_location [PATH]    Set the novel save location for the application. Supercedes 'save_location', if this has a value, Epubs will be saved here");
-                            Console.WriteLine("default_manga_extension           Get the default manga extension for the application. i.e. Pdf, Cbz, Cbr...");
-                            Console.WriteLine("set_default_manga_extension [INT]    Set the default manga extension for the application. Value should be a number.");
-                            Console.ResetColor();
-                        }
-                        break;
-                    default:
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"The command '{args[0]}' is not a valid command.");
-                        Console.ResetColor();
-                        break;
-                }
-            }
         }
 
         private static async Task ListNovelsAsync()
@@ -419,8 +248,147 @@ namespace Benny_Scraper
                 Logger.Info($"Novel with id: {id} deleted.");
             }
         }
+
+        private static async Task SetDefaultMangaExtensionAsync(int extension)
+        {
+            var totalExtensions = Enum.GetNames(typeof(FileExtension)).Length;
+            if (extension > totalExtensions)
+                Console.WriteLine("Invalid extension. Please enter a value between 1 and " + totalExtensions);
+            await using var scope = Container.BeginLifetimeScope();
+            var configurationRepository = scope.Resolve<IConfigurationRepository>();
+            var configuration = await configurationRepository.GetByIdAsync(1);
+            configuration.DefaultMangaFileExtension = (FileExtension)extension;
+            configurationRepository.Update(configuration);
+            Console.WriteLine($"Default manga extension updated: {configuration.DefaultMangaFileExtension}");
+        }
+
+        private static async Task GetDefaultMangaExtensionAsync()
+        {
+            await using var scope = Container.BeginLifetimeScope();
+            var configurationRepository = scope.Resolve<IConfigurationRepository>();
+            var configuration = await configurationRepository.GetByIdAsync(1);
+            var extensions = Enum.GetValues(typeof(FileExtension)).Cast<FileExtension>().ToList();
+            Console.WriteLine($"Default manga extension: {configuration.DefaultMangaFileExtension}");
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine($"Available extensions: {string.Join(", ", extensions)}");
+            Console.ResetColor();
+        }
+
+        private static async Task RecreateEpubByIdAsync(Guid id)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                var novelService = scope.Resolve<INovelService>();
+                var configuration = await configurationRepository.GetByIdAsync(1);
+                IEpubGenerator epubGenerator = scope.Resolve<IEpubGenerator>();
+                var novel = await novelService.GetByIdAsync(id);
+                if (novel != null)
+                {
+                    Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
+                    var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
+                    string safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
+                    var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
+                    Directory.CreateDirectory(documentsFolder);
+                    string epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
+                    epubGenerator.CreateEpub(novel, chapters, epubFile, null);
+                }
+                else
+                    Logger.Error($"Novel with id {id} not found.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to recreate novel. {ex.Message}");
+            }
+        }
+
+        private static async Task SetConcurrentRequestsAsync(int concurrentRequests)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                var configuration = await configurationRepository.GetByIdAsync(1);
+                configuration.ConcurrencyLimit = concurrentRequests;
+                configurationRepository.Update(configuration);
+                Console.WriteLine($"Concurrent requests updated: {configuration.ConcurrencyLimit}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to set concurrent requests. {ex.Message}");
+            }
+
+        }
+
+        private static async Task SetSaveLocationAsync(string saveLocation)
+        {
+            try
+            {
+                if (Directory.Exists(saveLocation))
+                {
+                    await using var scope = Container.BeginLifetimeScope();
+                    var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                    var configuration = configurationRepository.GetByIdAsync(1).Result;
+                    configuration.SaveLocation = saveLocation;
+                    configurationRepository.Update(configuration);
+                    Console.WriteLine($"Save location updated: {configuration.SaveLocation}");
+                }
+                else
+                    Console.WriteLine($"Directory {saveLocation} does not exist.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to set save location. {ex.Message}");
+            }
+        }
+
+        private static async Task SetMangaSaveLocationAsync(string saveLocation)
+        {
+            try
+            {
+                if (Directory.Exists(saveLocation))
+                {
+                    await using var scope = Container.BeginLifetimeScope();
+                    var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                    var configuration = configurationRepository.GetByIdAsync(1).Result;
+                    configuration.MangaSaveLocation = saveLocation;
+                    configurationRepository.Update(configuration);
+                    Console.WriteLine($"Manga save location updated: {configuration.MangaSaveLocation}");
+                }
+                else
+                    Console.WriteLine($"Directory {saveLocation} does not exist.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to set manga save location. {ex.Message}");
+            }
+        }
+
+        private static async Task SetNovelSaveLocationAsync(string saveLocatoin)
+        {
+            try
+            {
+                if (Directory.Exists(saveLocatoin))
+                {
+                    await using var scope = Container.BeginLifetimeScope();
+                    var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                    var configuration = configurationRepository.GetByIdAsync(1).Result;
+                    configuration.NovelSaveLocation = saveLocatoin;
+                    configurationRepository.Update(configuration);
+                    Console.WriteLine($"Novel save location updated: {configuration.NovelSaveLocation}");
+                }
+                else
+                    Console.WriteLine($"Directory {saveLocatoin} does not exist.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to set novel save location. {ex.Message}");
+            }
+        }
         #endregion
 
+        #region Setup
         private static void SetupLogger()
         {
             var config = new NLog.Config.LoggingConfiguration();
@@ -566,5 +534,6 @@ namespace Benny_Scraper
             var connectionString = $"Data Source={dbPath};";
             return connectionString;
         }
+        #endregion
     }
 }

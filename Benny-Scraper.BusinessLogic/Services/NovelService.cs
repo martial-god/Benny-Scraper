@@ -92,6 +92,14 @@ namespace Benny_Scraper.BusinessLogic.Services
             return true;
         }
 
+        public async Task<bool> IsNovelInDatabaseAsync(Guid id)
+        {
+            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Id == id);
+            if (context == null)
+                return false;
+            return true;
+        }
+
         public async Task RemoveAllAsync()
         {
             var allNovels = await _unitOfWork.Novel.GetAllAsync();

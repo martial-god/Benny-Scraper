@@ -7,6 +7,7 @@ namespace Benny_Scraper.BusinessLogic.Services.Interface
     {
         public Task<Guid> CreateAsync(Novel novel);
         public Task<bool> IsNovelInDatabaseAsync(string tableOfContentsUrl);
+        public Task<bool> IsNovelInDatabaseAsync(Guid id);
         public Task<Novel> GetByUrlAsync(Uri uri);
         public Task<Novel> GetByIdAsync(Guid id);
         public Task<IEnumerable<Novel>> GetAllAsync();

@@ -31,21 +31,33 @@ namespace Benny_Scraper.BusinessLogic.Helper
         public static void DeleteTempFolder(string tempFile)
         {
             string directory = string.Empty;
+
             if (string.IsNullOrEmpty(tempFile))
                 return;
+
             FileAttributes attr = File.GetAttributes(tempFile);
+
             if (!attr.HasFlag(FileAttributes.Directory))
                 directory = Path.GetDirectoryName(tempFile);
             else
                 directory = tempFile;
+
             if (Directory.Exists(directory))
             {
-                Directory.Delete(directory, false);
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Deleted temp folder {directory}");
-                Console.ResetColor();
+                try
+                {
+                    Directory.Delete(directory, true);
+                    Console.WriteLine($"Deleted temp folder {directory}");
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Failed to delete temp folder {directory}. Reason: {ex.Message}");
+                    Console.ResetColor();
+                }
             }
         }
+
 
         public static string GetOutputDirectoryForTitle(string title, string? outputDirectory = null)
         {
@@ -84,30 +96,6 @@ namespace Benny_Scraper.BusinessLogic.Helper
             foreach (var item in items)
             {
                 collection.Add(item);
-            }
-        }
-    }
-
-    public static class FileExtensionExtensions
-    {
-        public static string ToFileString(this FileExtension fileExtension)
-        {
-            switch (fileExtension)
-            {
-                case FileExtension.Pdf:
-                    return ".pdf";
-                case FileExtension.Cbz:
-                    return ".cbz";
-                case FileExtension.Cbr:
-                    return ".cbr";
-                case FileExtension.Cb7:
-                    return ".cb7";
-                case FileExtension.Cbt:
-                    return ".cbt";
-                case FileExtension.Cba:
-                    return ".cba";
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(fileExtension), fileExtension, null);
             }
         }
     }

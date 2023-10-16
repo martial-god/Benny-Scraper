@@ -117,7 +117,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                     File.Delete(imagePath);
                 }
             }
-            CommonHelper.DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
+            CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
 
             var sanitizedTitle = CommonHelper.SanitizeFileName(novel.Title, true);
             Logger.Info($"Saving Pdf to {pdfDirectoryPath}");
@@ -169,7 +169,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                     }
                 }
             }
-            CommonHelper.DeleteTempFolder(chapterDataBuffer.First().Pages.First().ImagePath);
+            CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
 
             Logger.Info($"Saving Pdf to {pdfFilePath}");
             File.Copy(tempPdfFilePath, pdfFilePath, true);
