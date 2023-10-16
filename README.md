@@ -98,7 +98,7 @@ Usage examples:
 
   Sets the default file extension for Comicbook Archive, i.e. .cbz, .cbr, .cbt
     dotnet Benny-Scraper.dll --manga-extension [INT]    ex: 1
-    Benny-Scraper -E
+    Benny-Scraper -e
 
 For more information about each command and option, run:
   dotnet Benny-Scraper.dll [COMMAND] --help
