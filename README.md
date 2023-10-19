@@ -5,7 +5,6 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 ## IN PROGRESS - ON DEV BRANCH
 - [x] Add a Configuration table to have user have more control of settings. *STILL NEED TO ADD COMMANDLINE OPTIONS TO RETRIEVE VALUES*
 - [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites - *COMING SOON* https://feahnthor.github.io/
-- [ ] Add drivers needed for selenium into the project folder to avoid users being forced to update either their browsers or the package.
 ## COMPLETED - or Things to Do
 - [x] Add Cbz filetype as an option for Mangas
 - [x] Figure out how to properly construct an Epub. https://validator.w3.org/#validate-by-upload for chapter validations
