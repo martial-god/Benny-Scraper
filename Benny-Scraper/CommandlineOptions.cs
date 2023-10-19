@@ -35,5 +35,8 @@ namespace Benny_Scraper
 
         [Option("get-extension", Required = false, HelpText = "Gets the saved default extensions for mangas.")]
         public bool ExtensionType { get; set; }
+
+        [Option('f', "single-file", Required = false, HelpText = "Choose how to save Mangas: as a single file containing all chapters (Y), or as individual files for each chapter (N).")]
+        public  string SingleFile { get; set; }
     }
 }

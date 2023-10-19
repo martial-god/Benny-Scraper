@@ -107,7 +107,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     case Attr.Status:
                         var statusNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelStatus);
                         novelDataBuffer.NovelStatus = statusNode.InnerText.Trim();
-                        novelDataBuffer.IsNovelCompleted = novelDataBuffer.NovelStatus.ToLower().Contains(scraperData.SiteConfig.CompletedStatus);
+                        novelDataBuffer.IsNovelCompleted = novelDataBuffer.NovelStatus.ToLowerInvariant().Contains(scraperData.SiteConfig.CompletedStatus);
                         Console.WriteLine($"Status: {novelDataBuffer.NovelStatus}");
                         break;
 
