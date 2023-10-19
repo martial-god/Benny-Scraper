@@ -173,6 +173,10 @@ namespace Benny_Scraper
                     {
                         await RecreateEpubByIdAsync(options.RecreateEpubById);
                     }
+                    else if (options.UpdateNovelSavedLocationById != Guid.Empty)
+                    {
+                        await UpdateNovelSavedLocationByIdAsync(options.UpdateNovelSavedLocationById);
+                    }
                     else if (options.ConcurrentRequests > 0)
                     {
                         await SetConcurrentRequestsAsync(options.ConcurrentRequests);
@@ -198,7 +202,7 @@ namespace Benny_Scraper
                     {
                         bool singleFile = options.SingleFile.ToLowerInvariant() == "y";
                         await SetSingleFileAsync(singleFile);
-                    }
+                    }                    
                     else if (options.ExtensionType)
                     {
                         await GetDefaultMangaExtensionAsync();
@@ -410,6 +414,37 @@ namespace Benny_Scraper
             catch (Exception ex)
             {
                 Logger.Error($"Exception when trying to set single file. {ex.Message}");
+            }
+        }
+
+        public static async Task UpdateNovelSavedLocationByIdAsync(Guid id)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var novelService = scope.Resolve<INovelService>();
+                var novel = await novelService.GetByIdAsync(id);
+                if (novel != null)
+                {
+                    Console.WriteLine($"Novel: {novel.Title}");
+                    Console.WriteLine($"Current place where we think the novel is stored: {novel.SaveLocation}\n");
+                    Console.WriteLine(@"Please enter the full path to the novel, this includes the file name. i.e. C:\user\documents\mynovel.epub");
+                    string newSaveLocation = Console.ReadLine();
+                    if (File.Exists(newSaveLocation))
+                    {
+                        novel.SaveLocation = newSaveLocation;
+                        novelService.UpdateAsync(novel);
+                        Console.WriteLine($"\nSave location updated: {novel.SaveLocation}");
+                    }
+                    else
+                        Console.WriteLine($"\nDirectory {newSaveLocation} does not exist.");
+                }
+                else
+                    Console.WriteLine($"\nNovel with id {id} not found.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to update novel save location. {ex.Message}");
             }
         }
         #endregion
