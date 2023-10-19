@@ -68,6 +68,9 @@ Commands:
   -e, --manga-extension        (Default: -1) Default extension for mangas (any image based novel) [INT] *count starts a 0*. Default is
                                PDF.
 
+  -f, --single-file            Choose how to save Mangas: as a single file containing all chapters (Y), or as individual
+                               files for each chapter (N).
+
   --get-extension              Gets the saved default extensions for mangas.
 
   --help                       Display this help screen.
