@@ -18,6 +18,7 @@ using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
 using CommandLine;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog;
@@ -89,7 +90,7 @@ namespace Benny_Scraper
                         continue;
                     }
 
-                    if (siteUrl.ToLower() == "exit")
+                    if (siteUrl.ToLowerInvariant() == "exit")
                     {
                         isApplicationRunning = false;
                         continue;
@@ -165,7 +166,7 @@ namespace Benny_Scraper
                         var userQuery = string.Format(AreYouSure, "clear the database");
                         Console.WriteLine(userQuery);
                         var confirmation = Console.ReadLine();
-                        if (confirmation.ToLower() == "y")
+                        if (confirmation.ToLowerInvariant() == "y")
                             await ClearDatabaseAsync();
                     }
                     else if (options.DeleteNovelById != Guid.Empty)
@@ -175,6 +176,10 @@ namespace Benny_Scraper
                     else if (options.RecreateEpubById != Guid.Empty)
                     {
                         await RecreateEpubByIdAsync(options.RecreateEpubById);
+                    }
+                    else if (options.UpdateNovelSavedLocationById != Guid.Empty)
+                    {
+                        await UpdateNovelSavedLocationByIdAsync(options.UpdateNovelSavedLocationById);
                     }
                     else if (options.ConcurrentRequests > 0)
                     {
@@ -197,16 +202,14 @@ namespace Benny_Scraper
                         int extension = (int)options.MangaExtension;
                         await SetDefaultMangaExtensionAsync(extension);
                     }
-<<<<<<< Updated upstream
-                    else if (options.ExtensionType)
-                    {
-                        await GetDefaultMangaExtensionAsync();
-=======
                     else if (string.Equals(options.SingleFile.ToLowerInvariant(), "y", StringComparison.OrdinalIgnoreCase) || string.Equals(options.SingleFile.ToLowerInvariant(), "n", StringComparison.OrdinalIgnoreCase))
                     {
                         bool singleFile = options.SingleFile.ToLowerInvariant() == "y";
                         await SetSingleFileAsync(singleFile);
->>>>>>> Stashed changes
+                    }                    
+                    else if (options.ExtensionType)
+                    {
+                        await GetDefaultMangaExtensionAsync();
                     }
                     else
                         Console.WriteLine("Invalid command. Please try again.");
@@ -395,6 +398,57 @@ namespace Benny_Scraper
             catch (Exception ex)
             {
                 Logger.Error($"Exception when trying to set novel save location. {ex.Message}");
+            }
+        }
+
+        public static async Task SetSingleFileAsync(bool singleFile)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                var configuration = await configurationRepository.GetByIdAsync(1);
+                configuration.SaveAsSingleFile = singleFile;
+                configurationRepository.Update(configuration);
+                if (configuration.SaveAsSingleFile)
+                    Console.WriteLine("Single file mode enabled.");
+                else
+                    Console.WriteLine("Single file mode disabled.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to set single file. {ex.Message}");
+            }
+        }
+
+        public static async Task UpdateNovelSavedLocationByIdAsync(Guid id)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var novelService = scope.Resolve<INovelService>();
+                var novel = await novelService.GetByIdAsync(id);
+                if (novel != null)
+                {
+                    Console.WriteLine($"Novel: {novel.Title}");
+                    Console.WriteLine($"Current place where we think the novel is stored: {novel.SaveLocation}\n");
+                    Console.WriteLine(@"Please enter the full path to the novel, this includes the file name. i.e. C:\user\documents\mynovel.epub");
+                    string newSaveLocation = Console.ReadLine();
+                    if (File.Exists(newSaveLocation))
+                    {
+                        novel.SaveLocation = newSaveLocation;
+                        novelService.UpdateAsync(novel);
+                        Console.WriteLine($"\nSave location updated: {novel.SaveLocation}");
+                    }
+                    else
+                        Console.WriteLine($"\nDirectory {newSaveLocation} does not exist.");
+                }
+                else
+                    Console.WriteLine($"\nNovel with id {id} not found.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to update novel save location. {ex.Message}");
             }
         }
         #endregion

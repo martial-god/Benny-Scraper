@@ -150,14 +150,10 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 throw new ArgumentException("The path to the pdf file is not a pdf file. " + pdfFilePath);
             }
             if (!File.Exists(pdfFilePath))
-<<<<<<< Updated upstream
-                throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath);
-=======
             {
                 CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
                 throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath + "\n Please try to update the save location of the novel by running the command 'benny-scraper -L " + novel.Id + "'");
             }
->>>>>>> Stashed changes
 
             var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
 
