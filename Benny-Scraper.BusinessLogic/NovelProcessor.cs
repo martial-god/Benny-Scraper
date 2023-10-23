@@ -109,8 +109,6 @@ namespace Benny_Scraper.BusinessLogic
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
             if (novel.Chapters.Any(chapter => chapter?.Pages != null))
             {
-                if (string.IsNullOrEmpty(novel.SaveLocation))
-                    novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
                 if (configuration.DefaultMangaFileExtension == FileExtension.Pdf)
                     _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
                 else
@@ -177,9 +175,11 @@ namespace Benny_Scraper.BusinessLogic
 
             if (newChapters.Any(chapter => chapter?.Pages != null))
             {
-                if (string.IsNullOrEmpty(novel.SaveLocation))
+                // need to figure out how to decide which file type things are then try to update them
+                if (string.IsNullOrEmpty(novel.SaveLocation)) // assume that if the save location is null, then the novel is a pdf and was added before the cbz feature was added
                     novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
-                _pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
+                if (configuration.DefaultMangaFileExtension == FileExtension.Pdf) // might be a good idea to assume a new database is created with more columns on tables to keep track of these things
+                    _pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
                     chapterDataBuffer.Dispose();

@@ -120,6 +120,8 @@ namespace Benny_Scraper.BusinessLogic.Services
             }
 
             var chapters = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == id);
+            //if (pages != null)
+            //    _unitOfWork.Page.RemoveRange(pages);
             _unitOfWork.Chapter.RemoveRange(chapters);
             _unitOfWork.Novel.Remove(novel);
             await _unitOfWork.SaveAsync();

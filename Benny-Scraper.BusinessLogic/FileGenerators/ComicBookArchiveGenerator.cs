@@ -65,7 +65,8 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 }
             }
 
-            var outputFilePath = Path.Combine(outputDirectory, $"{sanitzedTitle}.{Enum.GetName(fileExtension)}");
+            var outputFilePath = Path.Combine(outputDirectory, $"{sanitzedTitle}.{Enum.GetName(fileExtension)?.ToLowerInvariant()}");
+            novel.SaveLocation = outputFilePath;
             try
             {
                 File.Delete(Path.Combine(outputDirectory, outputFilePath));

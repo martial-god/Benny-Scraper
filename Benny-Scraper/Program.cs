@@ -156,6 +156,10 @@ namespace Benny_Scraper
                 {
                     if (options.List)
                         await ListNovelsAsync();
+                    else if (options.ExtensionType)
+                    {
+                        await GetDefaultMangaExtensionAsync();
+                    }
                     else if (options.ClearDatabase)
                     {
                         var userQuery = string.Format(AreYouSure, "clear the database");
@@ -193,9 +197,16 @@ namespace Benny_Scraper
                         int extension = (int)options.MangaExtension;
                         await SetDefaultMangaExtensionAsync(extension);
                     }
+<<<<<<< Updated upstream
                     else if (options.ExtensionType)
                     {
                         await GetDefaultMangaExtensionAsync();
+=======
+                    else if (string.Equals(options.SingleFile.ToLowerInvariant(), "y", StringComparison.OrdinalIgnoreCase) || string.Equals(options.SingleFile.ToLowerInvariant(), "n", StringComparison.OrdinalIgnoreCase))
+                    {
+                        bool singleFile = options.SingleFile.ToLowerInvariant() == "y";
+                        await SetSingleFileAsync(singleFile);
+>>>>>>> Stashed changes
                     }
                     else
                         Console.WriteLine("Invalid command. Please try again.");

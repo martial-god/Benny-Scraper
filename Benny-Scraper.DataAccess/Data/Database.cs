@@ -36,6 +36,10 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Chapter>().Property(x => x.DateLastModified).HasColumnName("date_last_modified").HasColumnOrder(5);
             modelBuilder.Entity<Chapter>().Property(x => x.Number).HasColumnName("number").HasColumnOrder(6);
             modelBuilder.Entity<Chapter>().Property(x => x.Content).HasColumnName("content").HasColumnOrder(7);
+            modelBuilder.Entity<Chapter>()
+                .HasMany(x => x.Pages)
+                .WithOne(x => x.Chapter)
+                .HasForeignKey(x => x.ChapterId);
 
             modelBuilder.Entity<Novel>().Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Novel>().Property(x => x.Title).HasColumnName("title");
@@ -54,11 +58,20 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Novel>().Property(x => x.CurrentChapter).HasColumnName("current_chapter");
             modelBuilder.Entity<Novel>().Property(x => x.LastTableOfContentsUrl).HasColumnName("last_table_of_contents_url");
             modelBuilder.Entity<Novel>().Property(x => x.CurrentChapterUrl).HasColumnName("current_chapter_url");
+            modelBuilder.Entity<Novel>()
+                .HasMany(x => x.Chapters)
+                .WithOne(x => x.Novel)
+                .HasForeignKey(x => x.NovelId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Page>().Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Page>().Property(x => x.ChapterId).HasColumnName("chapter_id");
             modelBuilder.Entity<Page>().Property(x => x.Url).HasColumnName("url");
             modelBuilder.Entity<Page>().Property(x => x.Image).HasColumnName("image");
+            modelBuilder.Entity<Page>()
+                .HasOne(x => x.Chapter)
+                .WithMany(x => x.Pages)
+                .HasForeignKey(x => x.ChapterId);
 
             modelBuilder.Entity<Configuration>().Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Configuration>().Property(x => x.Name).HasColumnName("name");
@@ -73,8 +86,6 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Configuration>().Property(x => x.DefaultMangaFileExtension).HasColumnName("default_manga_file_extension");
             modelBuilder.Entity<Configuration>().Property(x => x.DefaultLogLevel).HasColumnName("default_log_level");
             modelBuilder.Entity<Configuration>().Property(x => x.SaveAsSingleFile).HasColumnName("save_as_single_file");
-
-
         }
         #endregion
 

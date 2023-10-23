@@ -15,7 +15,7 @@ namespace BennyScraper.DataAccess.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "7.0.11");
+            modelBuilder.HasAnnotation("ProductVersion", "7.0.12");
 
             modelBuilder.Entity("Benny_Scraper.Models.Chapter", b =>
                 {
@@ -194,6 +194,9 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("save_location");
 
+                    b.Property<bool>("SavedFileIsSplit")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("SiteName")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -252,7 +255,7 @@ namespace BennyScraper.DataAccess.Migrations
 
                     b.HasIndex("NovelId");
 
-                    b.ToTable("NovelLists", (string)null);
+                    b.ToTable("NovelLists");
                 });
 
             modelBuilder.Entity("Benny_Scraper.Models.Page", b =>
