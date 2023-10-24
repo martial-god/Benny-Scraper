@@ -110,9 +110,15 @@ namespace Benny_Scraper.BusinessLogic
             if (novel.Chapters.Any(chapter => chapter?.Pages != null))
             {
                 if (configuration.DefaultMangaFileExtension == FileExtension.Pdf)
+                {
                     _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
+                    novel.FileType = NovelFileType.Pdf;
+                }
                 else
+                {
                     _comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
+                    novel.FileType = (NovelFileType)configuration.DefaultMangaFileExtension;
+                }
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {
                     chapterDataBuffer.Dispose();
@@ -121,6 +127,7 @@ namespace Benny_Scraper.BusinessLogic
             else
             {
                 novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
+                novel.FileType = NovelFileType.Epub;
             }
             await _novelService.UpdateAsync(novel);
         }

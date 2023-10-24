@@ -36,6 +36,18 @@ namespace Benny_Scraper.Models
         [StringLength(255)]
         public string? SaveLocation { get; set; }
         public bool SavedFileIsSplit { get; set; }
+        public NovelFileType FileType { get; set; }
+    }
+
+    public enum NovelFileType
+    {
+        Epub,
+        Pdf,
+        Cbz,
+        Cbr,
+        Cb7,
+        Cbt,
+        Cba
     }
 
     /// <summary>

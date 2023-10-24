@@ -25,6 +25,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             if (configuration.SaveAsSingleFile)
             {
                 CreateSinglePdf(novel, chapterDataBuffers, outputDirectory);
+                novel.SavedFileIsSplit = false;
             }
             else
             {
