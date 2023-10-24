@@ -117,7 +117,8 @@ namespace Benny_Scraper.BusinessLogic
                 else
                 {
                     _comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
-                    novel.FileType = (NovelFileType)configuration.DefaultMangaFileExtension;
+                    novel.FileType = Enum.TryParse(configuration.DefaultMangaFileExtension.ToString(), out NovelFileType convertedType)
+                        ? convertedType : NovelFileType.Cbz; // check to see if converting by name works, if not default to cbz
                 }
                 foreach (var chapterDataBuffer in chapterDataBuffers)
                 {

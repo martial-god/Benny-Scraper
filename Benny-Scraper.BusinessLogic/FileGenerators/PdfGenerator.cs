@@ -84,8 +84,8 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
                 var sanitizedTitle = CommonHelper.SanitizeFileName($"{novel.Title} - {chapter.Title}", true);
                 var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
-                novel.SaveLocation = pdfFilePath;
                 document.Save(pdfFilePath);
+                novel.SaveLocation = pdfDirectoryPath;
             }
         }
 
@@ -129,8 +129,8 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             var sanitizedTitle = CommonHelper.SanitizeFileName(novel.Title, true);
             Logger.Info($"Saving Pdf to {pdfDirectoryPath}");
             var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
-            novel.SaveLocation = pdfFilePath;
             document.Save(pdfFilePath);
+            novel.SaveLocation = pdfFilePath;
             Logger.Info($"Pdf saved to {pdfFilePath}");
             Console.WriteLine($"Pdf saved to {pdfFilePath}");
         }
