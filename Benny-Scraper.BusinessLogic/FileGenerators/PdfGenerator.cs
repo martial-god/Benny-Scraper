@@ -13,8 +13,10 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
         public const string PdfFileExtension = ".pdf";
 
-        public void CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
+        public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
         {
+            string pdfSaveLocation = string.Empty;
+            bool isPdfSplit = false;
             Logger.Info("Creating PDFs for {0}", novel.Title);
             int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
             int totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || !chapter.Pages.Any());
@@ -24,13 +26,12 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Console.ForegroundColor = ConsoleColor.Blue;
             if (configuration.SaveAsSingleFile)
             {
-                CreateSinglePdf(novel, chapterDataBuffers, outputDirectory);
-                novel.SavedFileIsSplit = false;
+                pdfSaveLocation = CreateSinglePdf(novel, chapterDataBuffers, outputDirectory);
             }
             else
             {
-                CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory);
-                novel.SavedFileIsSplit = true;
+                pdfSaveLocation = CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory);
+                isPdfSplit = true;
             }
 
             Console.Write($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
@@ -47,9 +48,10 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Console.ResetColor();
             Logger.Info(new string('=', 50));
             Logger.Info($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
+            return (pdfSaveLocation, isPdfSplit);
         }
 
-        public void CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
+        public string CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -85,11 +87,11 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 var sanitizedTitle = CommonHelper.SanitizeFileName($"{novel.Title} - {chapter.Title}", true);
                 var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
                 document.Save(pdfFilePath);
-                novel.SaveLocation = pdfDirectoryPath;
             }
+            return pdfDirectoryPath;
         }
 
-        public void CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
+        public string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -130,9 +132,9 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Logger.Info($"Saving Pdf to {pdfDirectoryPath}");
             var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
             document.Save(pdfFilePath);
-            novel.SaveLocation = pdfFilePath;
             Logger.Info($"Pdf saved to {pdfFilePath}");
             Console.WriteLine($"Pdf saved to {pdfFilePath}");
+            return pdfFilePath;
         }
 
         /// <summary>

@@ -10,14 +10,15 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
-        public void CreateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
+        public string CreateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
         {
+            string comicbookArchiveSaveLocation = string.Empty;
             int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
             int totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || !chapter.Pages.Any());
             var missingChapterUrls = novel.Chapters.Where(chapter => chapter.Pages == null).Select(chapter => chapter.Url);
 
             Logger.Info(new string('=', 50));
-            CreateSigleComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration.DefaultMangaFileExtension);
+            comicbookArchiveSaveLocation = CreateSigleComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration.DefaultMangaFileExtension);
 
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.Write($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
@@ -34,9 +35,15 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Console.ResetColor();
             Logger.Info(new string('=', 50));
             Logger.Info($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
+            return comicbookArchiveSaveLocation;
         }
 
-        private static void CreateSigleComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string outputDirectory, FileExtension fileExtension)
+        public string UpdateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static string CreateSigleComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string outputDirectory, FileExtension fileExtension)
         {
             Directory.CreateDirectory(outputDirectory);
             var tempDirectory = CommonHelper.CreateTempDirectory();
@@ -66,20 +73,18 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             }
 
             var outputFilePath = Path.Combine(outputDirectory, $"{sanitzedTitle}.{Enum.GetName(fileExtension)?.ToLowerInvariant()}");
-            novel.SaveLocation = outputFilePath;
             try
             {
                 File.Delete(Path.Combine(outputDirectory, outputFilePath));
                 ZipFile.CreateFromDirectory(tempDirectory, outputFilePath); // does not allow for duplicates files or an IO exception will be thrown
                 CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
                 CommonHelper.DeleteTempFolder(tempDirectory);
-
             }
             catch (Exception ex)
             {
                 Logger.Error(ex.Message, $"Error creating comic book archive for {novel.Title}");
             }
-            
+            return outputFilePath;
         }
     }
 }

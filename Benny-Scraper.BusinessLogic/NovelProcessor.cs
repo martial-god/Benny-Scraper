@@ -27,6 +27,8 @@ namespace Benny_Scraper.BusinessLogic
         private readonly PdfGenerator _pdfGenerator;
         private readonly IComicBookArchiveGenerator _comicBookArchiveGenerator;
         private readonly IConfigurationRepository _configurationRepository;
+        private const string ProjectName = "Benny-Scraper";
+        private const string DllProjectName = "Benny-Scraper.dll";
 
         public NovelProcessor(INovelService novelService,
             IChapterService chapterService,
@@ -111,12 +113,14 @@ namespace Benny_Scraper.BusinessLogic
             {
                 if (configuration.DefaultMangaFileExtension == FileExtension.Pdf)
                 {
-                    _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
+                    (string saveLocation, bool isFileSplit) = _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
+                    novel.SaveLocation = saveLocation;
+                    novel.SavedFileIsSplit = isFileSplit;
                     novel.FileType = NovelFileType.Pdf;
                 }
                 else
                 {
-                    _comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
+                    novel.SaveLocation = _comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
                     novel.FileType = Enum.TryParse(configuration.DefaultMangaFileExtension.ToString(), out NovelFileType convertedType)
                         ? convertedType : NovelFileType.Cbz; // check to see if converting by name works, if not default to cbz
                 }
@@ -138,67 +142,20 @@ namespace Benny_Scraper.BusinessLogic
             using NovelDataBuffer novelDataBuffer = await scraperStrategy.ScrapeAsync();
 
             if (novelDataBuffer == null)
-            {
-                Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
                 return;
-            }
 
-            if (novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl && novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
-            {
-                Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
+            if (IsNovelUpToDate(novel, novelDataBuffer, novelTableOfContentsUri))
                 return;
-            }
 
             novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList(); //order chapters by number
-            var indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.CurrentChapterUrl);
-            if (indexOfLastChapter == -1)
-                indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.Chapters.Last().Url);
-            if (indexOfLastChapter == -1)
-            {
-                Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novel.Id}");
-                var getDllLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                var getDllDir = System.IO.Path.GetDirectoryName(getDllLocation);
-                var mainDll = System.IO.Path.Combine(getDllDir, "Benny-Scraper.dll");
-                Console.ForegroundColor = ConsoleColor.DarkCyan;
-                if (System.IO.File.Exists(mainDll))
-                {
-                    Console.Write($"Please delete the novel from the database using\n\t\t{mainDll} delete_novel_by_id {novel.Id} and try again.");
-                }
-                else
-                {
-                    Console.Write($"Please delete the novel from the database using\n\t\tBenny-Scraper delete_novel_by_id {novel.Id} and try again.");
-                }
-                Console.ResetColor();
-
-            }
-            var newChapterUrls = novelDataBuffer.ChapterUrls.Skip(indexOfLastChapter + 1).ToList();
+            var newChapterUrls = DetermineNewChaptersToScrape(novel, novelDataBuffer);
 
             IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls);
             List<Models.Chapter> newChapters = CreateChapters(chapterDataBuffers, novel.Id);
+            var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
+            await HandleFileTypeUpdatesAsync(novel, novelDataBuffer, chapterDataBuffers, newChapters, configuration, userOutputDirectory);
 
             UpdateNovel(novel, novelDataBuffer, newChapters);
-
-            var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
-            string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(novel.Title, userOutputDirectory);
-
-            if (newChapters.Any(chapter => chapter?.Pages != null))
-            {
-                // need to figure out how to decide which file type things are then try to update them
-                if (string.IsNullOrEmpty(novel.SaveLocation)) // assume that if the save location is null, then the novel is a pdf and was added before the cbz feature was added
-                    novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
-                if (configuration.DefaultMangaFileExtension == FileExtension.Pdf) // might be a good idea to assume a new database is created with more columns on tables to keep track of these things
-                    _pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
-                foreach (var chapterDataBuffer in chapterDataBuffers)
-                {
-                    chapterDataBuffer.Dispose();
-                }
-                await _novelService.UpdateAndAddChapters(novel, newChapters); //to avoid issues where the database is updated but the pdf is not
-            }
-            else
-            {
-                novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
-                await _novelService.UpdateAndAddChapters(novel, newChapters);
-            }
         }
 
         private async Task<Novel> GetNovelFromDataBase(Guid id)
@@ -227,6 +184,70 @@ namespace Benny_Scraper.BusinessLogic
             novel.TotalChapters = novel.Chapters.Count;
             novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title;
             novel.CurrentChapterUrl = novel.Chapters.LastOrDefault()?.Url;
+        }
+
+        private async Task HandleFileTypeUpdatesAsync(Novel novel, NovelDataBuffer novelDataBuffer, IEnumerable<ChapterDataBuffer> chapterDataBuffers, List<Chapter> newChapters, Configuration configuration, string userOutputDirectory)
+        {
+            string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(novel.Title, userOutputDirectory);
+
+            if (newChapters.All(chapter => chapter?.Pages == null) && novel.FileType != NovelFileType.Epub)
+            {
+                novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
+                await _novelService.UpdateAndAddChaptersAsync(novel, newChapters);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(novel.SaveLocation)) // assume that if the save location is null, then the novel is a pdf and was added before the cbz feature was added
+                novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
+            if (novel.FileType == NovelFileType.Pdf)
+            {
+                if (novel.SavedFileIsSplit)
+                    _pdfGenerator.CreatePdfByChapter(novel, chapterDataBuffers, novel.SaveLocation);
+                else
+                    _pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
+            }
+            else
+                _comicBookArchiveGenerator.UpdateComicBookArchive(novel, chapterDataBuffers, outputDirectory);
+            foreach (var chapterDataBuffer in chapterDataBuffers)
+            {
+                chapterDataBuffer.Dispose();
+            }
+            await _novelService.UpdateAndAddChaptersAsync(novel, newChapters);
+        }
+
+        private bool IsNovelUpToDate(Novel novel, NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)
+        {
+            if (novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl && novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
+            {
+                Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
+                return true;
+            }
+            return false;
+        }
+
+        private List<string> DetermineNewChaptersToScrape(Novel novel, NovelDataBuffer novelDataBuffer) {
+            var indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.CurrentChapterUrl);
+            if (indexOfLastChapter == -1)
+                indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.Chapters.Last().Url);
+            if (indexOfLastChapter == -1)
+            {
+                Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novel.Id}");
+                var getDllLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var getDllDir = System.IO.Path.GetDirectoryName(getDllLocation);
+                var mainDll = System.IO.Path.Combine(getDllDir, DllProjectName);
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                if (System.IO.File.Exists(mainDll))
+                {
+                    Console.Write($"Please delete the novel from the database using\n\t\t{mainDll} delete_novel_by_id {novel.Id} and try again.");
+                }
+                else
+                {
+                    Console.Write($"Please delete the novel from the database using\n\t\t{ProjectName} delete_novel_by_id {novel.Id} and try again.");
+                }
+                Console.ResetColor();
+
+            }
+            return novelDataBuffer.ChapterUrls.Skip(indexOfLastChapter + 1).ToList();
         }
 
         private Novel CreateNovel(NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)

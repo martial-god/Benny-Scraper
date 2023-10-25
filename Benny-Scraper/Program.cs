@@ -216,7 +216,6 @@ namespace Benny_Scraper
                 },
                 _ => Task.FromResult(1)); // Handle parsing errors, if needed
         }
-
         private static async Task ListNovelsAsync()
         {
             await using var scope = Container.BeginLifetimeScope();
@@ -224,18 +223,45 @@ namespace Benny_Scraper
 
             var novels = await novelService.GetAllAsync();
 
+            int maxNoLength = novels.Count().ToString().Length + 3;  // "3" accounts for ")."
+            int maxSiteNameLength = novels.Max(novel => novel.SiteName?.Length ?? 0);
+            int maxTitleLength = novels.Max(novel => Math.Min(novel.Title.Length + novel.FileType.ToString().Length + 3, 60)); // +3 for " []", limited to 60 chars
             int maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
-            int maxTitleLength = novels.Max(novel => novel.Title.Length);
 
             Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine($"Id:".PadRight(maxIdLength) + "\tTitle:".PadRight(maxTitleLength));
+            Console.WriteLine($"No.".PadRight(maxNoLength) +
+                              "ID".PadRight(maxIdLength + 2) + 
+                              "Site".PadRight(maxSiteNameLength + 2) +
+                              "Title [FileType]".PadRight(maxTitleLength + 2));
             Console.ResetColor();
 
+            int count = 0;
             foreach (var novel in novels)
             {
-                Console.WriteLine($"{novel.Id.ToString().PadRight(maxIdLength)}\t{novel.Title.PadRight(maxTitleLength)}");
+                var countStr = $"{++count}).".PadRight(maxNoLength);
+                var idStr = novel.Id.ToString().PadRight(maxIdLength);
+                var siteNameStr = (novel.SiteName).PadRight(maxSiteNameLength);
+                var titleStr = $"{TruncateTitle(novel.Title, 57 - novel.FileType.ToString().Length)} [{novel.FileType}]".PadRight(maxTitleLength);
+                if (novel.LastChapter)
+                    Console.ForegroundColor = ConsoleColor.Green;
+                else
+                    Console.ResetColor();
+                Console.WriteLine($"{countStr}{idStr}  {siteNameStr}  {titleStr}");
+                if (novel.LastChapter)
+                    Console.ResetColor();
             }
+
+            Console.WriteLine($"Total: {novels.Count()}   Novels Completed: {novels.Count(novel => novel.LastChapter == true)}");
         }
+
+        private static string TruncateTitle(string title, int maxLength)
+        {
+            if (string.IsNullOrEmpty(title) || title.Length <= maxLength)
+                return title;
+
+            return title.Substring(0, maxLength) + "...";
+        }
+
 
         private static async Task ClearDatabaseAsync()
         {
