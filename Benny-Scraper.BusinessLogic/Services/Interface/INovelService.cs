@@ -12,7 +12,7 @@ namespace Benny_Scraper.BusinessLogic.Services.Interface
         public Task<Novel> GetByIdAsync(Guid id);
         public Task<IEnumerable<Novel>> GetAllAsync();
         public Task UpdateAsync(Novel novel);
-        public Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> chapters);
+        public Task UpdateAndAddChaptersAsync(Novel novel, IEnumerable<Chapter> chapters);
         public Task RemoveAllAsync();
         public Task RemoveByIdAsync(Guid id);
     }

@@ -33,7 +33,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         /// <param name="novel"></param>
         /// <param name="newChapters"></param>
         /// <returns></returns>
-        public async Task UpdateAndAddChapters(Novel novel, IEnumerable<Chapter> newChapters)
+        public async Task UpdateAndAddChaptersAsync(Novel novel, IEnumerable<Chapter> newChapters)
         {            
             _unitOfWork.Novel.Update(novel); //update existing
 
@@ -120,6 +120,8 @@ namespace Benny_Scraper.BusinessLogic.Services
             }
 
             var chapters = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == id);
+            //if (pages != null)
+            //    _unitOfWork.Page.RemoveRange(pages);
             _unitOfWork.Chapter.RemoveRange(chapters);
             _unitOfWork.Novel.Remove(novel);
             await _unitOfWork.SaveAsync();

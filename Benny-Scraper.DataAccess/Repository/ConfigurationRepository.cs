@@ -22,4 +22,9 @@ public class ConfigurationRepository : Repository<Configuration>, IConfiguration
     {
         return await _db.Configurations.FindAsync(id);
     }
+
+    public Configuration GetById(int id)
+    {
+        return _db.Configurations.Find(id);
+    }
 }

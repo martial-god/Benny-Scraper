@@ -13,8 +13,10 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
         public const string PdfFileExtension = ".pdf";
 
-        public void CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
+        public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
         {
+            string pdfSaveLocation = string.Empty;
+            bool isPdfSplit = false;
             Logger.Info("Creating PDFs for {0}", novel.Title);
             int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
             int totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || !chapter.Pages.Any());
@@ -23,9 +25,14 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
             if (configuration.SaveAsSingleFile)
-                CreateSinglePdf(novel, chapterDataBuffers, outputDirectory);
+            {
+                pdfSaveLocation = CreateSinglePdf(novel, chapterDataBuffers, outputDirectory);
+            }
             else
-                CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory);
+            {
+                pdfSaveLocation = CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory);
+                isPdfSplit = true;
+            }
 
             Console.Write($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
             if (totalMissingChapters > 0)
@@ -41,9 +48,10 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Console.ResetColor();
             Logger.Info(new string('=', 50));
             Logger.Info($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
+            return (pdfSaveLocation, isPdfSplit);
         }
 
-        public void CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
+        public string CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -80,9 +88,10 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
                 document.Save(pdfFilePath);
             }
+            return pdfDirectoryPath;
         }
 
-        public void CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
+        public string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -125,15 +134,29 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             document.Save(pdfFilePath);
             Logger.Info($"Pdf saved to {pdfFilePath}");
             Console.WriteLine($"Pdf saved to {pdfFilePath}");
+            return pdfFilePath;
         }
 
+        /// <summary>
+        /// Method that will update an existing pdf file with new chapters, does not work with single chapter pdfs
+        /// </summary>
+        /// <param name="novel"></param>
+        /// <param name="chapterDataBuffer"></param>
+        /// <param name="configuration"></param>
+        /// <exception cref="ArgumentException"></exception>
         public void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Configuration configuration)
         {
             var pdfFilePath = novel.SaveLocation;
             if (Path.GetExtension(pdfFilePath) != PdfFileExtension)
+            {
+                CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
                 throw new ArgumentException("The path to the pdf file is not a pdf file. " + pdfFilePath);
+            }
             if (!File.Exists(pdfFilePath))
+            {
+                CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
                 throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath + "\n Please try to update the save location of the novel by running the command 'benny-scraper -L " + novel.Id + "'");
+            }
 
             var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
 
