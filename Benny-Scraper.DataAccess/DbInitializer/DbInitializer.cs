@@ -18,26 +18,33 @@ namespace Benny_Scraper.DataAccess.DbInitializer
         /// If there are migrations, apply them
         /// </summary>
         /// <exception cref="Exception"></exception>
-        public void Initialize()
+        public bool Initialize()
         {
+            bool changesMade = false;
             // apply Migrations if they are not applied
             try
             {
                 if (_db.Database.GetPendingMigrations().Any())
                 {
                     _db.Database.Migrate();
+                    changesMade = true;
                 }
 
-                SeedData();
+                if (SeedData())
+                {
+                    changesMade = true;
+                }
             }
             catch (Exception ex)
             {
                 throw new Exception(ex.Message);
             }
+            return changesMade;
         }
 
-        public void SeedData()
+        public bool SeedData()
         {
+            bool dataSeeded = false;
             try
             {
                 if (!_db.Configurations.Any())
@@ -60,12 +67,14 @@ namespace Benny_Scraper.DataAccess.DbInitializer
                     };
                     _db.Configurations.Add(defaultConfig);
                     _db.SaveChanges();
+                    dataSeeded = true;
                 }
             }
             catch (Exception ex)
             {
                 throw new Exception("An error occurred while seeding the database: " + ex.Message, ex);
             }
+            return dataSeeded;
         }
     }
 }

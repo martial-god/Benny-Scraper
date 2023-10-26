@@ -5,4 +5,5 @@ public interface IConfigurationRepository : IRepository<Configuration>
 {
     void Update(Configuration obj);
     Task<Configuration> GetByIdAsync(int id);
+    Configuration GetById(int id);
 }

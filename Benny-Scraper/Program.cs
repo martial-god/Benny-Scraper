@@ -18,7 +18,6 @@ using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
 using CommandLine;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog;
@@ -47,6 +46,14 @@ namespace Benny_Scraper
             ConfigureServices(builder);
             Container = builder.Build();
 
+            using var scope = Container.BeginLifetimeScope();
+            DbInitializer dbInitializer = scope.Resolve<DbInitializer>();
+            bool dbChangesMade = dbInitializer.Initialize();
+
+            if (dbChangesMade)
+                Logger.Info("Database Initialized");
+
+
             if (args.Length > 0)
             {
                 await RunAsync(args);
@@ -63,10 +70,7 @@ namespace Benny_Scraper
             using (var scope = Container.BeginLifetimeScope())
             {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
-                Logger.Info("Initializing Database");
-                DbInitializer dbInitializer = scope.Resolve<DbInitializer>();
-                dbInitializer.Initialize();
-                Logger.Info("Database Initialized");
+                
 
                 string instructions = GetInstructions();
 
@@ -206,7 +210,7 @@ namespace Benny_Scraper
                     {
                         bool singleFile = options.SingleFile.ToLowerInvariant() == "y";
                         await SetSingleFileAsync(singleFile);
-                    }                    
+                    }
                     else if (options.ExtensionType)
                     {
                         await GetDefaultMangaExtensionAsync();
@@ -222,6 +226,11 @@ namespace Benny_Scraper
             var novelService = scope.Resolve<INovelService>();
 
             var novels = await novelService.GetAllAsync();
+            if (novels == null || !novels.Any())
+            {
+                Console.WriteLine("No novels found.");
+                return;
+            }
 
             int maxNoLength = novels.Count().ToString().Length + 3;  // "3" accounts for ")."
             int maxSiteNameLength = novels.Max(novel => novel.SiteName?.Length ?? 0);
@@ -230,7 +239,7 @@ namespace Benny_Scraper
 
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine($"No.".PadRight(maxNoLength) +
-                              "ID".PadRight(maxIdLength + 2) + 
+                              "ID".PadRight(maxIdLength + 2) +
                               "Site".PadRight(maxSiteNameLength + 2) +
                               "Title [FileType]".PadRight(maxTitleLength + 2));
             Console.ResetColor();
@@ -477,6 +486,34 @@ namespace Benny_Scraper
                 Logger.Error($"Exception when trying to update novel save location. {ex.Message}");
             }
         }
+
+        public static async Task RenameDatabaseFileAsync(string newDbName)
+        {
+            try
+            {
+                string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string directoryPath = Path.Combine(appDataPath, "BennyScraper", "Database");
+                string oldDbPath = GetConnectionString(); // Assuming this returns the full path
+                string newDbPath = Path.Combine(directoryPath, newDbName);
+
+                // Rename the physical file
+                File.Move(oldDbPath, newDbPath);
+
+                // Update the configuration table
+                await using var scope = Container.BeginLifetimeScope();
+                var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                var configuration = await configurationRepository.GetByIdAsync(1);
+                configuration.DatabaseFileName = newDbName;
+                configurationRepository.Update(configuration);
+
+                Console.WriteLine($"Database file renamed to: {newDbName}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to rename database file. {ex.Message}");
+            }
+        }
+
         #endregion
 
         #region Setup

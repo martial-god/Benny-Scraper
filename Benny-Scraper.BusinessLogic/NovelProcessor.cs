@@ -207,7 +207,7 @@ namespace Benny_Scraper.BusinessLogic
                     _pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
             }
             else
-                _comicBookArchiveGenerator.UpdateComicBookArchive(novel, chapterDataBuffers, outputDirectory);
+                _comicBookArchiveGenerator.UpdateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
             foreach (var chapterDataBuffer in chapterDataBuffers)
             {
                 chapterDataBuffer.Dispose();
