@@ -172,8 +172,7 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnName("description");
 
                     b.Property<int>("FileType")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("file_type");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("FirstChapter")
                         .IsRequired()
@@ -199,8 +198,7 @@ namespace BennyScraper.DataAccess.Migrations
                         .HasColumnName("save_location");
 
                     b.Property<bool>("SavedFileIsSplit")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("saved_file_is_split");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("SiteName")
                         .IsRequired()
