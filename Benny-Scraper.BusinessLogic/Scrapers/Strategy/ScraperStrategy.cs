@@ -293,7 +293,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         if (outcome.Exception != null)
                         {
                             // Log the exception details here
-                            Logger.Warn($"Error occurred while navigating to {uri}. Error: {outcome.Exception}. Attempt: {retryCount}");
+                            Logger.Warn($"Error occurred while navigating to {uri}. Attempt: {retryCount}");
                         }
                         else
                         {
