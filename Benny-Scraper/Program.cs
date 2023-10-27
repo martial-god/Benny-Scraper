@@ -85,7 +85,7 @@ namespace Benny_Scraper
                 {
                     // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
                     Console.WriteLine("\nEnter the site url (or 'exit' to quit): ");
-                    string siteUrl = Console.ReadLine();
+                    string siteUrl = Console.ReadLine().Trim();
                     string[] input = siteUrl.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                     if (string.IsNullOrWhiteSpace(siteUrl))
