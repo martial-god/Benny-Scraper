@@ -12,7 +12,7 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [x] Update code to accommodate more novel sites
 - [x] Switch from SQL to MySql to embedd database
 - [x] Test on computers without sql installed
-- [x] Test on Linux machine - in this Case Ubuntu 20.04-x64
+- [x] Test on Linux machine and Mac - in this Case Ubuntu 20.04-x64, Mac Sonoma 14.1
 - [x] Add Calibre integration - completed novels will be added to the Calibredb if it is installed on host computer
 - [x] Verify the update novel works - INFO can be found https://github.com/martial-god/Benny-Scraper/pull/24#issue-1885102090
 - [x] Try Manga sites
