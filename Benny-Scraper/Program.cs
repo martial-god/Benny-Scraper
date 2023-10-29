@@ -157,70 +157,85 @@ namespace Benny_Scraper
         {
             var result = Parser.Default.ParseArguments<CommandLineOptions>(args);
             await result.MapResult(
-                async options =>
-                {
-                    if (options.List)
-                        await ListNovelsAsync();
-                    else if (options.ExtensionType)
-                    {
-                        await GetDefaultMangaExtensionAsync();
-                    }
-                    else if (options.ClearDatabase)
-                    {
-                        var userQuery = string.Format(AreYouSure, "clear the database");
-                        Console.WriteLine(userQuery);
-                        var confirmation = Console.ReadLine();
-                        if (confirmation.ToLowerInvariant() == "y")
-                            await ClearDatabaseAsync();
-                    }
-                    else if (options.DeleteNovelById != Guid.Empty)
-                    {
-                        await DeleteNovelByIdAsync(options.DeleteNovelById);
-                    }
-                    else if (options.RecreateEpubById != Guid.Empty)
-                    {
-                        await RecreateEpubByIdAsync(options.RecreateEpubById);
-                    }
-                    else if (options.UpdateNovelSavedLocationById != Guid.Empty)
-                    {
-                        await UpdateNovelSavedLocationByIdAsync(options.UpdateNovelSavedLocationById);
-                    }
-                    else if (options.ConcurrentRequests > 0)
-                    {
-                        await SetConcurrentRequestsAsync(options.ConcurrentRequests);
-                    }
-                    else if (!string.IsNullOrEmpty(options.SaveLocation))
-                    {
-                        await SetSaveLocationAsync(options.SaveLocation);
-                    }
-                    else if (!string.IsNullOrEmpty(options.MangaSaveLocation))
-                    {
-                        await SetMangaSaveLocationAsync(options.MangaSaveLocation);
-                    }
-                    else if (!string.IsNullOrEmpty(options.NovelSaveLocation))
-                    {
-                        await SetNovelSaveLocationAsync(options.NovelSaveLocation);
-                    }
-                    else if (options.MangaExtension >= 0 && options.MangaExtension < Enum.GetNames(typeof(FileExtension)).Length)
-                    {
-                        int extension = (int)options.MangaExtension;
-                        await SetDefaultMangaExtensionAsync(extension);
-                    }
-                    else if (string.Equals(options.SingleFile.ToLowerInvariant(), "y", StringComparison.OrdinalIgnoreCase) || string.Equals(options.SingleFile.ToLowerInvariant(), "n", StringComparison.OrdinalIgnoreCase))
-                    {
-                        bool singleFile = options.SingleFile.ToLowerInvariant() == "y";
-                        await SetSingleFileAsync(singleFile);
-                    }
-                    else if (options.ExtensionType)
-                    {
-                        await GetDefaultMangaExtensionAsync();
-                    }
-                    else
-                        Console.WriteLine("Invalid command. Please try again.");
-                },
-                _ => Task.FromResult(1)); // Handle parsing errors, if needed
+                async options => await HandleOptionsAsync(options),
+                errors => HandleParseErrors(errors)
+            );
         }
-        private static async Task ListNovelsAsync()
+
+        private static async Task HandleOptionsAsync(CommandLineOptions options)
+        {
+            if (options.List)
+                await ListNovelsAsync(options.Page, options.ItemsPerPage, options.SearchKeyword);
+            else if (options.ExtensionType)
+            {
+                await GetDefaultMangaExtensionAsync();
+            }
+            else if (options.ClearDatabase)
+            {
+                var userQuery = string.Format(AreYouSure, "clear the database");
+                Console.WriteLine(userQuery);
+                var confirmation = Console.ReadLine();
+                if (confirmation.ToLowerInvariant() == "y")
+                    await ClearDatabaseAsync();
+            }
+            else if (options.DeleteNovelById != Guid.Empty)
+            {
+                await DeleteNovelByIdAsync(options.DeleteNovelById);
+            }
+            else if (options.RecreateEpubById != Guid.Empty)
+            {
+                await RecreateEpubByIdAsync(options.RecreateEpubById);
+            }
+            else if (options.UpdateNovelSavedLocationById != Guid.Empty)
+            {
+                await UpdateNovelSavedLocationByIdAsync(options.UpdateNovelSavedLocationById);
+            }
+            else if (options.ConcurrentRequests > 0)
+            {
+                await SetConcurrentRequestsAsync(options.ConcurrentRequests);
+            }
+            else if (!string.IsNullOrEmpty(options.SaveLocation))
+            {
+                await SetSaveLocationAsync(options.SaveLocation);
+            }
+            else if (!string.IsNullOrEmpty(options.MangaSaveLocation))
+            {
+                await SetMangaSaveLocationAsync(options.MangaSaveLocation);
+            }
+            else if (!string.IsNullOrEmpty(options.NovelSaveLocation))
+            {
+                await SetNovelSaveLocationAsync(options.NovelSaveLocation);
+            }
+            else if (options.MangaExtension >= 0 && options.MangaExtension < Enum.GetNames(typeof(FileExtension)).Length)
+            {
+                int extension = (int)options.MangaExtension;
+                await SetDefaultMangaExtensionAsync(extension);
+            }
+            else if (string.Equals(options.SingleFile.ToLowerInvariant(), "y", StringComparison.OrdinalIgnoreCase) || string.Equals(options.SingleFile.ToLowerInvariant(), "n", StringComparison.OrdinalIgnoreCase))
+            {
+                bool singleFile = options.SingleFile.ToLowerInvariant() == "y";
+                await SetSingleFileAsync(singleFile);
+            }
+            else if (options.ExtensionType)
+            {
+                await GetDefaultMangaExtensionAsync();
+            }
+            else
+                Console.WriteLine("Invalid command. Please try again.");
+        }
+
+        private static Task HandleParseErrors(IEnumerable<Error> errors)
+        {
+            foreach (var error in errors)
+            {
+                Console.WriteLine($"Error: {error}");
+            }
+
+            // Depending on your requirements, you can return a faulted task to signal an error.
+            return Task.FromResult(1);
+        }
+
+        private static async Task ListNovelsAsync(int page, int itemsPerPage, string searchKeyWord)
         {
             await using var scope = Container.BeginLifetimeScope();
             var novelService = scope.Resolve<INovelService>();
@@ -231,6 +246,11 @@ namespace Benny_Scraper
                 Console.WriteLine("No novels found.");
                 return;
             }
+            if (!string.IsNullOrEmpty(searchKeyWord))
+                novels = novels.Where(novel => novel.Title.Contains(searchKeyWord));
+
+            var paginatedNovels = novels.Skip((page - 1) * itemsPerPage).Take(itemsPerPage);
+            int totalPages = (int)Math.Ceiling((double)novels.Count() / itemsPerPage);
 
             int maxNoLength = novels.Count().ToString().Length + 3;  // "3" accounts for ")."
             int maxSiteNameLength = novels.Max(novel => novel.SiteName?.Length ?? 0);
@@ -248,7 +268,7 @@ namespace Benny_Scraper
             Console.ResetColor();
 
             int count = 0;
-            foreach (var novel in novels)
+            foreach (var novel in paginatedNovels)
             {
                 var countStr = $"{++count}).".PadRight(maxNoLength);
                 var idStr = novel.Id.ToString().PadRight(maxIdLength);
@@ -266,6 +286,57 @@ namespace Benny_Scraper
 
             Console.WriteLine();
             Console.WriteLine($"Total: {novels.Count()}   Novels Completed: {novels.Count(novel => novel.LastChapter == true)}");
+
+            Console.WriteLine($"Showing page {page} of {totalPages}");
+            Console.WriteLine("[N]ext page, [P]revious page, [J]ump to page, [Q]uit");
+            var userInput = Console.ReadKey();
+
+            switch (userInput.KeyChar)
+            {
+                case 'N':
+                case 'n':
+                    page++;
+                    if (page > totalPages)
+                    {
+                        Console.WriteLine("You are on the last page.");
+                        page--;  // Reset to last page
+                    }
+                    break;
+
+                case 'P':
+                case 'p':
+                    page--;
+                    if (page < 1)
+                    {
+                        Console.WriteLine("You are on the first page.");
+                        page++;  // Reset to first page
+                    }
+                    break;
+
+                case 'J':
+                case 'j':
+                    Console.WriteLine("Enter the page number:");
+                    if (int.TryParse(Console.ReadLine(), out int selectedPage) && selectedPage > 0 && selectedPage <= totalPages)
+                    {
+                        page = selectedPage;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid page number.");
+                    }
+                    break;
+
+                case 'Q':
+                case 'q':
+                    return;  // Exit the method
+
+                default:
+                    Console.WriteLine("Invalid choice.");
+                    break;
+            }
+
+            // Recursive call to load the selected page
+            await ListNovelsAsync(page, itemsPerPage, searchKeyWord);
         }
 
         private static string TruncateTitle(string title, int maxLength)

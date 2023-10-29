@@ -41,5 +41,16 @@ namespace Benny_Scraper
 
         [Option('L', "update-novel-saved-location-by-id", Required = false, HelpText = "Updates the saved location of a novel by its [ID]. Useful when a file has been moved, or never added due to previous bug.")]
         public Guid UpdateNovelSavedLocationById { get; set; }
+
+        [Range(1, 100)]
+        [Option('P', "page", Default = 1, Required = false, HelpText = "Page number to display [INT]. Max 100")]
+        public int Page { get; set; }
+
+        [Range(10, 10000)]
+        [Option('I', "items-per-page", Default = 10, Required = false, HelpText = "Number of items to display per page [INT]. Max 10,000")]
+        public int ItemsPerPage { get; set; }
+
+        [Option('S', "search", Required = false, HelpText = "Search for novel by Title, can seach by partial name [STRING].")]
+        public string SearchKeyword { get; set; }
     }
 }
