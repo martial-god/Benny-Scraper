@@ -1,10 +1,10 @@
-﻿using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
-using Benny_Scraper.Models;
+﻿using Benny_Scraper.Models;
 using NLog;
-using PdfSharp.Drawing;
-using PdfSharp.Pdf.IO;
-using PdfSharp.Pdf;
+using SixLabors.ImageSharp;
+using PdfSharpCore.Drawing;
 using Benny_Scraper.BusinessLogic.Helper;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.IO;
 
 namespace Benny_Scraper.BusinessLogic.FileGenerators
 {
@@ -13,7 +13,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
         public const string PdfFileExtension = ".pdf";
 
-        public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
+        public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration)
         {
             string pdfSaveLocation = string.Empty;
             bool isPdfSplit = false;
@@ -43,7 +43,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             }
             Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.WriteLine($"Adding PDFs to Calibre database");
-            var result = EpubGenerator.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
+            var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
             Logger.Info(new string('=', 50));
@@ -60,8 +60,8 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 if (chapter.Pages == null)
                     continue;
 
-                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList(); // only Page from PageData has ImagePath as a member variable
-                Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
+                var totalPages = chapter.Pages.Count();
+                Console.WriteLine($"Total images in chapter {chapter.Title}: {totalPages}");
 
                 PdfDocument document = new PdfDocument();
 
@@ -71,25 +71,28 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 document.Info.Keywords = novel.Genre;
                 document.Info.CreationDate = DateTime.Now;
 
-                foreach (var imagePath in imagePaths)
+                foreach (var pageData in chapter.Pages)
                 {
-                    XImage img = XImage.FromFile(imagePath);
+                    using var image = SixLabors.ImageSharp.Image.Load(pageData.ImagePath);
+                    var pdfPage = document.AddPage();
+                    pdfPage.Width = XUnit.FromPoint(image.Width);
+                    pdfPage.Height = XUnit.FromPoint(image.Height);
 
-                    PdfPage page = document.AddPage();
-                    page.Width = XUnit.FromPoint(img.PixelWidth);
-                    page.Height = XUnit.FromPoint(img.PixelHeight);
-                    XGraphics gfx = XGraphics.FromPdfPage(page);
-                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                    var gfx = XGraphics.FromPdfPage(pdfPage);
+
+                    using var xImage = XImage.FromStream(() => ConvertImageToStream(image)); // this expects a delegate that is only evaluated when needed by the fromstream
+                    gfx.DrawImage(xImage, 0, 0, pdfPage.Width, pdfPage.Height);
+
                 }
-                // to avoid the System.NotSupportedException: No data is available for encoding 1252. we have to install the Nugget package System.Text.Encoding.CodePages
-                //https://stackoverflow.com/questions/50858209/system-notsupportedexception-no-data-is-available-for-encoding-1252
 
                 var sanitizedTitle = CommonHelper.SanitizeFileName($"{novel.Title} - {chapter.Title}", true);
                 var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
                 document.Save(pdfFilePath);
             }
+
             return pdfDirectoryPath;
         }
+
 
         public string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
@@ -114,15 +117,13 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 foreach (var imagePath in imagePaths)
                 {
                     XImage img;
-                    using (var imageStream = File.OpenRead(imagePath))
-                    {
-                        img = XImage.FromStream(imageStream);
-                        PdfPage page = document.AddPage();
-                        page.Width = XUnit.FromPoint(img.PixelWidth);
-                        page.Height = XUnit.FromPoint(img.PixelHeight);
-                        XGraphics gfx = XGraphics.FromPdfPage(page);
-                        gfx.DrawImage(img, 0, 0, page.Width, page.Height);
-                    }
+                    using var image = Image.Load(imagePath);
+                    img = XImage.FromStream(() => ConvertImageToStream(image));
+                    PdfPage page = document.AddPage();
+                    page.Width = XUnit.FromPoint(img.PixelWidth);
+                    page.Height = XUnit.FromPoint(img.PixelHeight);
+                    XGraphics gfx = XGraphics.FromPdfPage(page);
+                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
                     File.Delete(imagePath);
                 }
             }
@@ -144,7 +145,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         /// <param name="chapterDataBuffer"></param>
         /// <param name="configuration"></param>
         /// <exception cref="ArgumentException"></exception>
-        public void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Configuration configuration)
+        public void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Models.Configuration configuration)
         {
             var pdfFilePath = novel.SaveLocation;
             if (Path.GetExtension(pdfFilePath) != PdfFileExtension)
@@ -161,35 +162,31 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
 
             Logger.Info("Updating Pdf file: " + pdfFilePath);
-            using (FileStream pdfFile = File.OpenRead(pdfFilePath)) // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
-            using (PdfDocument document = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify))
+            using FileStream pdfFile = File.OpenRead(pdfFilePath); // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
+            using PdfDocument document = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify);
+            document.Info.ModificationDate = DateTime.Now;
+            foreach (var chapter in chapterDataBuffer)
             {
-                document.Info.ModificationDate = DateTime.Now;
-                foreach (var chapter in chapterDataBuffer)
+                if (chapter.Pages == null)
+                    continue;
+
+                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
+                Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
+
+                foreach (var imagePath in imagePaths)
                 {
-                    if (chapter.Pages == null)
-                        continue;
+                    XImage img;
+                    using var image = Image.Load(imagePath);
+                    img = XImage.FromStream(() => ConvertImageToStream(image));
+                    PdfPage page = document.AddPage();
+                    page.Width = XUnit.FromPoint(img.PixelWidth);
+                    page.Height = XUnit.FromPoint(img.PixelHeight);
 
-                    var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
-                    Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
+                    XGraphics gfx = XGraphics.FromPdfPage(page);
 
-                    foreach (var imagePath in imagePaths)
-                    {
-                        XImage img;
-                        using (var imageStream = File.OpenRead(imagePath))
-                        {
-                            img = XImage.FromStream(imageStream);
-                            PdfPage page = document.AddPage();
-                            page.Width = XUnit.FromPoint(img.PixelWidth);
-                            page.Height = XUnit.FromPoint(img.PixelHeight);
-
-                            XGraphics gfx = XGraphics.FromPdfPage(page);
-
-                            gfx.DrawImage(img, 0, 0, page.Width, page.Height);
-                        }
-                        File.Delete(imagePath);
-                        document.Save(tempPdfFilePath);
-                    }
+                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                    File.Delete(imagePath);
+                    document.Save(tempPdfFilePath);
                 }
             }
             CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
@@ -199,6 +196,14 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             File.Delete(tempPdfFilePath);
             Logger.Info("Pdf file updated");
             Console.WriteLine($"Pdf file updated at {pdfFilePath}");
+        }
+
+        private static MemoryStream ConvertImageToStream(SixLabors.ImageSharp.Image image)
+        {
+            var memoryStream = new MemoryStream();
+            image.Save(memoryStream, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder());
+            memoryStream.Position = 0;
+            return memoryStream;
         }
     }
 }

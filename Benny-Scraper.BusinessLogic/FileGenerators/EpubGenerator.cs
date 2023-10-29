@@ -1,5 +1,6 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
+using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Options;
@@ -208,7 +209,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 try
                 {
                     Logger.Info($"Adding Epub to Calibredb");
-                    var result = ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
+                    var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
                     Logger.Info($"Command executed with code: {result}");
                 }
                 catch
@@ -218,29 +219,6 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 Console.ResetColor();
                 Logger.Info(new string('=', 50));
             }
-        }
-
-        public static string ExecuteCommand(string command)
-        {
-            // able to get this working thanks to https://stackoverflow.com/questions/4291912/process-start-how-to-get-the-output
-            Process process = new Process();
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.UseShellExecute = false;
-            startInfo.CreateNoWindow = true;
-            startInfo.RedirectStandardOutput = true;
-            startInfo.RedirectStandardError = true;
-            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-            startInfo.FileName = @"cmd.exe";
-            startInfo.Arguments = $"/c {command}";
-            process.StartInfo = startInfo;
-            // Set your output and error (asynchronous) handlers
-            process.OutputDataReceived += new DataReceivedEventHandler(OutputHandler);
-            process.ErrorDataReceived += new DataReceivedEventHandler(OutputHandler);
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            process.WaitForExit();
-            return process.ExitCode.ToString();
         }
 
         static void OutputHandler(object sendingProcess, DataReceivedEventArgs outLine)

@@ -2,7 +2,6 @@
 using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
 using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
-using PdfSharp.Drawing;
 
 namespace Benny_Scraper.BusinessLogic.FileGenerators
 {
@@ -38,7 +37,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             }
             Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.WriteLine($"Adding {Enum.GetName(configuration.DefaultMangaFileExtension)} to Calibre database");
-            var result = EpubGenerator.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
+            var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
             Logger.Info($"Command executed with code: {result}");
             Console.ResetColor();
             Logger.Info(new string('=', 50));

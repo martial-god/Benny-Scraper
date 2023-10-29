@@ -234,14 +234,17 @@ namespace Benny_Scraper
 
             int maxNoLength = novels.Count().ToString().Length + 3;  // "3" accounts for ")."
             int maxSiteNameLength = novels.Max(novel => novel.SiteName?.Length ?? 0);
-            int maxTitleLength = novels.Max(novel => Math.Min(novel.Title.Length + novel.FileType.ToString().Length + 3, 60)); // +3 for " []", limited to 60 chars
             int maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
+            int maxChapterLength = novels.Max(novel => novel.CurrentChapter?.Length ?? 0);  // New line for max chapter length
+            int maxFileTypeLength = novels.Max(novel => novel.FileType.ToString().Length + 3); // +3 for " []"
+            int maxTitleLength = novels.Max(novel => Math.Min(novel.Title.Length, 60 - maxFileTypeLength)); // Adjusted for maxFileTypeLength
 
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine($"No.".PadRight(maxNoLength) +
                               "ID".PadRight(maxIdLength + 2) +
                               "Site".PadRight(maxSiteNameLength + 2) +
-                              "Title [FileType]".PadRight(maxTitleLength + 2));
+                              "Title [FileType]".PadRight(maxTitleLength + 2) +
+                              "Current Chapter".PadRight(maxChapterLength + 2));
             Console.ResetColor();
 
             int count = 0;
@@ -250,16 +253,18 @@ namespace Benny_Scraper
                 var countStr = $"{++count}).".PadRight(maxNoLength);
                 var idStr = novel.Id.ToString().PadRight(maxIdLength);
                 var siteNameStr = (novel.SiteName).PadRight(maxSiteNameLength);
-                var titleStr = $"{TruncateTitle(novel.Title, 57 - novel.FileType.ToString().Length)} [{novel.FileType}]".PadRight(maxTitleLength);
+                var titleStr = $"{TruncateTitle(novel.Title, 57 - maxFileTypeLength)} [{novel.FileType}]".PadRight(maxTitleLength + maxFileTypeLength);
+                var chapterStr = (novel.CurrentChapter ?? "N/A").PadRight(maxChapterLength);  // New line for chapter string
                 if (novel.LastChapter)
                     Console.ForegroundColor = ConsoleColor.Green;
                 else
                     Console.ResetColor();
-                Console.WriteLine($"{countStr}{idStr}  {siteNameStr}  {titleStr}");
+                Console.WriteLine($"{countStr}{idStr}  {siteNameStr}  {titleStr}  {chapterStr}");
                 if (novel.LastChapter)
                     Console.ResetColor();
             }
 
+            Console.WriteLine();
             Console.WriteLine($"Total: {novels.Count()}   Novels Completed: {novels.Count(novel => novel.LastChapter == true)}");
         }
 
