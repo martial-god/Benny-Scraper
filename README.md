@@ -24,7 +24,7 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 https://www.webnovelpub.com/
 https://www.novelfull.com/
 1. For both sites, the url for the `Table of Contents` page for the novel is needed. 
-2. *Note* : all epubs will be stored in your Documents folder BennyScrapedNovels/{Novel Name} . Get an Epub Reader to read the contents, chrome extensions are available like `EPUB Reader`
+2. *Note* : all epubs will be stored in your Documents folder BennyScrapedNovels/{Novel Name}, *unless changed through command line options*. Get an Epub Reader to read the contents, chrome extensions are available like `EPUB Reader`
 3. Click a novel and copy the url at the top ![chrome_Y234bE9Ce6](https://github.com/martial-god/PageShaver/assets/8980094/31b6190b-439a-4550-aaf3-3b05b3c24a13)![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
 
  ![chrome_fWN6VSKOKQ](https://github.com/martial-god/PageShaver/assets/8980094/7f97cd67-772c-4f60-a3d9-856337c3a987)
@@ -49,7 +49,12 @@ dotnet Benny-Scraper.dll [COMMAND] [OPTIONS] [--] [VALUES]
 ```
 ```bash
 Commands:
-    -l, --list                   List all novels in database.
+    -l, --list                 List all novels in database. Options include
+                                   -P, --page [INT]
+                                   -I, --items-per-page [INT]
+                                   -S, --search [STRING]
+
+  -i, --novel-info-by-id       Gets the detailed saved information about a novel, including save location
 
   --clear-database             Clear all novels and chapters from database.
 
@@ -73,6 +78,8 @@ Commands:
   -f, --single-file            Choose how to save Mangas: as a single file containing all chapters (Y), or as individual
                                files for each chapter (N).
 
+  -L, --update-novel-saved-location-by-id    Updates the saved location of a novel by its [ID]. Useful when a file has been moved, or never added due to previous bug.
+
   --get-extension              Gets the saved default extensions for mangas.
 
   --help                       Display this help screen.
@@ -80,9 +87,17 @@ Commands:
   --version                    Display version information.
 
 Usage examples:
-  List all novels:
+  List all novels, default 10 to a page:
     dotnet Benny-Scraper.dll --list
     Benny-Scraper -l
+
+  List all novels searching by name, changing total results per page: [OPTIONS] -P, --page [INT] | -I, --items-per-page [INT] | -S, --search [STRING]
+    dotnet Benny-Scraper.dll --list -I [INT] -S [STRING]    ex: 15                ex: One Piece
+    Benny-Scraper -l -I 10 -S Martial -P 1   -- this will search for all novels with the title the contains the word 'Martial', showing only 10 results per page, and start the search on page 1.
+
+  Get more info about a novel, including how things were saved. IT IS RECOMMENDED YOU RUN THIS AFTER USING benny-Scraper VERSION 1.0.0, as bugs caused files to not be stored correctly.
+    dotnet Benny-Scraper.dll --novel-info-by-id [ID]      ex: 00000000-0000-0000-0000-000000000000
+    Benny-Scraper -i [ID]
 
   Clear database:
     dotnet Benny-Scraper.dll --clear-database
@@ -97,12 +112,16 @@ Usage examples:
     Benny-Scraper -r [ID]
 
   Set the Default location where both webnovels and Mangas will be saved.
-    dotnet Benny-Scraper.dll --save-location [PATH]    ex: C:\Users\test\Downloads
-    Benny-Scraper -s
+    dotnet Benny-Scraper.dll --save-location [PATH]    ex: C:\Users\test\Downloads   must be a Directory/Folder not a File
+    Benny-Scraper -s [PATH]
 
   Sets the default file extension for Comicbook Archive, i.e. .cbz, .cbr, .cbt
     dotnet Benny-Scraper.dll --manga-extension [INT]    ex: 1
-    Benny-Scraper -e
+    Benny-Scraper -e [INT]
+
+  Update location of a novel by it's id, you can get ID from the --list or -l command:
+    dotnet Benny-Scraper.dll --update-novel-saved-location-by-id [ID]    ex: 00000000-0000-0000-0000-000000000000         You will be prompted to enter the full path for the FOLDER your file(s) are stored
+    Benny-Scraper -L [ID]
 
 For more information about each command and option, run:
   dotnet Benny-Scraper.dll [COMMAND] --help
