@@ -82,7 +82,6 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
                     using var xImage = XImage.FromStream(() => ConvertImageToStream(image)); // this expects a delegate that is only evaluated when needed by the fromstream
                     gfx.DrawImage(xImage, 0, 0, pdfPage.Width, pdfPage.Height);
-
                 }
 
                 var sanitizedTitle = CommonHelper.SanitizeFileName($"{novel.Title} - {chapter.Title}", true);
@@ -162,33 +161,38 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
 
             Logger.Info("Updating Pdf file: " + pdfFilePath);
-            using FileStream pdfFile = File.OpenRead(pdfFilePath); // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
-            using PdfDocument document = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify);
-            document.Info.ModificationDate = DateTime.Now;
-            foreach (var chapter in chapterDataBuffer)
+            using (FileStream pdfFile = File.OpenRead(pdfFilePath))
             {
-                if (chapter.Pages == null)
-                    continue;
-
-                var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
-                Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
-
-                foreach (var imagePath in imagePaths)
+                using (PdfDocument document = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify))
                 {
-                    XImage img;
-                    using var image = Image.Load(imagePath);
-                    img = XImage.FromStream(() => ConvertImageToStream(image));
-                    PdfPage page = document.AddPage();
-                    page.Width = XUnit.FromPoint(img.PixelWidth);
-                    page.Height = XUnit.FromPoint(img.PixelHeight);
+                    document.Info.ModificationDate = DateTime.Now;
+                    foreach (var chapter in chapterDataBuffer)
+                    {
+                        if (chapter.Pages == null)
+                            continue;
 
-                    XGraphics gfx = XGraphics.FromPdfPage(page);
+                        var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
+                        Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
 
-                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
-                    File.Delete(imagePath);
-                    document.Save(tempPdfFilePath);
+                        foreach (var imagePath in imagePaths)
+                        {
+                            XImage img;
+                            using var image = Image.Load(imagePath);
+                            img = XImage.FromStream(() => ConvertImageToStream(image));
+                            PdfPage page = document.AddPage();
+                            page.Width = XUnit.FromPoint(img.PixelWidth);
+                            page.Height = XUnit.FromPoint(img.PixelHeight);
+
+                            XGraphics gfx = XGraphics.FromPdfPage(page);
+                            gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                            File.Delete(imagePath);
+
+                            document.Save(tempPdfFilePath);
+                        }
+                    }
                 }
-            }
+            } // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
+            
             CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
 
             Logger.Info($"Saving Pdf to {pdfFilePath}");

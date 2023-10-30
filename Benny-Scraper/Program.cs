@@ -641,7 +641,7 @@ namespace Benny_Scraper
                 new("Status", !string.IsNullOrEmpty(novel.Status) ? novel.Status : "N/A"),
                 new("Save Location", novel.SaveLocation ?? "N/A"),
                 new("File Type", Enum.GetName(typeof(NovelFileType), novel.FileType) ?? "EPUB"),
-                new("Saved As Single File", novel.SavedFileIsSplit ? "Yes" : "No")
+                new("Saved As Single File", novel.SavedFileIsSplit ? "No" : "Yes")
             };
 
             Console.WriteLine("NOVEL INFORMATION:");

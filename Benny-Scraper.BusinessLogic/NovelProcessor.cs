@@ -153,9 +153,9 @@ namespace Benny_Scraper.BusinessLogic
             IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls);
             List<Models.Chapter> newChapters = CreateChapters(chapterDataBuffers, novel.Id);
             var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
-            await HandleFileTypeUpdatesAsync(novel, novelDataBuffer, chapterDataBuffers, newChapters, configuration, userOutputDirectory);
-
             UpdateNovel(novel, novelDataBuffer, newChapters);
+
+            await HandleFileTypeUpdatesAsync(novel, novelDataBuffer, chapterDataBuffers, newChapters, configuration, userOutputDirectory);
         }
 
         private async Task<Novel> GetNovelFromDataBase(Guid id)
