@@ -5,8 +5,11 @@ namespace Benny_Scraper
 {
     public class CommandLineOptions
     {
-        [Option('l', "list", Required = false, HelpText = "List all novels in database.")]
+        [Option('l', "list", Required = false, HelpText = "List all novels in database. Options include -P, --page [INT] | -I, --items-per-page [INT] | -S, --search [STRING]")]
         public bool List { get; set; }
+
+        [Option('i', "novel-information-by-id", Required = false, HelpText = "Gets the detailed saved information about a novel, including save location")]
+        public Guid NovelInformation { get; set; }
 
         [Option("clear-database", Required = false, HelpText = "Clear all novels and chapters from database.")]
         public bool ClearDatabase { get; set; }
@@ -34,10 +37,7 @@ namespace Benny_Scraper
         public int MangaExtension { get; set; }
 
         [Option("get-extension", Required = false, HelpText = "Gets the saved default extensions for mangas.")]
-        public bool ExtensionType { get; set; }
-
-        [Option('i', "novel-information-by-id", Required = false, HelpText = "Gets the detailed saved information about a novel, including save location")]
-        public Guid NovelInformation { get; set; }
+        public bool ExtensionType { get; set; }        
 
         [Option('f', "single-file", Required = false, HelpText = "Choose how to save Mangas: as a single file containing all chapters (Y), or as individual files for each chapter (N).")]
         public  string SingleFile { get; set; }
