@@ -119,7 +119,7 @@ Usage examples:
     dotnet Benny-Scraper.dll --manga-extension [INT]    ex: 1
     Benny-Scraper -e [INT]
 
-  Update location of a novel by it's id, you can get ID from the --list or -l command:
+  Update location of a novel by its id, you can get ID from the --list or -l command:
     dotnet Benny-Scraper.dll --update-novel-saved-location-by-id [ID]    ex: 00000000-0000-0000-0000-000000000000         You will be prompted to enter the full path for the FOLDER your file(s) are stored
     Benny-Scraper -L [ID]
 
