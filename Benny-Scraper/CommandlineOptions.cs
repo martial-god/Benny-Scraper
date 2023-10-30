@@ -8,7 +8,7 @@ namespace Benny_Scraper
         [Option('l', "list", Required = false, HelpText = "List all novels in database. Options include -P, --page [INT] | -I, --items-per-page [INT] | -S, --search [STRING]")]
         public bool List { get; set; }
 
-        [Option('i', "novel-information-by-id", Required = false, HelpText = "Gets the detailed saved information about a novel, including save location")]
+        [Option('i', "novel-info-by-id", Required = false, HelpText = "Gets the detailed saved information about a novel, including save location")]
         public Guid NovelInformation { get; set; }
 
         [Option("clear-database", Required = false, HelpText = "Clear all novels and chapters from database.")]
