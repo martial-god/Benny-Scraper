@@ -1,6 +1,8 @@
 # Benny-Scraper
 Webscraper that sets out make listening to webnovels easier for myself. Turned into project that let users store all chapters of their favorite Mangas or Webnovels offline in one file. Creates Epubs, at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project
 
+![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)
+
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
 ## IN PROGRESS - ON DEV BRANCH
 - [x] Add a Configuration table to have user have more control of settings. *STILL NEED TO ADD COMMANDLINE OPTIONS TO RETRIEVE VALUES*
@@ -18,7 +20,6 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [x] Try Manga sites
 - [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
 - [ ] Add UI
-
 
 ## Getting Started
 https://www.webnovelpub.com/
