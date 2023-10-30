@@ -48,6 +48,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         /// <returns></returns>
         public async Task UpdateAsync(Novel novel)
         {
+            novel.DateLastModified = DateTime.Now;
             _unitOfWork.Novel.Update(novel);
             await _unitOfWork.SaveAsync();
         }
