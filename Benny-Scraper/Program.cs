@@ -31,6 +31,7 @@ namespace Benny_Scraper
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
         private static IContainer Container { get; set; }
         private const string AreYouSure = "Are you sure you want to {0}? (y/n)";
+        private const int MaxTitleWidth = 50;
         public static IConfiguration Configuration { get; set; }
 
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
@@ -190,6 +191,10 @@ namespace Benny_Scraper
             {
                 await UpdateNovelSavedLocationByIdAsync(options.UpdateNovelSavedLocationById);
             }
+            else if (options.NovelInformation != Guid.Empty)
+            {
+                await DisplayNovelInformationAsync(options.NovelInformation);
+            }
             else if (options.ConcurrentRequests > 0)
             {
                 await SetConcurrentRequestsAsync(options.ConcurrentRequests);
@@ -237,6 +242,16 @@ namespace Benny_Scraper
 
         private static async Task ListNovelsAsync(int page, int itemsPerPage, string searchKeyWord)
         {
+            if (page <= 0)
+            {
+                Console.WriteLine("Page number must be greater than 0. Please enter a valid page number");
+                return;
+            }
+            if (itemsPerPage <= 0)
+            {
+                Console.WriteLine("Items per page must be greater than 0. Please enter a valid number of items per page");
+                return;
+            }
             await using var scope = Container.BeginLifetimeScope();
             var novelService = scope.Resolve<INovelService>();
 
@@ -247,13 +262,12 @@ namespace Benny_Scraper
                 return;
             }
             if (!string.IsNullOrEmpty(searchKeyWord))
-                novels = novels.Where(novel => novel.Title.Contains(searchKeyWord));
+                novels = novels.Where(novel => novel.Title.Contains(searchKeyWord, StringComparison.InvariantCultureIgnoreCase));
 
             var paginatedNovels = novels.Skip((page - 1) * itemsPerPage).Take(itemsPerPage);
             int totalPages = (int)Math.Ceiling((double)novels.Count() / itemsPerPage);
 
             int maxNoLength = novels.Count().ToString().Length + 3;  // "3" accounts for ")."
-            int maxSiteNameLength = novels.Max(novel => novel.SiteName?.Length ?? 0);
             int maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
             int maxChapterLength = novels.Max(novel => novel.CurrentChapter?.Length ?? 0);  // New line for max chapter length
             int maxFileTypeLength = novels.Max(novel => novel.FileType.ToString().Length + 3); // +3 for " []"
@@ -262,7 +276,6 @@ namespace Benny_Scraper
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine($"No.".PadRight(maxNoLength) +
                               "ID".PadRight(maxIdLength + 2) +
-                              "Site".PadRight(maxSiteNameLength + 2) +
                               "Title [FileType]".PadRight(maxTitleLength + 2) +
                               "Current Chapter".PadRight(maxChapterLength + 2));
             Console.ResetColor();
@@ -272,24 +285,34 @@ namespace Benny_Scraper
             {
                 var countStr = $"{++count}).".PadRight(maxNoLength);
                 var idStr = novel.Id.ToString().PadRight(maxIdLength);
-                var siteNameStr = (novel.SiteName).PadRight(maxSiteNameLength);
-                var titleStr = $"{TruncateTitle(novel.Title, 57 - maxFileTypeLength)} [{novel.FileType}]".PadRight(maxTitleLength + maxFileTypeLength);
+
+                var truncatedTitle = TruncateTitle(novel.Title, maxTitleLength - novel.FileType.ToString().Length - 3);  // -3 for the space, brackets, and the fileType itself
+                var titleStr = $"{truncatedTitle} [{novel.FileType}]";
+                titleStr = titleStr.PadRight(maxTitleLength + maxFileTypeLength);
+
                 var chapterStr = (novel.CurrentChapter ?? "N/A").PadRight(maxChapterLength);  // New line for chapter string
+
                 if (novel.LastChapter)
                     Console.ForegroundColor = ConsoleColor.Green;
                 else
                     Console.ResetColor();
-                Console.WriteLine($"{countStr}{idStr}  {siteNameStr}  {titleStr}  {chapterStr}");
+                Console.WriteLine($"{countStr}{idStr}  {titleStr}  {chapterStr}");
                 if (novel.LastChapter)
                     Console.ResetColor();
             }
 
+
             Console.WriteLine();
             Console.WriteLine($"Total: {novels.Count()}   Novels Completed: {novels.Count(novel => novel.LastChapter == true)}");
 
+            if (totalPages == 1)
+                return;
             Console.WriteLine($"Showing page {page} of {totalPages}");
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.WriteLine("[N]ext page, [P]revious page, [J]ump to page, [Q]uit");
+            Console.ResetColor();
             var userInput = Console.ReadKey();
+            Console.WriteLine();
 
             switch (userInput.KeyChar)
             {
@@ -315,7 +338,7 @@ namespace Benny_Scraper
 
                 case 'J':
                 case 'j':
-                    Console.WriteLine("Enter the page number:");
+                    Console.Write("Enter the page number: ");
                     if (int.TryParse(Console.ReadLine(), out int selectedPage) && selectedPage > 0 && selectedPage <= totalPages)
                     {
                         page = selectedPage;
@@ -344,7 +367,7 @@ namespace Benny_Scraper
             if (string.IsNullOrEmpty(title) || title.Length <= maxLength)
                 return title;
 
-            return title.Substring(0, maxLength) + "...";
+            return title.Substring(0, maxLength - 3) + "..."; // -3 to account for "..."
         }
 
 
@@ -588,6 +611,47 @@ namespace Benny_Scraper
             {
                 Logger.Error($"Exception when trying to rename database file. {ex.Message}");
             }
+        }
+
+        public static async Task DisplayNovelInformationAsync(Guid novelId)
+        {
+            using var scope = Container.BeginLifetimeScope();
+            var novelService = scope.Resolve<INovelService>();
+
+            Novel novel = await novelService.GetByIdAsync(novelId);
+            if (novel == null)
+            {
+                Console.WriteLine($"No novel found for ID: {novelId}");
+                return;
+            }
+
+            var details = new List<KeyValuePair<string, string>>
+            {
+                new("ID", novel.Id.ToString()),
+                new("Title", novel.Title),
+                new("Author", novel.Author ?? "N/A"),
+                new("Site Name", novel.SiteName),
+                new("URL", novel.Url),
+                new("Genre(s)", novel.Genre ?? "N/A"),
+                new("Current Chapter", novel.CurrentChapter ?? "N/A"),
+                new("Current Chapter Url", novel.CurrentChapterUrl ?? "N/A"),
+                new("Total Chapters", novel.TotalChapters.ToString()),
+                new("Date Created", novel.DateCreated.ToShortDateString()),
+                new("Last Modified", novel.DateLastModified.ToShortDateString()),
+                new("Status", !string.IsNullOrEmpty(novel.Status) ? novel.Status : "N/A"),
+                new("Save Location", novel.SaveLocation ?? "N/A"),
+                new("File Type", Enum.GetName(typeof(NovelFileType), novel.FileType) ?? "EPUB"),
+                new("Saved As Single File", novel.SavedFileIsSplit ? "Yes" : "No")
+            };
+
+            Console.WriteLine("NOVEL INFORMATION:");
+            Console.WriteLine();
+            Console.WriteLine("-------------------");
+            foreach (var detail in details)
+            {
+                Console.WriteLine($"{detail.Key.PadRight(20)} {detail.Value}");
+            }
+            Console.WriteLine("-------------------");
         }
 
         #endregion
