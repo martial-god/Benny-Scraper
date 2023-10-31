@@ -53,5 +53,8 @@ namespace Benny_Scraper
 
         [Option('S', "search", Required = false, Hidden = true, HelpText = "Search for novel by Title, can seach by partial name [STRING].")]
         public string SearchKeyword { get; set; }
+
+        [Option('u', "upgrade", Required = false, HelpText = "Upgrade the application to the latest version.")]
+        public bool Upgrade { get; set; }
     }
 }

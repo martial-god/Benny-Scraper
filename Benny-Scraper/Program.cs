@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 using Autofac;
 using Benny_Scraper.BusinessLogic;
@@ -178,6 +179,10 @@ namespace Benny_Scraper
                 var confirmation = Console.ReadLine();
                 if (confirmation.ToLowerInvariant() == "y")
                     await ClearDatabaseAsync();
+            }
+            else if (options.Upgrade)
+            {
+                await CheckAndUpgrade();
             }
             else if (options.DeleteNovelById != Guid.Empty)
             {
@@ -652,6 +657,95 @@ namespace Benny_Scraper
                 Console.WriteLine($"{detail.Key.PadRight(20)} {detail.Value}");
             }
             Console.WriteLine("-------------------");
+        }
+
+        private static async Task CheckAndUpgrade()
+        {
+            using HttpClient client = new HttpClient();
+            string url = "https://api.github.com/repos/martial-god/Benny-Scraper/releases/latest";
+            client.DefaultRequestHeaders.Add("User-Agent", "Benny-Scraper");  // GitHub API requires a User-Agent
+
+            try
+            {
+                var response = await client.GetStringAsync(url);
+                var jsonResponse = Newtonsoft.Json.Linq.JObject.Parse(response);
+
+                string latestVersion = jsonResponse["tag_name"].ToString();
+                string currentVersion = "v1.0.0";  // Replace with your app's current version
+
+                if (string.Compare(latestVersion, currentVersion, StringComparison.InvariantCultureIgnoreCase) > 0)
+                {
+                    Console.WriteLine($"New version {latestVersion} available. Upgrading...");
+
+                    string downloadUrl = jsonResponse["assets"][0]["browser_download_url"].ToString();
+                    string installDir = AppDomain.CurrentDomain.BaseDirectory;
+
+                    if (await DownloadAndUpgradeApp(downloadUrl, installDir))
+                        Console.WriteLine($"Upgraded to version {latestVersion}");
+                    else
+                        Console.WriteLine("Upgrade failed.");
+                }
+                else
+                    Console.WriteLine("You are on the latest version.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking for updates: {ex.Message}");
+            }
+        }
+
+        private static async Task<bool> DownloadAndUpgradeApp(string downloadUrl, string installDirectory)
+        {
+            string tempFile = Path.Combine(Path.GetTempPath(), "appUpdate.zip");
+
+            using (var client = new HttpClient())
+            {
+                var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseContentRead);
+
+                using (var fs = new FileStream(tempFile, FileMode.Create))
+                {
+                    await response.Content.CopyToAsync(fs);
+                }
+            }
+
+            try
+            {
+                // Extract the ZIP
+                string tempDirectory = Path.Combine(Path.GetTempPath(), "appUpdate");
+                if (Directory.Exists(tempDirectory))
+                    Directory.Delete(tempDirectory, true);
+                ZipFile.ExtractToDirectory(tempFile, tempDirectory);
+
+                // Stop services or processes if necessary
+
+                // Replace files
+                foreach (var file in Directory.GetFiles(tempDirectory))
+                {
+                    string destFile = Path.Combine(installDirectory, Path.GetFileName(file));
+                    if (File.Exists(destFile))
+                        File.Delete(destFile);
+                    File.Move(file, destFile);
+                }
+
+                foreach (var dir in Directory.GetDirectories(tempDirectory))
+                {
+                    string destDir = Path.Combine(installDirectory, new DirectoryInfo(dir).Name);
+                    Directory.Move(dir, destDir);
+                }
+
+                // Clean up
+                File.Delete(tempFile);
+                Directory.Delete(tempDirectory, true);
+
+                // Restart services or application if necessary
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during upgrade: {ex.Message}");
+                return false;
+            }
         }
 
         #endregion

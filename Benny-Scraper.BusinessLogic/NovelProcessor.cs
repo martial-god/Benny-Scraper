@@ -190,7 +190,7 @@ namespace Benny_Scraper.BusinessLogic
         {
             string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(novel.Title, userOutputDirectory);
 
-            if (newChapters.All(chapter => chapter?.Pages == null) && novel.FileType != NovelFileType.Epub)
+            if (newChapters.All(chapter => chapter?.Pages == null) && novel.FileType == NovelFileType.Epub)
             {
                 novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
                 await _novelService.UpdateAndAddChaptersAsync(novel, newChapters);

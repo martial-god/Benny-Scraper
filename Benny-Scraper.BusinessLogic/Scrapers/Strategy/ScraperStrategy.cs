@@ -310,7 +310,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
                 Logger.Debug($"Sending request to {uri}");
                 var response = await _client.SendAsync(requestMessage);
-                Logger.Info($"Response status code: {response.StatusCode}");
                 if (!response.IsSuccessStatusCode)
                 {
                     if (response.StatusCode == HttpStatusCode.TooManyRequests && (int)context["RetryCount"] >= MaxRetries)
@@ -325,6 +324,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 var htmlDocument = new HtmlDocument();
                 htmlDocument.LoadHtml(content);
+
+                var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+                if (canonicalNode != null)
+                {
+                    var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
+                    if (!string.IsNullOrEmpty(canonicalUrl) && canonicalUrl != uri.ToString())
+                    {
+                        Logger.Info($"Canonical URL detected. Old URL: {uri}, Canonical URL: {canonicalUrl}");
+                        uri = new Uri(canonicalUrl);  // Update the Uri for next request
+                    }
+                }
+
                 return htmlDocument;
             }, new Context { ["RetryCount"] = 0 });
         }
