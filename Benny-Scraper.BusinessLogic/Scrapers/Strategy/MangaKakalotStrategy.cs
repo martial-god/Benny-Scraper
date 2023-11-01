@@ -17,7 +17,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
             queryBuilder.Append(novelId);
             Uri uriQueryForChapterUrls = new Uri(queryBuilder.ToString());
-            var htmlDocumentForChapterUrls = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
+            var (htmlDocumentForChapterUrls, uri) = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
 
             var attributesToFetch = new List<Attr>()
             {
@@ -66,11 +66,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Getting novel data for {this.GetType().Name}");
             SetBaseUri(_scraperData.SiteTableOfContents);
 
-            var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
 
             try
             {
                 NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
+                novelDataBuffer.NovelUrl = uri.ToString();
 
                 return novelDataBuffer;
             }

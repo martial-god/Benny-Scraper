@@ -58,11 +58,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Getting novel data for {this.GetType().Name}");
             SetBaseUri(_scraperData.SiteTableOfContents);
 
-            var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
 
             try
             {
                 NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
+                novelDataBuffer.NovelUrl = uri.ToString();
 
                 return novelDataBuffer;
             }

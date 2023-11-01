@@ -61,6 +61,7 @@ namespace Benny_Scraper.Models
             Description = new List<string>();
             Genres = new List<string>();
             AlternativeNames = new List<string>();
+            NovelUrl = string.Empty;
         }
 
         public string Title { get; set; }
@@ -79,6 +80,7 @@ namespace Benny_Scraper.Models
         public string CurrentChapterUrl { get; set; }
         public string FirstChapter { get; set; }
         public byte[]? ThumbnailImage { get; set; }
+        public string NovelUrl { get; set; }
 
         public void Dispose()
         {

@@ -184,6 +184,10 @@ namespace Benny_Scraper.BusinessLogic
             novel.TotalChapters = novel.Chapters.Count;
             novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title;
             novel.CurrentChapterUrl = novel.Chapters.LastOrDefault()?.Url;
+            if (!string.IsNullOrEmpty(novelDataBuffer.NovelUrl))
+                novel.Url = novelDataBuffer.NovelUrl;
+            if (novelDataBuffer.Genres.Count != 0)
+                novel.Genre = string.Join(", ", novelDataBuffer.Genres);
         }
 
         private async Task HandleFileTypeUpdatesAsync(Novel novel, NovelDataBuffer novelDataBuffer, IEnumerable<ChapterDataBuffer> chapterDataBuffers, List<Chapter> newChapters, Configuration configuration, string userOutputDirectory)
@@ -222,6 +226,12 @@ namespace Benny_Scraper.BusinessLogic
                 Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
                 return true;
             }
+            var lastChapter = novel.Chapters.OrderBy(chapter => chapter.Number).ToList().Last();
+            if (lastChapter.Url == novelDataBuffer.CurrentChapterUrl && lastChapter.Title == novelDataBuffer.MostRecentChapterTitle)
+            {
+                Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
+                return true;
+            }
             return false;
         }
 
@@ -256,7 +266,7 @@ namespace Benny_Scraper.BusinessLogic
             {
                 Title = novelDataBuffer.Title ?? string.Empty,
                 Author = novelDataBuffer.Author,
-                Url = novelTableOfContentsUri.ToString(),
+                Url = novelTableOfContentsUri.ToString(), // to handle stale urls, make sure to handle the case when users are able to update from files
                 Genre = string.Join(", ", novelDataBuffer.Genres),
                 Description = string.Join(" ", novelDataBuffer.Description),
                 DateCreated = DateTime.Now,

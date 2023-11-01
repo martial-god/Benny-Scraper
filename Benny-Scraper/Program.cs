@@ -200,6 +200,10 @@ namespace Benny_Scraper
             {
                 await DisplayNovelInformationAsync(options.NovelInformation);
             }
+            else if (options.NovelExtensionById != Guid.Empty)
+            {
+                await UpdateNovelFileType(options.NovelExtensionById);
+            }
             else if (options.ConcurrentRequests > 0)
             {
                 await SetConcurrentRequestsAsync(options.ConcurrentRequests);
@@ -745,6 +749,44 @@ namespace Benny_Scraper
             {
                 Console.WriteLine($"Error during upgrade: {ex.Message}");
                 return false;
+            }
+        }
+
+        private static async Task UpdateNovelFileType(Guid id)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var novelService = scope.Resolve<INovelService>();
+                var novel = await novelService.GetByIdAsync(id);
+
+                if (novel != null)
+                {
+                    Console.WriteLine($"Current file type for novel: {novel.FileType}");
+                    var extensions = Enum.GetValues(typeof(NovelFileType)).Cast<NovelFileType>().ToList();
+
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+                    Console.WriteLine($"Available extensions: {string.Join(", ", extensions.Select((ext, index) => $"({index}) {ext}"))}");
+                    Console.ResetColor();
+
+                    Console.WriteLine("Please enter the file type as a number you want to change the novel to.");
+                    string fileType = Console.ReadLine();
+
+                    if (int.TryParse(fileType, out int fileTypeInt) && Enum.IsDefined(typeof(NovelFileType), fileTypeInt))
+                    {
+                        novel.FileType = (NovelFileType)fileTypeInt;
+                        await novelService.UpdateAsync(novel);
+                        Console.WriteLine($"Novel file type updated to: {novel.FileType}");
+                    }
+                    else
+                        Console.WriteLine("Invalid file type entered.");
+                }
+                else
+                    Console.WriteLine($"No novel found for ID: {id}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when trying to update novel file type. {ex.Message}");
             }
         }
 

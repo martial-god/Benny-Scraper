@@ -32,6 +32,9 @@ namespace Benny_Scraper
         [Option('n', "novel-save-location", Required = false, HelpText = "Set novel-specific save location [PATH]. Overrides 'save-location'.")]
         public string NovelSaveLocation { get; set; }
 
+        [Option('x', "novel-extension-by-id", Required = false, HelpText = "Set Extension/File type of a saved novel by using the [ID]. 0 - EPUB, 1 - PDF, 2 -CBZ.")]
+        public Guid NovelExtensionById { get; set; }
+
         [Option('e', "manga-extension", Required = false, Default = -1, HelpText = "Default extension for mangas (any image based novel) [INT] *count starts a 0*. Default is PDF.")]
         [Range(0, 6, ErrorMessage = "Value for {0} must be between {1} and {2}.")] // set to -1 to have a default value that would be false when checking to avoid invalid options using this
         public int MangaExtension { get; set; }
