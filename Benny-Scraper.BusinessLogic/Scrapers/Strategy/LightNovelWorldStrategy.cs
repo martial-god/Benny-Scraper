@@ -52,12 +52,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             SetBaseUri(_scraperData.SiteTableOfContents);
 
-            var htmlDocument = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
             var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
+            novelDataBuffer.NovelUrl = uri.ToString();
 
-            _chaptersUri = new Uri(_scraperData.SiteTableOfContents + "/chapters");
+            _chaptersUri = new Uri(uri + "/chapters");
 
-            htmlDocument = await LoadHtmlAsync(_chaptersUri);
+            (htmlDocument, uri) = await LoadHtmlAsync(_chaptersUri);
 
             var decodedHtmlDocument = DecodeHtml(htmlDocument);
 

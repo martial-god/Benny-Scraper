@@ -274,18 +274,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return _scraperData.SiteConfig ?? throw new NullReferenceException("SiteConfiguration is null");
         }
 
-        public async Task<HtmlDocument> LoadHtmlPublicAsync(Uri uri)
+        public async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlPublicAsync(Uri uri)
         {
             return await LoadHtmlAsync(uri);
         }
 
-        protected static async Task<HtmlDocument> LoadHtmlAsync(Uri uri)
+        protected static async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 
             var retryPolicy = Policy
                 .Handle<HttpRequestException>()
-                .OrResult<HtmlDocument>(htmlDoc => htmlDoc == null) // Retry if the result is null
+                .OrResult<(HtmlDocument, Uri)>(result => result.Item1 == null) // Retry if the result is null
                 .WaitAndRetryAsync(MaxRetries, retryAttempt =>
                     TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // exponential back-off
                     (outcome, timeSpan, retryCount, context) =>
@@ -310,14 +310,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
                 Logger.Debug($"Sending request to {uri}");
                 var response = await _client.SendAsync(requestMessage);
-                Logger.Info($"Response status code: {response.StatusCode}");
                 if (!response.IsSuccessStatusCode)
                 {
                     if (response.StatusCode == HttpStatusCode.TooManyRequests && (int)context["RetryCount"] >= MaxRetries)
-                    {
-                        // Skip this chapter and return null
-                        return null;
-                    }
+                        return (null, uri);
                     throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts. Status code: {response.StatusCode}");
                 }
                 response.EnsureSuccessStatusCode();
@@ -325,7 +321,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 var htmlDocument = new HtmlDocument();
                 htmlDocument.LoadHtml(content);
-                return htmlDocument;
+
+                var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+                if (canonicalNode != null)
+                {
+                    var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
+                    if (!string.IsNullOrEmpty(canonicalUrl) && canonicalUrl != uri.ToString())
+                    {
+                        Logger.Info($"Canonical URL detected. Old URL: {uri}, Canonical URL: {canonicalUrl}");
+                        uri = new Uri(canonicalUrl);  // Update the Uri for next request
+                    }
+                }
+
+                return (htmlDocument, uri);
             }, new Context { ["RetryCount"] = 0 });
         }
 
@@ -411,7 +419,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 try
                 {
                     Logger.Info($"Navigating to {tableOfContentUrl}");
-                    var htmlDocument = await LoadHtmlAsync(new Uri(tableOfContentUrl));
+                    var (htmlDocument, uri) = await LoadHtmlAsync(new Uri(tableOfContentUrl));
 
                     List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
                     if (chapterUrlsOnContentPage.Any())
@@ -445,7 +453,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 try
                 {
                     Logger.Info($"Navigating to {tableOfContentUrl}");
-                    HtmlDocument htmlDocument = await LoadHtmlAsync(new Uri(tableOfContentUrl));
+                    (HtmlDocument htmlDocument, Uri uri) = await LoadHtmlAsync(new Uri(tableOfContentUrl));
 
                     List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
                     if (chapterUrlsOnContentPage.Any())
@@ -719,7 +727,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             try
             {
                 Logger.Info($"Navigating to {url}");
-                var htmlDocument = await LoadHtmlAsync(new Uri(url));
+                var (htmlDocument, uri) = await LoadHtmlAsync(new Uri(url));
                 Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
                 stopwatch.Restart();
 

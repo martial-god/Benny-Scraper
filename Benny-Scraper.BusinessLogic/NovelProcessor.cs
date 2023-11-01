@@ -184,13 +184,17 @@ namespace Benny_Scraper.BusinessLogic
             novel.TotalChapters = novel.Chapters.Count;
             novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title;
             novel.CurrentChapterUrl = novel.Chapters.LastOrDefault()?.Url;
+            if (!string.IsNullOrEmpty(novelDataBuffer.NovelUrl))
+                novel.Url = novelDataBuffer.NovelUrl;
+            if (novelDataBuffer.Genres.Count != 0)
+                novel.Genre = string.Join(", ", novelDataBuffer.Genres);
         }
 
         private async Task HandleFileTypeUpdatesAsync(Novel novel, NovelDataBuffer novelDataBuffer, IEnumerable<ChapterDataBuffer> chapterDataBuffers, List<Chapter> newChapters, Configuration configuration, string userOutputDirectory)
         {
             string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(novel.Title, userOutputDirectory);
 
-            if (newChapters.All(chapter => chapter?.Pages == null) && novel.FileType != NovelFileType.Epub)
+            if (newChapters.All(chapter => chapter?.Pages == null) && novel.FileType == NovelFileType.Epub)
             {
                 novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
                 await _novelService.UpdateAndAddChaptersAsync(novel, newChapters);
@@ -218,6 +222,12 @@ namespace Benny_Scraper.BusinessLogic
         private bool IsNovelUpToDate(Novel novel, NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)
         {
             if (novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl && novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
+            {
+                Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
+                return true;
+            }
+            var lastChapter = novel.Chapters.OrderBy(chapter => chapter.Number).ToList().Last();
+            if (lastChapter.Url == novelDataBuffer.CurrentChapterUrl && lastChapter.Title == novelDataBuffer.MostRecentChapterTitle)
             {
                 Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
                 return true;
@@ -256,7 +266,7 @@ namespace Benny_Scraper.BusinessLogic
             {
                 Title = novelDataBuffer.Title ?? string.Empty,
                 Author = novelDataBuffer.Author,
-                Url = novelTableOfContentsUri.ToString(),
+                Url = novelTableOfContentsUri.ToString(), // to handle stale urls, make sure to handle the case when users are able to update from files
                 Genre = string.Join(", ", novelDataBuffer.Genres),
                 Description = string.Join(" ", novelDataBuffer.Description),
                 DateCreated = DateTime.Now,
