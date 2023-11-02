@@ -33,6 +33,7 @@ namespace Benny_Scraper
         private static IContainer Container { get; set; }
         private const string AreYouSure = "Are you sure you want to {0}? (y/n)";
         private const int MaxTitleWidth = 50;
+        private const string ProgramVersion = "v1.1.0";
         public static IConfiguration Configuration { get; set; }
 
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
@@ -675,7 +676,7 @@ namespace Benny_Scraper
                 var jsonResponse = Newtonsoft.Json.Linq.JObject.Parse(response);
 
                 string latestVersion = jsonResponse["tag_name"].ToString();
-                string currentVersion = "v1.0.0";  // Replace with your app's current version
+                string currentVersion = ProgramVersion; // figure out how to get the current version from csproj
 
                 if (string.Compare(latestVersion, currentVersion, StringComparison.InvariantCultureIgnoreCase) > 0)
                 {
