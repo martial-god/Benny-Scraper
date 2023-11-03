@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using System.Xml;
 using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
@@ -33,7 +34,10 @@ namespace Benny_Scraper
         private static IContainer Container { get; set; }
         private const string AreYouSure = "Are you sure you want to {0}? (y/n)";
         private const int MaxTitleWidth = 50;
-        private const string ProgramVersion = "v1.1.0";
+        private const string ProgramVersion = "v1.1.1";
+        private const string ReleaseUrl = "https://api.github.com/repos/martial-god/Benny-Scraper/releases/latest";
+        private const string MainProject = "Benny-Scraper.csproj";
+
         public static IConfiguration Configuration { get; set; }
 
         // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
@@ -655,7 +659,6 @@ namespace Benny_Scraper
             };
 
             Console.WriteLine("NOVEL INFORMATION:");
-            Console.WriteLine();
             Console.WriteLine("-------------------");
             foreach (var detail in details)
             {
@@ -667,8 +670,8 @@ namespace Benny_Scraper
         private static async Task CheckAndUpgrade()
         {
             using HttpClient client = new HttpClient();
-            string url = "https://api.github.com/repos/martial-god/Benny-Scraper/releases/latest";
-            client.DefaultRequestHeaders.Add("User-Agent", "Benny-Scraper");  // GitHub API requires a User-Agent
+            string url = ReleaseUrl;
+            client.DefaultRequestHeaders.Add("User-Agent", "Benny-Scraper");
 
             try
             {
@@ -676,7 +679,8 @@ namespace Benny_Scraper
                 var jsonResponse = Newtonsoft.Json.Linq.JObject.Parse(response);
 
                 string latestVersion = jsonResponse["tag_name"].ToString();
-                string currentVersion = ProgramVersion; // figure out how to get the current version from csproj
+                string currentVersion = ProgramVersion;
+                Console.WriteLine($"Current version: {currentVersion}");
 
                 if (string.Compare(latestVersion, currentVersion, StringComparison.InvariantCultureIgnoreCase) > 0)
                 {
@@ -715,7 +719,6 @@ namespace Benny_Scraper
 
             try
             {
-                // Extract the ZIP
                 string tempDirectory = Path.Combine(Path.GetTempPath(), "appUpdate");
                 if (Directory.Exists(tempDirectory))
                     Directory.Delete(tempDirectory, true);
@@ -723,7 +726,6 @@ namespace Benny_Scraper
 
                 // Stop services or processes if necessary
 
-                // Replace files
                 foreach (var file in Directory.GetFiles(tempDirectory))
                 {
                     string destFile = Path.Combine(installDirectory, Path.GetFileName(file));
@@ -738,11 +740,8 @@ namespace Benny_Scraper
                     Directory.Move(dir, destDir);
                 }
 
-                // Clean up
                 File.Delete(tempFile);
                 Directory.Delete(tempDirectory, true);
-
-                // Restart services or application if necessary
 
                 return true;
             }
@@ -790,7 +789,6 @@ namespace Benny_Scraper
                 Logger.Error($"Exception when trying to update novel file type. {ex.Message}");
             }
         }
-
         #endregion
 
         #region Setup
