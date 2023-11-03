@@ -6,7 +6,6 @@
     },
     "Benny-Scraper": {
       "commandName": "Project",
-      "commandLineArgs": "-u",
       "nativeDebugging": true
     }
   }
