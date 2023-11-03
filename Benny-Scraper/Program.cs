@@ -32,11 +32,7 @@ namespace Benny_Scraper
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
         private static IContainer Container { get; set; }
-        private const string AreYouSure = "Are you sure you want to {0}? (y/n)";
-        private const int MaxTitleWidth = 50;
-        private const string ProgramVersion = "v1.1.1";
-        private const string ReleaseUrl = "https://api.github.com/repos/martial-god/Benny-Scraper/releases/latest";
-        private const string MainProject = "Benny-Scraper.csproj";
+        private static readonly string AreYouSure = "Are you sure you want to {0}? (y/n)";
 
         public static IConfiguration Configuration { get; set; }
 
@@ -184,10 +180,6 @@ namespace Benny_Scraper
                 var confirmation = Console.ReadLine();
                 if (confirmation.ToLowerInvariant() == "y")
                     await ClearDatabaseAsync();
-            }
-            else if (options.Upgrade)
-            {
-                await CheckAndUpgrade();
             }
             else if (options.DeleteNovelById != Guid.Empty)
             {
@@ -667,87 +659,6 @@ namespace Benny_Scraper
             Console.WriteLine("-------------------");
         }
 
-        private static async Task CheckAndUpgrade()
-        {
-            using HttpClient client = new HttpClient();
-            string url = ReleaseUrl;
-            client.DefaultRequestHeaders.Add("User-Agent", "Benny-Scraper");
-
-            try
-            {
-                var response = await client.GetStringAsync(url);
-                var jsonResponse = Newtonsoft.Json.Linq.JObject.Parse(response);
-
-                string latestVersion = jsonResponse["tag_name"].ToString();
-                string currentVersion = ProgramVersion;
-                Console.WriteLine($"Current version: {currentVersion}");
-
-                if (string.Compare(latestVersion, currentVersion, StringComparison.InvariantCultureIgnoreCase) > 0)
-                {
-                    Console.WriteLine($"New version {latestVersion} available. Upgrading...");
-
-                    string downloadUrl = jsonResponse["assets"][0]["browser_download_url"].ToString();
-                    string installDir = AppDomain.CurrentDomain.BaseDirectory;
-
-                    if (await DownloadAndUpgradeApp(downloadUrl, installDir))
-                        Console.WriteLine($"Upgraded to version {latestVersion}");
-                    else
-                        Console.WriteLine("Upgrade failed.");
-                }
-                else
-                    Console.WriteLine("You are on the latest version.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error checking for updates: {ex.Message}");
-            }
-        }
-
-        private static async Task<bool> DownloadAndUpgradeApp(string downloadUrl, string installDirectory)
-        {
-            string tempFile = Path.Combine(Path.GetTempPath(), "appUpdate.zip");
-
-            using (var client = new HttpClient())
-            {
-                var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseContentRead);
-
-                using (var fs = new FileStream(tempFile, FileMode.Create))
-                {
-                    await response.Content.CopyToAsync(fs);
-                }
-            }
-
-            try
-            {
-                string tempDirectory = Path.Combine(Path.GetTempPath(), "appUpdate");
-                if (Directory.Exists(tempDirectory))
-                    Directory.Delete(tempDirectory, true);
-                ZipFile.ExtractToDirectory(tempFile, tempDirectory);
-
-                // Stop services or processes if necessary
-
-                foreach (var file in Directory.GetFiles(tempDirectory))
-                {
-                    string destFile = Path.Combine(installDirectory, Path.GetFileName(file));
-                    if (File.Exists(destFile))
-                        File.Delete(destFile);
-                    File.Move(file, destFile);
-                }
-
-                foreach (var dir in Directory.GetDirectories(tempDirectory))
-                {
-                    string destDir = Path.Combine(installDirectory, new DirectoryInfo(dir).Name);
-                    Directory.Move(dir, destDir);
-                }
-
-                File.Delete(tempFile);
-                Directory.Delete(tempDirectory, true);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error during upgrade: {ex.Message}");
                 return false;
             }
         }
