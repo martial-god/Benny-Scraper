@@ -97,7 +97,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 string introFileName = $"000{chapterIndex}_intro.xhtml";
                 string introFilePath = Path.Combine(textDirectory, introFileName);
 
-                string introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, introDescription);
+                string introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, introDescription, novel.Url);
                 File.WriteAllText(introFilePath, introContent);
 
                 manifestItems += $"<item id=\"intro\" href=\"Text/{introFileName}\" media-type=\"application/xhtml+xml\"/>";
