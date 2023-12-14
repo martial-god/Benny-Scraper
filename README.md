@@ -56,6 +56,8 @@ Commands:
                                    -I, --items-per-page [INT]
                                    -S, --search [STRING]
 
+  -U, --update-all             Updates all non-completed novels in database with ones found online. Will only update ones that were not modified the same day.
+
   -i, --novel-info-by-id       Gets the detailed saved information about a novel, including save location
 
   --clear-database             Clear all novels and chapters from database.
@@ -129,7 +131,7 @@ For more information about each command and option, run:
   dotnet Benny-Scraper.dll [COMMAND] --help
 ```
 
-## :sparkles: Contribute to This Project :sparkles:
+## ✨ Contribute to This Project ✨
 Hello fellow developer! :wave:
 
 I'm delighted you're taking an interest in this project. Your skills, insights, and perspective could be invaluable in enhancing what's been built so far. Whether it's new features, bug fixes, or general improvements, every contribution is appreciated. Here's how you can pitch in:
