@@ -22,8 +22,9 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [ ] Add UI
 
 ## Getting Started
-https://www.webnovelpub.com/
+https://lightnovelworld.com
 https://www.novelfull.com/
+https://mangakatana.com/
 1. For both sites, the url for the `Table of Contents` page for the novel is needed. 
 2. *Note* : all epubs will be stored in your Documents folder BennyScrapedNovels/{Novel Name}, *unless changed through command line options*. Get an Epub Reader to read the contents, chrome extensions are available like `EPUB Reader`
 3. Click a novel and copy the url at the top ![chrome_Y234bE9Ce6](https://github.com/martial-god/PageShaver/assets/8980094/31b6190b-439a-4550-aaf3-3b05b3c24a13)![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
