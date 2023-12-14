@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
-using System.IO.Compression;
+using System.Diagnostics.Metrics;
 using System.Text;
-using System.Xml;
 using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
@@ -40,7 +39,7 @@ namespace Benny_Scraper
         static async Task Main(string[] args)
         {
             DeleteOldLogs();
-            SetupLogger();
+            SetupLogger(LogLevel.Info);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();
@@ -73,7 +72,7 @@ namespace Benny_Scraper
             using (var scope = Container.BeginLifetimeScope())
             {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
-                
+
 
                 string instructions = GetInstructions();
 
@@ -181,6 +180,10 @@ namespace Benny_Scraper
                 if (confirmation.ToLowerInvariant() == "y")
                     await ClearDatabaseAsync();
             }
+            else if (options.UpdateAll)
+            {
+                await UpdateAllNovelsAsync(CancellationToken.None);
+            }
             else if (options.DeleteNovelById != Guid.Empty)
             {
                 await DeleteNovelByIdAsync(options.DeleteNovelById);
@@ -233,6 +236,45 @@ namespace Benny_Scraper
             }
             else
                 Console.WriteLine("Invalid command. Please try again.");
+        }
+
+        private static async Task UpdateAllNovelsAsync(CancellationToken cancellation)
+        {
+            if (cancellation.IsCancellationRequested)
+                return;
+            var scope = Container.BeginLifetimeScope();
+            var novelService = scope.Resolve<INovelService>();
+            var novelProcessor = scope.Resolve<INovelProcessor>();
+            var updatedNovels = new List<(int, string)>();
+            var novels = await novelService.GetAllAsync();
+            var nonCompletedNovels = novels.Where(novel => !novel.LastChapter)
+                .Where(novel => novel.SiteName != "mangareader.to" && novel.DateLastModified.Date != DateTime.Now.Date).ToList(); // issue with mangareader.to
+            // change default log level to error
+            SetupLogger(LogLevel.Info);
+            int count = 0;
+            foreach (var novel in nonCompletedNovels)
+            {
+                if (cancellation.IsCancellationRequested)
+                    break;
+                try
+                {
+                    ++count;
+                    await novelProcessor.ProcessNovelAsync(new Uri(novel.Url));
+                    updatedNovels.Add((count, novel.Title));
+                }
+                catch (Exception ex)
+                {
+
+                    Logger.Error($"Exception when trying to update novel. {ex.Message}");
+                    Console.WriteLine("Completed novels: " + count);
+                    foreach (var updateNovel in updatedNovels)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"{updateNovel.Item1}) {updateNovel.Item2}");
+                    }
+                }
+            }
+            Console.WriteLine("Completed novels: " + count);
         }
 
         private static Task HandleParseErrors(IEnumerable<Error> errors)
@@ -699,7 +741,7 @@ namespace Benny_Scraper
         #endregion
 
         #region Setup
-        private static void SetupLogger()
+        private static void SetupLogger(LogLevel logLevel)
         {
             var config = new NLog.Config.LoggingConfiguration();
 
@@ -727,7 +769,7 @@ namespace Benny_Scraper
                 NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Fatal"),
                 ConsoleOutputColor.White, ConsoleOutputColor.Red));
 
-            config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
+            config.AddRule(logLevel, LogLevel.Fatal, logconsole);
             config.AddRule(LogLevel.Info, LogLevel.Fatal, logfile);
 
             NLog.LogManager.Configuration = config;

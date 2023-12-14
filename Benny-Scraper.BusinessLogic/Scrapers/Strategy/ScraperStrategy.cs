@@ -328,7 +328,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
                     if (!string.IsNullOrEmpty(canonicalUrl) && canonicalUrl != uri.ToString())
                     {
-                        Logger.Info($"Canonical URL detected. Old URL: {uri}, Canonical URL: {canonicalUrl}");
+                        Logger.Debug($"Canonical URL detected. Old URL: {uri}, Canonical URL: {canonicalUrl}");
                         uri = new Uri(canonicalUrl);  // Update the Uri for next request
                     }
                 }
@@ -357,7 +357,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     using (var fileStream = File.Create(imagePath))
                     {
                         await imageStream.CopyToAsync(fileStream);
-                        Logger.Info($"Downloaded image to temp folder {imagePath}");
+                        Logger.Debug($"Downloaded image to temp folder {imagePath}");
                     }
                     return imagePath;
                 }
@@ -486,7 +486,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 if (_scraperData.SiteConfig.HasImagesForChapterContent)
                 {
-                    Logger.Info("Using Selenium to get chapters data");
+                    Logger.Debug("Using Selenium to get chapters data");
                     IDriverFactory driverFactory = new DriverFactory();
                     var driver = await driverFactory.CreateDriverAsync(chapterUrls.First(), isHeadless: true);
 
@@ -501,10 +501,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var taskResults = await Task.WhenAll(tasks);
                         chapterDataBuffers.AddRange(taskResults);
                         Logger.Info($"Finished getting chapters data. Total chapters: {chapterDataBuffers.Count}");
-                        Logger.Info("Disposing all drivers");
+                        Logger.Debug("Disposing all drivers");
                         Console.WriteLine($"Total drivers: {driverFactory.GetAllDrivers().Count}");
                         driverFactory.DisposeAllDrivers();
-                        Logger.Info("Finished disposing all drivers");
+                        Logger.Debug("Finished disposing all drivers");
                     }
                     catch (Exception ex)
                     {
@@ -512,7 +512,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         if (Directory.Exists(tempImageDirectory))
                         {
                             Directory.Delete(tempImageDirectory, true);
-                            Logger.Info("Finished deleting temp image directory");
+                            Logger.Debug("Finished deleting temp image directory");
                         }
                         else
                         {
@@ -522,15 +522,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     }
                     finally
                     {
-                        Logger.Info("Closing driver");
+                        Logger.Debug("Closing driver");
                         driverFactory.DisposeAllDrivers();
-                        Logger.Info("Finished closing driver");
+                        Logger.Debug("Finished closing driver");
                     }
 
                 }
                 else
                 {
-                    Logger.Info("Using HttpClient to get chapters data");
+                    Logger.Debug("Using HttpClient to get chapters data");
                     foreach (var url in chapterUrls)
                     {
                         await _semaphoreSlim.WaitAsync();
@@ -664,14 +664,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Url = urls
             };
 
-            Logger.Info($"Navigating to {urls}");
+            Logger.Debug($"Navigating to {urls}");
             driver.Navigate().GoToUrl(urls);
             try
             {
-                Logger.Info($"Waiting for images on page {urls} to load.");
+                Logger.Debug($"Waiting for images on page {urls} to load.");
                 WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
                 wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterContent)));
-                Logger.Info("Images have been loaded.");
+                Logger.Warn("Images have been loaded.");
             }
             catch (WebDriverTimeoutException ex)
             {
@@ -702,10 +702,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             chapterDataBuffer.Pages = new List<PageData>();
             foreach (var url in pageUrls)
             {
-                Logger.Info($"Getting page image from {url}");
+                Logger.Debug($"Getting page image from {url}");
                 stopwatch.Reset();
                 var imagePath = await DownloadImageAsync(new Uri(url), tempImageDirectory);
-                Logger.Info($"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                Logger.Debug($"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
                 chapterDataBuffer.Pages.Add(new PageData
                 {
                     Url = url,
@@ -726,7 +726,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
-                Logger.Info($"Navigating to {url}");
+                Logger.Debug($"Navigating to {url}");
                 var (htmlDocument, uri) = await LoadHtmlAsync(new Uri(url));
                 Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
                 stopwatch.Restart();
@@ -743,11 +743,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
                     HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.AlternativeChapterContent);
                     List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
-                    Logger.Info($"Alternate paragraphs count: {alternateParagraphs.Count}");
+                    Logger.Debug($"Alternate paragraphs count: {alternateParagraphs.Count}");
 
                     if (alternateParagraphs.Count > paragraphs.Count)
                     {
-                        Logger.Info($"Alternate paragraphs count is greater than paragraphs count. Using alternate paragraphs");
+                        Logger.Debug($"Alternate paragraphs count is greater than paragraphs count. Using alternate paragraphs");
                         paragraphs = alternateParagraphs;
                     }
                 }

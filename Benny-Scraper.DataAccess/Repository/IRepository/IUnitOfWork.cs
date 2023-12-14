@@ -1,5 +1,7 @@
 ﻿
 
+using Microsoft.EntityFrameworkCore.Storage;
+
 namespace Benny_Scraper.DataAccess.Repository.IRepository
 {
     /// <summary>
@@ -13,5 +15,6 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
         IPageRepository Page { get; }
         IConfigurationRepository Configuration { get; }
         Task<int> SaveAsync();
+        IDbContextTransaction BeginTransaction();
     }
 }
