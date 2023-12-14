@@ -54,7 +54,7 @@ namespace Benny_Scraper.BusinessLogic
 
             if (!IsThereConfigurationForSite(novelTableOfContentsUri))
             {
-                Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. an Stopping application.");
+                Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. Skipping this novel.");
                 return;
             }
 
@@ -79,6 +79,11 @@ namespace Benny_Scraper.BusinessLogic
                 ValidateObject validator = new ValidateObject();
                 var errors = validator.Validate(novel);
                 Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.WriteLine($"Current saved novel chapter: {novel.CurrentChapter}");
+                Console.WriteLine($"Date Created: {novel.DateCreated}");
+                Console.WriteLine($"Date Last Updated: {novel.DateLastModified}\n");
+                Console.ResetColor();
                 await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraperStrategy, configuration);
             }
 
@@ -145,7 +150,11 @@ namespace Benny_Scraper.BusinessLogic
                 return;
 
             if (IsNovelUpToDate(novel, novelDataBuffer, novelTableOfContentsUri))
+            {
+                novel.DateLastModified = DateTime.Now;
+                await _novelService.UpdateAsync(novel);
                 return;
+            }
 
             novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList(); //order chapters by number
             var newChapterUrls = DetermineNewChaptersToScrape(novel, novelDataBuffer);
@@ -221,7 +230,7 @@ namespace Benny_Scraper.BusinessLogic
 
         private bool IsNovelUpToDate(Novel novel, NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)
         {
-            if (novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl && novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
+            if ((novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl) || novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
             {
                 Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
                 return true;

@@ -1,5 +1,6 @@
-﻿using Benny_Scraper.DataAccess.Data;
-using Benny_Scraper.DataAccess.Repository.IRepository;
+﻿using Benny_Scraper.DataAccess.Repository.IRepository;
+using Microsoft.EntityFrameworkCore.Storage;
+using Database = Benny_Scraper.DataAccess.Data.Database;
 
 namespace Benny_Scraper.DataAccess.Repository
 {
@@ -27,6 +28,9 @@ namespace Benny_Scraper.DataAccess.Repository
         {
             return _db.SaveChangesAsync();
         }
-
+        public IDbContextTransaction BeginTransaction()
+        {
+            return _db.Database.BeginTransaction();
+        }
     }
 }
