@@ -258,8 +258,8 @@ namespace Benny_Scraper
                     break;
                 try
                 {
-                    ++count;
                     await novelProcessor.ProcessNovelAsync(new Uri(novel.Url));
+                    ++count;
                     updatedNovels.Add((count, novel.Title));
                 }
                 catch (Exception ex)
@@ -275,6 +275,11 @@ namespace Benny_Scraper
                 }
             }
             Console.WriteLine("Completed novels: " + count);
+            foreach (var updateNovel in updatedNovels)
+            {
+                Console.BackgroundColor = ConsoleColor.Green;
+                Console.WriteLine($"{updateNovel.Item1}) {updateNovel.Item2}");
+            }
         }
 
         private static Task HandleParseErrors(IEnumerable<Error> errors)
