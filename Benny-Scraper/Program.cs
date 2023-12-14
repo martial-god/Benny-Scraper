@@ -624,7 +624,7 @@ namespace Benny_Scraper
                     if (File.Exists(newSaveLocation))
                     {
                         novel.SaveLocation = newSaveLocation;
-                        novelService.UpdateAsync(novel);
+                        await novelService.UpdateAsync(novel);
                         Console.WriteLine($"\nSave location updated: {novel.SaveLocation}");
                     }
                     else
