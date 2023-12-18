@@ -269,17 +269,19 @@ namespace Benny_Scraper
                     Console.WriteLine("Completed novels: " + count);
                     foreach (var updateNovel in updatedNovels)
                     {
-                        Console.BackgroundColor = ConsoleColor.Green;
+                        Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine($"{updateNovel.Item1}) {updateNovel.Item2}");
+                        Console.ResetColor();
                     }
                 }
             }
             Console.WriteLine("Completed novels: " + count);
             foreach (var updateNovel in updatedNovels)
             {
-                Console.BackgroundColor = ConsoleColor.Green;
+                Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"{updateNovel.Item1}) {updateNovel.Item2}");
             }
+            Console.ResetColor();
         }
 
         private static Task HandleParseErrors(IEnumerable<Error> errors)
