@@ -54,8 +54,7 @@ namespace Benny_Scraper.BusinessLogic
 
             if (!IsThereConfigurationForSite(novelTableOfContentsUri))
             {
-                Logger.Error($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. Skipping this novel.");
-                return;
+                throw new Exception($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. Skipping this novel..");
             }
 
             Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
