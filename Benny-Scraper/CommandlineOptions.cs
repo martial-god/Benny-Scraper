@@ -57,7 +57,7 @@ namespace Benny_Scraper
         [Option('S', "search", Required = false, Hidden = true, HelpText = "Search for novel by Title, can seach by partial name [STRING].")]
         public string SearchKeyword { get; set; }
 
-        [Option('U', "update-all", Required = false, Hidden = true, HelpText = "Updates all non-completed novels in database. Will only update ones that were not modified the same day")]
+        [Option('U', "update-all", Required = false, HelpText = "Updates all non-completed novels in database. Will only update ones that were not modified the same day")]
         public bool UpdateAll { get; set; }
     }
 }
