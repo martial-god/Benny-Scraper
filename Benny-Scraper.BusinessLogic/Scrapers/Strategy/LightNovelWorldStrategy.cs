@@ -101,7 +101,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
         {
-            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig.Selectors.TableOfContnetsPaginationListItems);
+            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig.Selectors.TableOfContentsPaginationListItems);
             int paginationCount = paginationNodes.Count;
 
             int pageToStopAt = 1;
