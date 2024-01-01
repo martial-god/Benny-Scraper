@@ -22,13 +22,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Attr.Title,
                 Attr.Author,
-                Attr.Status,
+                Attr.NovelStatus,
                 Attr.Genres,
                 Attr.AlternativeNames,
                 Attr.Description,
                 Attr.ThumbnailUrl,
                 Attr.ChapterUrls,
-                Attr.LatestChapter
+                Attr.CurrentChapter
             };
 
             foreach (var attribute in attributesToFetch)

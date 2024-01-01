@@ -26,27 +26,24 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Attr.Description,
                     Attr.Genres,
                     Attr.AlternativeNames,
-                    Attr.Status,
+                    Attr.NovelStatus,
                     Attr.ThumbnailUrl,
                     Attr.LastTableOfContentsPage,
                     Attr.FirstChapterUrl,
-                    Attr.LatestChapter
+                    Attr.CurrentChapter
                 };
+
                 foreach (var attribute in attributesToFetch)
                 {
                     FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
                 }
 
-                //TODO: Brad: I notice that the name LatestChapter and CurrentChapter are both used to refer to the same thing.
-                //  As is, FetchContentByAttribute(Attr.LatestChapter ...) sets the NovelDataBuffer's CurrentChapterUrl property.
-                //  It is probably best if the two naming schemes are unified, but I don't want to change the data members
-                //  of NovelDataBuffer without consulting you first.
-                var fullLatestChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
+                var fullCurrentChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
                 var fullThumbnailUrl = new Uri(tableOfContents, novelDataBuffer.ThumbnailUrl?.TrimStart('/')).ToString();
                 var fullLastTableOfContentUrl = new Uri(tableOfContents, novelDataBuffer.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
 
                 novelDataBuffer.ThumbnailUrl = fullThumbnailUrl;
-                novelDataBuffer.LastTableOfContentsPageUrl = fullLatestChapterUrl;
+                novelDataBuffer.LastTableOfContentsPageUrl = fullCurrentChapterUrl;
                 novelDataBuffer.LastTableOfContentsPageUrl = fullLastTableOfContentUrl;
             }
         }
@@ -128,6 +125,5 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 throw;
             }
         }
-
     }
 }

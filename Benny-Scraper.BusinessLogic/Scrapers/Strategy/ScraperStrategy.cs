@@ -36,14 +36,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Description,
                 Genres,
                 AlternativeNames,
-                //TODO: 'Status' is ambiguous. Should this attribute and the corresponding data member of NovelDataBuffer be renamed
-                //  to clarify it's purpose?
-                Status,
+                NovelStatus,
                 ThumbnailUrl,
                 LastTableOfContentsPage,
                 ChapterUrls,
                 FirstChapterUrl,
-                LatestChapter
+                CurrentChapter
             }
 
             protected static void FetchContentByAttribute(Attr attr, NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
@@ -84,7 +82,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     case Attr.Description:
                         var descriptionNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.NovelDescription);
                         novelDataBuffer.Description = descriptionNodes.Select(description => HtmlEntity.DeEntitize(description.InnerText.Trim())).ToList();
-                        Console.WriteLine($"Description word count: {novelDataBuffer.Description.Count}");
+                        Console.WriteLine($"Description line count: {novelDataBuffer.Description.Count}");
                         break;
 
                     case Attr.Genres:
@@ -104,11 +102,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         Console.WriteLine($"Checked for alternate names");
                         break;
 
-                    case Attr.Status:
+                    case Attr.NovelStatus:
                         var statusNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.NovelStatus);
                         novelDataBuffer.NovelStatus = statusNode.InnerText.Trim();
                         novelDataBuffer.IsNovelCompleted = novelDataBuffer.NovelStatus.ToLowerInvariant().Contains(scraperData.SiteConfig.CompletedStatus);
-                        Console.WriteLine($"Status: {novelDataBuffer.NovelStatus}");
+                        Console.WriteLine($"NovelStatus: {novelDataBuffer.NovelStatus}");
                         break;
 
                     case Attr.ThumbnailUrl:
@@ -134,11 +132,21 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.LastTableOfContentsPage:
-                        var lastTableOfContentsPageNode =
-                            htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
-                        novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsPageNode.Attributes["href"].Value;
-                        Console.WriteLine($"Last Table of Contents Page: {novelDataBuffer.LastTableOfContentsPageUrl}");
-                        break;
+                        try
+                        {
+                            var lastTableOfContentsPageNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
+                            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsPageNode.Attributes["href"].Value;
+                            Console.WriteLine($"Last Table of Contents Page: {novelDataBuffer.LastTableOfContentsPageUrl}");
+                            break;
+                        }
+                        catch (Exception e)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine($"Failed to get last table of contents page for novel {novelDataBuffer.Title} at url {scraperData.SiteTableOfContents}. Exception: {e}");
+                            Console.ResetColor();
+                            throw;
+                        }
+                        
 
                     case Attr.ChapterUrls:
                         var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.ChapterLinks);
@@ -161,7 +169,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         //TODO: Implement
                         break;
 
-                    case Attr.LatestChapter:
+                    case Attr.CurrentChapter:
                         var latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LatestChapterLink);
                         if (latestChapterNode == null)
                         {
@@ -254,7 +262,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private static int _userAgentIndex = 0;
 
         public abstract Task<NovelDataBuffer> ScrapeAsync();
+        /// <summary>
+        /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
+        /// </summary>
+        /// <param name="htmlDocument"></param>
+        /// <returns></returns>
         public abstract NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
+        /// <summary>
+        /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
+        /// </summary>
+        /// <param name="htmlDocument"></param>
+        /// <returns></returns>
         public virtual Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             // this method should always be overridden, I just needed a default implementation so other Strategies would not require it
@@ -314,7 +332,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     if (response.StatusCode == HttpStatusCode.TooManyRequests && (int)context["RetryCount"] >= MaxRetries)
                         return (null, uri);
-                    throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts. Status code: {response.StatusCode}");
+                    throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts. NovelStatus code: {response.StatusCode}");
                 }
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync();

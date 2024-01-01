@@ -23,13 +23,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Attr.Title,
                 Attr.Author,
-                Attr.Status,
+                Attr.NovelStatus,
                 Attr.Genres,
                 Attr.AlternativeNames,
                 Attr.Description,
                 Attr.ThumbnailUrl,
                 Attr.ChapterUrls,
-                Attr.LatestChapter
+                Attr.CurrentChapter
             };
 
             foreach (var attribute in attributesToFetch)
@@ -45,7 +45,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
                     }
                 }
-                else if (attribute == Attr.LatestChapter)
+                else if (attribute == Attr.CurrentChapter)
                 {
                     FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForChapterUrls, scraperData);
                     novelDataBuffer.CurrentChapterUrl = new Uri(scraperData.BaseUri, novelDataBuffer.CurrentChapterUrl).ToString();

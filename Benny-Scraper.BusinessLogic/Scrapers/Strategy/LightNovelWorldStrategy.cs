@@ -17,11 +17,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     Attr.Title,
                     Attr.Author,
-                    Attr.Status,
+                    Attr.NovelStatus,
                     Attr.Description,
                     Attr.ThumbnailUrl,
                     Attr.Genres,
-                    Attr.LatestChapter
+                    Attr.CurrentChapter
                 };
                 foreach (var attribute in attributesToFetch)
                 {
