@@ -32,6 +32,7 @@ namespace Benny_Scraper.BusinessLogic
             AddSiteToMap("https://mangakakalot.to", new MangaKakalotStrategy());
             AddSiteToMap("https://mangareader.to", new MangaReaderStrategy());
             AddSiteToMap("https://mangakatana.com", new MangaKatanaStrategy());
+            AddSiteToMap("https://noveldrama.com", new NovelDramaStrategy());
         }
         #endregion
 
@@ -52,6 +53,16 @@ namespace Benny_Scraper.BusinessLogic
 
             Logger.Error($"No scraper strategy found for {baseUrl}");
             return null;
+        }
+
+        public List<string> GetSupportedSites()
+        {
+            var websites = new List<string>();
+            foreach (var website in _websiteMap)
+            {
+                websites.Add(website.Key);
+            }
+            return websites;
         }
     }
 }

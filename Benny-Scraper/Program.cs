@@ -73,7 +73,6 @@ namespace Benny_Scraper
             {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
 
-
                 string instructions = GetInstructions();
 
                 Console.ForegroundColor = ConsoleColor.Blue;
@@ -128,14 +127,8 @@ namespace Benny_Scraper
 
         private static string GetInstructions()
         {
-            List<string> supportedSites = new List<string>
-                {
-                    "\nLight Novel World (https://www.lightnovelworld.com/)",
-                    "Novel Full (https://www.novelfull.com/)",
-                    "Mangakakalot (https://mangakakalot.to/)",
-                    "Mangareader (https://www.mangareader.to/)",
-                    "Mangakatana (https://mangakatana.com/)",
-                };
+            HttpNovelScraper httpNovelScraper = new(); //used specifically for getting all supported urls.
+            var supportedSites = httpNovelScraper.GetSupportedSites();
 
             string instructions = "\n" + $@"Welcome to our novel scraper application!
                 Currently, we support the following websites:
@@ -693,7 +686,7 @@ namespace Benny_Scraper
                 new("Total Chapters", novel.TotalChapters.ToString()),
                 new("Date Created", novel.DateCreated.ToShortDateString()),
                 new("Last Modified", novel.DateLastModified.ToShortDateString()),
-                new("Status", !string.IsNullOrEmpty(novel.Status) ? novel.Status : "N/A"),
+                new("NovelStatus", !string.IsNullOrEmpty(novel.Status) ? novel.Status : "N/A"),
                 new("Save Location", novel.SaveLocation ?? "N/A"),
                 new("File Type", Enum.GetName(typeof(NovelFileType), novel.FileType) ?? "EPUB"),
                 new("Saved As Single File", novel.SavedFileIsSplit ? "No" : "Yes")

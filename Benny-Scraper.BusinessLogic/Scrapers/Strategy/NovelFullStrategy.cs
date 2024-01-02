@@ -1,9 +1,6 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
+﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using System.Globalization;
-using NLog;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -26,32 +23,29 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Attr.Description,
                     Attr.Genres,
                     Attr.AlternativeNames,
-                    Attr.Status,
+                    Attr.NovelStatus,
                     Attr.ThumbnailUrl,
                     Attr.LastTableOfContentsPage,
                     Attr.FirstChapterUrl,
-                    Attr.LatestChapter
+                    Attr.CurrentChapter
                 };
+
                 foreach (var attribute in attributesToFetch)
                 {
                     FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
                 }
 
-                //TODO: Brad: I notice that the name LatestChapter and CurrentChapter are both used to refer to the same thing.
-                //  As is, FetchContentByAttribute(Attr.LatestChapter ...) sets the NovelDataBuffer's CurrentChapterUrl property.
-                //  It is probably best if the two naming schemes are unified, but I don't want to change the data members
-                //  of NovelDataBuffer without consulting you first.
-                var fullLatestChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
+                var fullCurrentChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
                 var fullThumbnailUrl = new Uri(tableOfContents, novelDataBuffer.ThumbnailUrl?.TrimStart('/')).ToString();
                 var fullLastTableOfContentUrl = new Uri(tableOfContents, novelDataBuffer.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
 
                 novelDataBuffer.ThumbnailUrl = fullThumbnailUrl;
-                novelDataBuffer.LastTableOfContentsPageUrl = fullLatestChapterUrl;
+                novelDataBuffer.LastTableOfContentsPageUrl = fullCurrentChapterUrl;
                 novelDataBuffer.LastTableOfContentsPageUrl = fullLastTableOfContentUrl;
             }
         }
     }
-    
+
     public class NovelFullStrategy : ScraperStrategy
     {
         public override async Task<NovelDataBuffer> ScrapeAsync()
@@ -60,7 +54,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             SetBaseUri(_scraperData.SiteTableOfContents);
             var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
-            
+
             try
             {
                 NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
@@ -78,8 +72,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
+            int pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, _scraperData.BaseUri);
 
-            int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
             var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_scraperData.SiteTableOfContents, true, pageToStopAt);
 
             novelDataBuffer.ChapterUrls = chapterUrls;
@@ -103,31 +97,5 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return novelDataBuffer;
         }
-
-        private int FetchLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
-        {
-            Logger.Info($"Getting last table of contents page number at {_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage}");
-            try
-            {
-                HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
-                string lastPage = lastPageNode.Attributes[_scraperData.SiteConfig?.Selectors.LastTableOfContentPageNumberAttribute].Value;
-
-                int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
-
-                if (_scraperData.SiteConfig?.PageOffSet > 0)
-                {
-                    lastPageNumber += _scraperData.SiteConfig.PageOffSet;
-                }
-
-                Logger.Info($"Last table of contents page number is {lastPage}");
-                return lastPageNumber;
-            }
-            catch (Exception e)
-            {
-                Logger.Error($"Error when getting last page table of contents page number. {e}");
-                throw;
-            }
-        }
-
     }
 }
