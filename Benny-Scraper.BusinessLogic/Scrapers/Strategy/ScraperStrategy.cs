@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net;
 using System.Text;
+using System.Web;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
@@ -41,7 +42,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 LastTableOfContentsPage,
                 ChapterUrls,
                 FirstChapterUrl,
-                CurrentChapter
+                CurrentChapter,
+                AlternateLastTableOfContentsPage
             }
 
             protected static void FetchContentByAttribute(Attr attr, NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
@@ -397,6 +399,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             throw new HttpRequestException($"Failed to download image from {uri} after {MaxRetries} attempts.");
         }
 
+        #region Url Helpers
+        public bool IsValidHttpUrl(string url)
+        {
+            return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+        }
 
         protected virtual Uri TrimLastUriSegment(Uri siteUri)
         {
@@ -414,6 +421,30 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
             _scraperData.BaseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
         }
+
+        protected static int GetPageNumberFromUrlQuery(string url, Uri baseUri)
+        {
+            Uri uriResult;
+            bool result = Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out uriResult);
+
+            // if the url is relative, then combine it with the base uri
+            if (!uriResult.IsAbsoluteUri)
+                uriResult = new Uri(baseUri, uriResult);
+
+            if (result && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+            {
+                var pageNumberFromQuery = HttpUtility.ParseQueryString(uriResult.Query);
+                if (pageNumberFromQuery.AllKeys.Contains("page"))
+                {
+                    var pageNumber = pageNumberFromQuery["page"];
+                    if (int.TryParse(pageNumber, out int page))
+                        return page;
+                }
+            }
+
+            return -1;
+        }
+        #endregion
 
         /// <summary>
         /// Gets the chapter urls from the table of contents page that requires pagination to get chapters.

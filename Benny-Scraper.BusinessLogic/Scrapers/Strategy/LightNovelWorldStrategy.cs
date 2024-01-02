@@ -1,9 +1,8 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
+﻿using System.Collections.Specialized;
+using System.Web;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using System.Collections.Specialized;
-using System.Web;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -43,7 +42,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     }
     public class LightNovelWorldStrategy : ScraperStrategy
     {
-        private Uri? _chaptersUri;
+        private Uri? _chaptersUri; // the url of the chapters pages are different from the table of contents page
         private readonly string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
 
         public override async Task<NovelDataBuffer> ScrapeAsync()

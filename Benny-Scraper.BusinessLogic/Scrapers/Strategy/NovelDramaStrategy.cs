@@ -1,7 +1,7 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using System.Globalization;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using System.Globalization;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 
@@ -40,6 +40,9 @@ public class NovelDramaInitializer : NovelDataInitializer
 
 public class NovelDramaStrategy : ScraperStrategy
 {
+    private readonly string _lastTableOfContentsPageNumberXpath = "//*[@id='chapters']/div[2]/div[2]/div/div/input"; // This site does not have a last page button, so we have to get the last page number from the input box
+    private readonly string _chapterMaxAttribute = "data-max";
+
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
         Logger.Info($"Getting novel data for {this.GetType().Name}");
@@ -68,7 +71,7 @@ public class NovelDramaStrategy : ScraperStrategy
         var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_scraperData.SiteTableOfContents, true, pageToStopAt);
 
         novelDataBuffer.ChapterUrls = chapterUrls;
-        novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+        novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl; // this needs to be updated as it is not the same as what was set in FetchNovelDataFromTableOfContentsAsync
         return novelDataBuffer;
     }
 
@@ -90,11 +93,10 @@ public class NovelDramaStrategy : ScraperStrategy
 
     private int FetchLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
     {
-        Logger.Info($"Getting last table of contents page number at {_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage}");
         try
         {
-            HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
-            string lastPage = lastPageNode.Attributes[_scraperData.SiteConfig?.Selectors.LastTableOfContentPageNumberAttribute].Value;
+            HtmlNode lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(_lastTableOfContentsPageNumberXpath);
+            string lastPage = lastPageNode.Attributes[_chapterMaxAttribute].Value;
 
             int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
 
