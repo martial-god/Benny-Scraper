@@ -27,7 +27,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     if (attribute == Attr.ThumbnailUrl) // always get a 403 forbidden error when trying to get the thumbnail image from lightnovelworld
                     {
                         HttpClient client = new HttpClient();
-                        var response = client.GetAsync($"https://webnovelpub.com{scraperData.SiteTableOfContents.AbsolutePath}").Result;
+                        var response = client.GetAsync($"https://webnovelworld.org{scraperData.SiteTableOfContents.AbsolutePath}").Result;
                         HtmlDocument htmlDocumentForThumbnail = new HtmlDocument();
                         htmlDocumentForThumbnail.LoadHtml(response.Content.ReadAsStringAsync().Result);
                         FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForThumbnail, scraperData);
