@@ -311,6 +311,11 @@ namespace Benny_Scraper
             }
             if (!string.IsNullOrEmpty(searchKeyWord))
                 novels = novels.Where(novel => novel.Title.Contains(searchKeyWord, StringComparison.InvariantCultureIgnoreCase));
+            if (!novels.Any())
+            {
+                Console.WriteLine($"No novel found with the search term '{searchKeyWord}'");
+                return;
+            }
 
             var paginatedNovels = novels.Skip((page - 1) * itemsPerPage).Take(itemsPerPage);
             int totalPages = (int)Math.Ceiling((double)novels.Count() / itemsPerPage);
