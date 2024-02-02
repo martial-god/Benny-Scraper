@@ -243,7 +243,7 @@ namespace Benny_Scraper
             var nonCompletedNovels = novels.Where(novel => !novel.LastChapter)
                 .Where(novel => novel.SiteName != "mangareader.to" && novel.DateLastModified.Date != DateTime.Now.Date).ToList(); // issue with mangareader.to
             // change default log level to error
-            SetupLogger(LogLevel.Info);
+            SetupLogger(LogLevel.Error);
             int count = 0;
             foreach (var novel in nonCompletedNovels)
             {
