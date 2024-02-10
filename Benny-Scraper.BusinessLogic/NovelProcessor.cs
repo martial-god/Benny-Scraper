@@ -297,7 +297,7 @@ namespace Benny_Scraper.BusinessLogic
                 Url = data.Url ?? string.Empty,
                 Content = HtmlEntity.DeEntitize(data.Content),
                 Title = HtmlEntity.DeEntitize(data.Title) ?? string.Empty,
-                Number = data.Number,
+                Number = data.SequenceNumber,
                 Pages = data.Pages?.Select(p => new Page
                 {
                     Url = p.Url,

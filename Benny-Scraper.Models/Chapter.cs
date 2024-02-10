@@ -16,7 +16,7 @@ namespace Benny_Scraper.Models
         public string? Title { get; set; }
         public string Url { get; set; }
         public string? Content { get; set; }
-        public float Number { get; set; }
+        public float Number { get; set; } // number used to sort chapters
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }
         public virtual ICollection<Page>? Pages { get; set; } // New property for manga pages
@@ -37,6 +37,7 @@ namespace Benny_Scraper.Models
                 return (digitMatch.Success ? float.Parse(digitMatch.Groups[0].Value) : 0f);
             }
         }
+        public int SequenceNumber { get; set; } // using the Table of Contents order as the definitive order of chapters, this avoids issues with sorting by chapter title where titles contain numbers
         public DateTime DateLastModified { get; set; }
         public ICollection<PageData>? Pages { get; set; }
         public string TempDirectory { get; set; }

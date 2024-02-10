@@ -527,6 +527,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls)
         {
             var tempImageDirectory = string.Empty;
+            int sequenceNumber = 1;
             try
             {
                 Logger.Info("Getting chapters data");
@@ -598,7 +599,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     Logger.Info("Finished getting chapters data");
                 }
-
+                chapterDataBuffers.ForEach(chapterDataBuffer => chapterDataBuffer.SequenceNumber = sequenceNumber++);
                 return chapterDataBuffers;
             }
             catch (Exception ex)
