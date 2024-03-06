@@ -1,11 +1,10 @@
 # Benny-Scraper
-Webscraper that sets out make listening to webnovels easier for myself. Turned into project that let users store all chapters of their favorite Mangas or Webnovels offline in one file. Creates Epubs, at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project
+Webscraper that sets out make listening to webnovels easier for myself. Turned into project that let users store all chapters of their favorite Mangas or Webnovels offline in one file. Creates Epubs of text based novels, and PDF and most forms of comic book archives like Cbz, at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project.
 
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)
 
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
 ## IN PROGRESS - ON DEV BRANCH
-- [x] Add a Configuration table to have user have more control of settings. *STILL NEED TO ADD COMMANDLINE OPTIONS TO RETRIEVE VALUES*
 - [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites - *COMING SOON* https://feahnthor.github.io/
 ## COMPLETED - or Things to Do
 - [x] Add Cbz filetype as an option for Mangas
@@ -18,6 +17,7 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [x] Add Calibre integration - completed novels will be added to the Calibredb if it is installed on host computer
 - [x] Verify the update novel works - INFO can be found https://github.com/martial-god/Benny-Scraper/pull/24#issue-1885102090
 - [x] Try Manga sites
+- [x] Add a Configuration table to have user have more control of settings. *STILL NEED TO ADD COMMANDLINE OPTIONS TO RETRIEVE VALUES*
 - [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
 - [ ] Add UI
 
@@ -26,7 +26,7 @@ https://lightnovelworld.com
 https://www.novelfull.com/
 https://mangakatana.com/
 1. For both sites, the url for the `Table of Contents` page for the novel is needed. 
-2. *Note* : all epubs will be stored in your Documents folder BennyScrapedNovels/{Novel Name}, *unless changed through command line options*. Get an Epub Reader to read the contents, chrome extensions are available like `EPUB Reader`
+2. *Note* : all Epubs will be stored in your Documents folder BennyScrapedNovels/{Novel Name}, *unless changed through command line options*. Get an Epub Reader to read the contents, chrome extensions are available like `EPUB Reader`
 3. Click a novel and copy the url at the top ![chrome_Y234bE9Ce6](https://github.com/martial-god/PageShaver/assets/8980094/31b6190b-439a-4550-aaf3-3b05b3c24a13)![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
 
  ![chrome_fWN6VSKOKQ](https://github.com/martial-god/PageShaver/assets/8980094/7f97cd67-772c-4f60-a3d9-856337c3a987)
@@ -97,7 +97,7 @@ Usage examples:
 
   List all novels searching by name, changing total results per page: [OPTIONS] -P, --page [INT] | -I, --items-per-page [INT] | -S, --search [STRING]
     dotnet Benny-Scraper.dll --list -I [INT] -S [STRING]    ex: 15                ex: One Piece
-    Benny-Scraper -l -I 10 -S Martial -P 1   -- this will search for all novels with the title the contains the word 'Martial', showing only 10 results per page, and start the search on page 1.
+    Benny-Scraper -l -I 10 -S Martial -P 1   -- this will search for all novels where the title the contains the word 'Martial', showing only 10 results per page, and start the search on page 1.
 
   Get more info about a novel, including how things were saved. IT IS RECOMMENDED YOU RUN THIS AFTER USING benny-Scraper VERSION 1.0.0, as bugs caused files to not be stored correctly.
     dotnet Benny-Scraper.dll --novel-info-by-id [ID]      ex: 00000000-0000-0000-0000-000000000000
