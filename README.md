@@ -5,6 +5,7 @@ Webscraper that sets out make listening to webnovels easier for myself. Turned i
 
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
 ## IN PROGRESS - ON DEV BRANCH
+- [ ] Addition of webnovle.com from https://github.com/martial-god/Benny-Scraper/issues/41 - Expected Release by 04/14/2024
 - [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites - *COMING SOON* https://feahnthor.github.io/
 ## COMPLETED - or Things to Do
 - [x] Add Cbz filetype as an option for Mangas
