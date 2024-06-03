@@ -135,7 +135,7 @@ namespace Benny_Scraper.BusinessLogic
             }
             else
             {
-                novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
+                novel.SaveLocation = CreateEpub(novel, novel.Chapters, novelDataBuffer.ThumbnailImage, outputDirectory);
                 novel.FileType = NovelFileType.Epub;
             }
             await _novelService.UpdateAsync(novel);
@@ -155,8 +155,8 @@ namespace Benny_Scraper.BusinessLogic
                 return;
             }
 
-            novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList(); //order chapters by number
-            var newChapterUrls = DetermineNewChaptersToScrape(novel, novelDataBuffer);
+            var sortedSavedChapters = SortNovelChaptersByNumber(novel.Chapters); //order chapters by number
+            var newChapterUrls = DetermineNewChaptersToScrape(novel.CurrentChapterUrl, sortedSavedChapters, novel.Id, novelDataBuffer.ChapterUrls);
 
             IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls);
             List<Models.Chapter> newChapters = CreateChapters(chapterDataBuffers, novel.Id);
@@ -174,13 +174,16 @@ namespace Benny_Scraper.BusinessLogic
             return novel;
         }
 
-        private string CreateEpub(Novel novel, byte[]? thumbnailImage, string outputDirectory)
+        private string CreateEpub(Novel novel, ICollection<Chapter> chapters, byte[]? thumbnailImage, string outputDirectory)
         {
             Directory.CreateDirectory(outputDirectory);
             string epubFile = Path.Combine(outputDirectory, $"{CommonHelper.SanitizeFileName(novel.Title, true)}.epub");
-            _epubGenerator.CreateEpub(novel, novel.Chapters, epubFile, thumbnailImage);
+            _epubGenerator.CreateEpub(novel, chapters, epubFile, thumbnailImage);
             return epubFile;
         }
+
+        private static ICollection<Chapter> SortNovelChaptersByNumber(ICollection<Chapter> chapters) =>
+            chapters.OrderBy(chapter => chapter.Number).ToList();
 
         private void UpdateNovel(Novel novel, NovelDataBuffer novelDataBuffer, List<Models.Chapter> newChapters)
         {
@@ -204,7 +207,8 @@ namespace Benny_Scraper.BusinessLogic
 
             if (newChapters.All(chapter => chapter?.Pages == null) && novel.FileType == NovelFileType.Epub)
             {
-                novel.SaveLocation = CreateEpub(novel, novelDataBuffer.ThumbnailImage, outputDirectory);
+                var sortedChapters = SortNovelChaptersByNumber(novel.Chapters);
+                novel.SaveLocation = CreateEpub(novel, sortedChapters, novelDataBuffer.ThumbnailImage, outputDirectory);
                 await _novelService.UpdateAndAddChaptersAsync(novel, newChapters);
                 return;
             }
@@ -243,29 +247,28 @@ namespace Benny_Scraper.BusinessLogic
             return false;
         }
 
-        private List<string> DetermineNewChaptersToScrape(Novel novel, NovelDataBuffer novelDataBuffer) {
-            var indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.CurrentChapterUrl);
+        private static List<string> DetermineNewChaptersToScrape(string currentChapterUrl, ICollection<Chapter> savedChapters, Guid novelId, List<string> bufferChapterUrls) {
+            var indexOfLastChapter = bufferChapterUrls.IndexOf(currentChapterUrl);
             if (indexOfLastChapter == -1)
-                indexOfLastChapter = novelDataBuffer.ChapterUrls.IndexOf(novel.Chapters.Last().Url);
-            if (indexOfLastChapter == -1)
-            {
-                Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novel.Id}");
-                var getDllLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                var getDllDir = System.IO.Path.GetDirectoryName(getDllLocation);
-                var mainDll = System.IO.Path.Combine(getDllDir, DllProjectName);
-                Console.ForegroundColor = ConsoleColor.DarkCyan;
-                if (System.IO.File.Exists(mainDll))
-                {
-                    Console.Write($"Please delete the novel from the database using\n\t\t{mainDll} delete_novel_by_id {novel.Id} and try again.");
-                }
-                else
-                {
-                    Console.Write($"Please delete the novel from the database using\n\t\t{ProjectName} delete_novel_by_id {novel.Id} and try again.");
-                }
-                Console.ResetColor();
+                indexOfLastChapter = bufferChapterUrls.IndexOf(savedChapters.Last().Url);
+            if (indexOfLastChapter != -1)
+                return bufferChapterUrls.Skip(indexOfLastChapter + 1).ToList();
 
+            Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novelId}");
+            var getDllLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            var getDllDir = System.IO.Path.GetDirectoryName(getDllLocation);
+            var mainDll = System.IO.Path.Combine(getDllDir, DllProjectName);
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            if (System.IO.File.Exists(mainDll))
+            {
+                Console.Write($"Please delete the novel from the database using\n\t\t{mainDll} delete_novel_by_id {novelId} and try again.");
             }
-            return novelDataBuffer.ChapterUrls.Skip(indexOfLastChapter + 1).ToList();
+            else
+            {
+                Console.Write($"Please delete the novel from the database using\n\t\t{ProjectName} delete_novel_by_id {novelId} and try again.");
+            }
+            Console.ResetColor();
+            return bufferChapterUrls.Skip(indexOfLastChapter + 1).ToList();
         }
 
         private Novel CreateNovel(NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)

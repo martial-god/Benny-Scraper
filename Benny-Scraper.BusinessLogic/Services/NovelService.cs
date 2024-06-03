@@ -37,7 +37,6 @@ namespace Benny_Scraper.BusinessLogic.Services
         {            
             _unitOfWork.Novel.Update(novel); //update existing
 
-            _unitOfWork.Chapter.AddRange(newChapters);
             await _unitOfWork.SaveAsync();
         }
 

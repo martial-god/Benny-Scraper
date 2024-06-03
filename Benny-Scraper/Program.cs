@@ -1,7 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.Text;
-using Autofac;
+﻿using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
@@ -23,6 +20,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Targets;
+using System.Diagnostics;
+using System.Text;
 using LogLevel = NLog.LogLevel;
 
 namespace Benny_Scraper
