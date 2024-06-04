@@ -492,7 +492,7 @@ namespace Benny_Scraper
                 if (novel != null)
                 {
                     Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
-                    var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
+                    var chapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
                     string safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
                     var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
                     Directory.CreateDirectory(documentsFolder);
