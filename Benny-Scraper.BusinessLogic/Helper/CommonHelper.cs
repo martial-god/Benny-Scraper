@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using Benny_Scraper.Models;
 
 namespace Benny_Scraper.BusinessLogic.Helper
 {
@@ -78,6 +79,9 @@ namespace Benny_Scraper.BusinessLogic.Helper
             Directory.CreateDirectory(tempDirectory);
             return tempDirectory;
         }
+
+        public static ICollection<Chapter> SortNovelChaptersByDateCreated(ICollection<Chapter> chapters) =>
+            chapters.OrderBy(chapter => chapter.DateCreated).ToList();
     }
 
     public static class MyExtensions

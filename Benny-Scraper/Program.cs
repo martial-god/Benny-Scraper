@@ -1,7 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.Text;
-using Autofac;
+﻿using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
@@ -23,6 +20,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Targets;
+using System.Diagnostics;
+using System.Text;
 using LogLevel = NLog.LogLevel;
 
 namespace Benny_Scraper
@@ -238,10 +237,11 @@ namespace Benny_Scraper
             var scope = Container.BeginLifetimeScope();
             var novelService = scope.Resolve<INovelService>();
             var novelProcessor = scope.Resolve<INovelProcessor>();
-            var updatedNovels = new List<(int, string)>();
+            var updatedNovels = new List<(int, string novelName)>();
+            var failedToUpdate = new List<(int, string novelName)>();
             var novels = await novelService.GetAllAsync();
-            var nonCompletedNovels = novels.Where(novel => !novel.LastChapter)
-                .Where(novel => novel.SiteName != "mangareader.to" && novel.DateLastModified.Date != DateTime.Now.Date).ToList(); // issue with mangareader.to
+            var nonCompletedNovels = novels.Where(novel => !novel.LastChapter && 
+                    novel.SiteName != "mangareader.to").ToList(); // issue with mangareader.to
             // change default log level to error
             SetupLogger(LogLevel.Error);
             int count = 0;
@@ -257,24 +257,28 @@ namespace Benny_Scraper
                 }
                 catch (Exception ex)
                 {
-
                     Logger.Error($"Exception when trying to update novel. {ex.Message}");
-                    Console.WriteLine("Completed novels: " + count);
-                    foreach (var updateNovel in updatedNovels)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"{updateNovel.Item1}) {updateNovel.Item2}");
-                        Console.ResetColor();
-                    }
+                    failedToUpdate.Add((count, novel.Title));
                 }
             }
-            Console.WriteLine("Completed novels: " + count);
+            Console.WriteLine("\nCompleted novels: " + updatedNovels.Count + $"/{nonCompletedNovels.Count}");
             foreach (var updateNovel in updatedNovels)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"{updateNovel.Item1}) {updateNovel.Item2}");
+                Console.WriteLine($"{updateNovel.Item1}) {updateNovel.novelName}");
             }
             Console.ResetColor();
+            Console.WriteLine($"Failed novels: {failedToUpdate.Count}");
+            if (failedToUpdate.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Failed to update novels:");
+                foreach (var failedNovel in failedToUpdate)
+                {
+                    Console.WriteLine($"{failedNovel.Item1}) {failedNovel.novelName}");
+                }
+                Console.ResetColor();
+            }
         }
 
         private static Task HandleParseErrors(IEnumerable<Error> errors)
@@ -488,7 +492,7 @@ namespace Benny_Scraper
                 if (novel != null)
                 {
                     Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
-                    var chapters = novel.Chapters.Where(c => c.Number != 0).OrderBy(c => c.Number).ToList();
+                    var chapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
                     string safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
                     var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
                     Directory.CreateDirectory(documentsFolder);
