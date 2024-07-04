@@ -217,9 +217,9 @@ namespace Benny_Scraper
                 int extension = (int)options.MangaExtension;
                 await SetDefaultMangaExtensionAsync(extension);
             }
-            else if (string.Equals(options.SingleFile.ToLowerInvariant(), "y", StringComparison.OrdinalIgnoreCase) || string.Equals(options.SingleFile.ToLowerInvariant(), "n", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(options.SingleFile?.ToLowerInvariant(), "y", StringComparison.OrdinalIgnoreCase) || string.Equals(options.SingleFile?.ToLowerInvariant(), "n", StringComparison.OrdinalIgnoreCase))
             {
-                bool singleFile = options.SingleFile.ToLowerInvariant() == "y";
+                bool singleFile = options.SingleFile?.ToLowerInvariant() == "y";
                 await SetSingleFileAsync(singleFile);
             }
             else if (options.ExtensionType)
@@ -227,7 +227,7 @@ namespace Benny_Scraper
                 await GetDefaultMangaExtensionAsync();
             }
             else
-                Console.WriteLine("Invalid command. Please try again.");
+                Console.WriteLine("Invalid command or a parameter is missing. Please try again.");
         }
 
         private static async Task UpdateAllNovelsAsync(CancellationToken cancellation)
