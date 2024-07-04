@@ -23,13 +23,13 @@ namespace Benny_Scraper
         [Option('c', "concurrent-request", Required = false, HelpText = "Set the number [INT] of concurrent requests to a website. Default is 2, value will be limited to number of CPU cores on your computer. *Some websites may block your ip if too many requests are made in a short time*")]
         public int ConcurrentRequests { get; set; }
 
-        [Option('s', "save-location", Required = false, Default = "", HelpText = "Set default save location [PATH]. Overridden by specific 'manga' or 'novel' locations if set.")]
+        [Option('s', "save-location", Required = false, HelpText = "Set default save location [PATH]. Overridden by specific 'manga' or 'novel' locations if set.")]
         public string SaveLocation { get; set; }
 
-        [Option('m', "manga-save-location", Required = false, Default = "", HelpText = "Set manga-specific save location [PATH]. Overrides 'save-location'.")]
+        [Option('m', "manga-save-location", Required = false, HelpText = "Set manga-specific save location [PATH]. Overrides 'save-location'.")]
         public string MangaSaveLocation { get; set; }
 
-        [Option('n', "novel-save-location", Required = false, Default = "", HelpText = "Set novel-specific save location [PATH]. Overrides 'save-location'.")]
+        [Option('n', "novel-save-location", Required = false, HelpText = "Set novel-specific save location [PATH]. Overrides 'save-location'.")]
         public string NovelSaveLocation { get; set; }
 
         [Option('x', "novel-extension-by-id", Required = false, HelpText = "Set Extension/File type of a saved novel by using the [ID]. 0 - EPUB, 1 - PDF, 2 -CBZ.")]
