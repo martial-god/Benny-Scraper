@@ -255,6 +255,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private SemaphoreSlim _semaphoreSlim; // limit the number of concurrent requests, prevent posssible rate limiting
         private static readonly List<string> _userAgents = new List<string>
         {
+            "Other", // found at https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",
             "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
@@ -325,7 +326,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return await retryPolicy.ExecuteAsync(async context =>
             {
                 var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-                var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
+                //var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
+                var userAgent = _userAgents[0];
                 requestMessage.Headers.Add("User-Agent", userAgent);
                 requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
                 Logger.Debug($"Sending request to {uri}");
