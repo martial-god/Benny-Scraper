@@ -148,7 +148,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             Console.ResetColor();
                             throw;
                         }
-                        
+
 
                     case Attr.ChapterUrls:
                         var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.ChapterLinks);
@@ -300,7 +300,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return await LoadHtmlAsync(uri);
         }
 
-        protected static async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlAsync(Uri uri)
+        protected async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlAsync(Uri uri)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 
@@ -326,8 +326,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return await retryPolicy.ExecuteAsync(async context =>
             {
                 var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-                //var userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
-                var userAgent = _userAgents[0];
+                string userAgent = _userAgents[++_userAgentIndex % _userAgents.Count];
+
+                if (_scraperData.BaseUri == new Uri("https://www.lightnovelworld.com/"))
+                    userAgent = _userAgents[0];
+
                 requestMessage.Headers.Add("User-Agent", userAgent);
                 requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
                 Logger.Debug($"Sending request to {uri}");
