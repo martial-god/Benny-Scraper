@@ -267,6 +267,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public abstract Task<NovelDataBuffer> ScrapeAsync();
         /// <summary>
         /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
+        /// If the chapter urls are paginated, then calling other methods like GetPaginatedChapterUrlsAsync is required.
         /// </summary>
         /// <param name="htmlDocument"></param>
         /// <returns></returns>
