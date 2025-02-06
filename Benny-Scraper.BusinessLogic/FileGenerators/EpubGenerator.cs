@@ -17,16 +17,11 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
     /// Generates an epub file from a novel and its chapters. Using Epub Version 3.2 https://en.wikipedia.org/wiki/EPUB#Open_Container_Format_3.2
     /// Validation for files can be done at https://validator.w3.org/check
     /// </summary>
-    public class EpubGenerator : IEpubGenerator
+    public class EpubGenerator(IOptions<EpubTemplates> epubTemplates) : IEpubGenerator
     {
-        private readonly EpubTemplates _epubTemplates;
+        private readonly EpubTemplates _epubTemplates = epubTemplates.Value;
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         public bool UseCalibre { get; set; } = false;
-
-        public EpubGenerator(IOptions<EpubTemplates> epubTemplates)
-        {
-            _epubTemplates = epubTemplates.Value;
-        }
 
         public void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage)
         {

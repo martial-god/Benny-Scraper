@@ -16,64 +16,41 @@ using Configuration = Benny_Scraper.Models.Configuration;
 
 namespace Benny_Scraper.BusinessLogic;
 
-public class NovelProcessor : INovelProcessor
+public class NovelProcessor(
+    INovelService novelService,
+    IChapterService chapterService,
+    INovelScraperFactory novelScraper,
+    IOptions<NovelScraperSettings> novelScraperSettings,
+    IEpubGenerator epubGenerator,
+    PdfGenerator pdfGenerator,
+    IComicBookArchiveGenerator comicBookArchiveGenerator,
+    IConfigurationRepository configurationRepository)
+    : INovelProcessor
 {
     private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-    private readonly INovelService _novelService;
-    private readonly IChapterService _chapterService;
-    private readonly INovelScraperFactory _novelScraper;
-    private readonly NovelScraperSettings _novelScraperSettings;
-    private readonly IEpubGenerator _epubGenerator;
-    private readonly PdfGenerator _pdfGenerator;
-    private readonly IComicBookArchiveGenerator _comicBookArchiveGenerator;
-    private readonly IConfigurationRepository _configurationRepository;
+    private readonly IChapterService _chapterService = chapterService;
+    private readonly NovelScraperSettings _novelScraperSettings = novelScraperSettings.Value;
     private const string ProjectName = "Benny-Scraper";
     private const string DllProjectName = "Benny-Scraper.dll";
 
-    public NovelProcessor(INovelService novelService,
-        IChapterService chapterService,
-        INovelScraperFactory novelScraper,
-        IOptions<NovelScraperSettings> novelScraperSettings,
-        IEpubGenerator epubGenerator,
-        PdfGenerator pdfGenerator,
-        IComicBookArchiveGenerator comicBookArchiveGenerator,
-        IConfigurationRepository configurationRepository)
-    {
-        _novelService = novelService;
-        _chapterService = chapterService;
-        _novelScraper = novelScraper;
-        _novelScraperSettings = novelScraperSettings.Value;
-        _epubGenerator = epubGenerator;
-        _pdfGenerator = pdfGenerator;
-        _comicBookArchiveGenerator = comicBookArchiveGenerator;
-        _configurationRepository = configurationRepository;
-    }
-
     public async Task ProcessNovelAsync(Uri novelTableOfContentsUri)
     {
-
-        if (!IsThereConfigurationForSite(novelTableOfContentsUri))
-        {
-            throw new Exception($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. Skipping this novel..");
-        }
-
-        Novel novel = await _novelService.GetByUrlAsync(novelTableOfContentsUri);
-
-        SiteConfiguration siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
+        SiteConfiguration siteConfig = TryGetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
+        Novel? novel = await novelService.GetByUrlAsync(novelTableOfContentsUri);
                                                                                       // Retrieve novel information
-        INovelScraper scraper = _novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
-        Configuration configuration = await _configurationRepository.GetByIdAsync(1);
+        INovelScraper scraper = novelScraper.CreateScraper(novelTableOfContentsUri);
+        Configuration configuration = await configurationRepository.GetByIdAsync(1);
         ScraperStrategy scraperStrategy = scraper.GetScraperStrategy(novelTableOfContentsUri, siteConfig);
 
         scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
 
-        if (novel == null) // Novel is not in database so add it
+        if (novel is null) // Novel is not in database so add it
         {
             Logger.Info($"Novel with url {novelTableOfContentsUri} is not in database, adding it now.");
             await AddNewNovelAsync(novelTableOfContentsUri, scraperStrategy, configuration); // consider creating something to decide whi
             Logger.Info($"Added novel with url {novelTableOfContentsUri} to database.");
         }
-        else // make changes or update novelToAdd and newChapters
+        else // make changes to an existing novel.
         {
             ValidateObject validator = new ValidateObject();
             var errors = validator.Validate(novel);
@@ -108,7 +85,7 @@ public class NovelProcessor : INovelProcessor
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
         string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(newNovel.Title, outputDirectory = userOutputDirectory);
 
-        var novelId = await _novelService.CreateAsync(newNovel);
+        var novelId = await novelService.CreateAsync(newNovel);
         Logger.Info("Finished adding novel {0} to database", newNovel.Title);
         Novel novel = await GetNovelFromDataBase(novelId);
 
@@ -117,14 +94,14 @@ public class NovelProcessor : INovelProcessor
         {
             if (configuration.DefaultMangaFileExtension == FileExtension.Pdf)
             {
-                (string saveLocation, bool isFileSplit) = _pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
+                (string saveLocation, bool isFileSplit) = pdfGenerator.CreatePdf(novel, chapterDataBuffers, outputDirectory, configuration);
                 novel.SaveLocation = saveLocation;
                 novel.SavedFileIsSplit = isFileSplit;
                 novel.FileType = NovelFileType.Pdf;
             }
             else
             {
-                novel.SaveLocation = _comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
+                novel.SaveLocation = comicBookArchiveGenerator.CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
                 novel.FileType = Enum.TryParse(configuration.DefaultMangaFileExtension.ToString(), out NovelFileType convertedType)
                     ? convertedType : NovelFileType.Cbz; // check to see if converting by name works, if not default to cbz
             }
@@ -138,7 +115,7 @@ public class NovelProcessor : INovelProcessor
             novel.SaveLocation = CreateEpub(novel, novel.Chapters, novelDataBuffer.ThumbnailImage, outputDirectory);
             novel.FileType = NovelFileType.Epub;
         }
-        await _novelService.UpdateAsync(novel);
+        await novelService.UpdateAsync(novel);
     }
 
     private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration)
@@ -151,7 +128,7 @@ public class NovelProcessor : INovelProcessor
         if (IsNovelUpToDate(novel, novelDataBuffer, novelTableOfContentsUri))
         {
             novel.DateLastModified = DateTime.Now;
-            await _novelService.UpdateAsync(novel);
+            await novelService.UpdateAsync(novel);
             return;
         }
 
@@ -168,7 +145,7 @@ public class NovelProcessor : INovelProcessor
 
     private async Task<Novel> GetNovelFromDataBase(Guid id)
     {
-        Novel novel = await _novelService.GetByIdAsync(id);
+        Novel novel = await novelService.GetByIdAsync(id);
         if (novel != null)
             novel.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList();
         return novel;
@@ -178,7 +155,7 @@ public class NovelProcessor : INovelProcessor
     {
         Directory.CreateDirectory(outputDirectory);
         string epubFile = Path.Combine(outputDirectory, $"{CommonHelper.SanitizeFileName(novel.Title, true)}.epub");
-        _epubGenerator.CreateEpub(novel, chapters, epubFile, thumbnailImage);
+        epubGenerator.CreateEpub(novel, chapters, epubFile, thumbnailImage);
         return epubFile;
     }
 
@@ -206,7 +183,7 @@ public class NovelProcessor : INovelProcessor
         {
             var sortedChapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
             novel.SaveLocation = CreateEpub(novel, sortedChapters, novelDataBuffer.ThumbnailImage, outputDirectory);
-            await _novelService.UpdateAndAddChaptersAsync(novel, newChapters);
+            await novelService.UpdateAndAddChaptersAsync(novel, newChapters);
             return;
         }
 
@@ -215,17 +192,17 @@ public class NovelProcessor : INovelProcessor
         if (novel.FileType == NovelFileType.Pdf)
         {
             if (novel.SavedFileIsSplit)
-                _pdfGenerator.CreatePdfByChapter(novel, chapterDataBuffers, novel.SaveLocation);
+                pdfGenerator.CreatePdfByChapter(novel, chapterDataBuffers, novel.SaveLocation);
             else
-                _pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
+                pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
         }
         else
-            _comicBookArchiveGenerator.UpdateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
+            comicBookArchiveGenerator.UpdateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
         foreach (var chapterDataBuffer in chapterDataBuffers)
         {
             chapterDataBuffer.Dispose();
         }
-        await _novelService.UpdateAndAddChaptersAsync(novel, newChapters);
+        await novelService.UpdateAndAddChaptersAsync(novel, newChapters);
     }
 
     private bool IsNovelUpToDate(Novel novel, NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)
@@ -308,16 +285,13 @@ public class NovelProcessor : INovelProcessor
         }).ToList();
     }
 
-    private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)
+    private SiteConfiguration TryGetSiteConfiguration(Uri novelTableOfContentsUri)
     {
         List<SiteConfiguration> siteConfigurations = _novelScraperSettings.SiteConfigurations;
-        return siteConfigurations.Any(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern));
-    }
-
-    private SiteConfiguration GetSiteConfiguration(Uri novelTableOfContentsUri)
-    {
-        List<SiteConfiguration> siteConfigurations = _novelScraperSettings.SiteConfigurations;
-        return siteConfigurations.FirstOrDefault(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern));
+        if (!siteConfigurations.Any(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern)))
+            throw new NotSupportedException($"No site configuration found for {novelTableOfContentsUri.Host}. Please check appsettings.json. Skipping this novel..");
+        
+        return siteConfigurations.First(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern));
     }
     #endregion
 }

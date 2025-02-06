@@ -4,15 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Benny_Scraper.DataAccess.DbInitializer
 {
-    public class DbInitializer
+    public class DbInitializer(Database db)
     {
-        private readonly Database _db;
-
-        public DbInitializer(Database db)
-        {
-            _db = db;
-        }
-
         /// <summary>
         /// Initializes the database. Will allow us to not need to call update-databse in the package manager console.
         /// If there are migrations, apply them
@@ -24,9 +17,9 @@ namespace Benny_Scraper.DataAccess.DbInitializer
             // apply Migrations if they are not applied
             try
             {
-                if (_db.Database.GetPendingMigrations().Any())
+                if (db.Database.GetPendingMigrations().Any())
                 {
-                    _db.Database.Migrate();
+                    db.Database.Migrate();
                     changesMade = true;
                 }
 
@@ -45,10 +38,10 @@ namespace Benny_Scraper.DataAccess.DbInitializer
         public async Task<bool> SeedData()
         {
             bool dataSeeded = false;
-            using var transaction = _db.Database.BeginTransaction();
+            using var transaction = db.Database.BeginTransaction();
             try
             {
-                if (!_db.Configurations.Any())
+                if (!db.Configurations.Any())
                 {
                     var defaultConfig = new Configuration
                     {
@@ -66,8 +59,8 @@ namespace Benny_Scraper.DataAccess.DbInitializer
                         DefaultLogLevel = LogLevel.Info,
                         FontType = "Arial"
                     };
-                    _db.Configurations.Add(defaultConfig);
-                    _db.SaveChanges();
+                    db.Configurations.Add(defaultConfig);
+                    db.SaveChanges();
                     await transaction.CommitAsync();
                     dataSeeded = true;
                 }

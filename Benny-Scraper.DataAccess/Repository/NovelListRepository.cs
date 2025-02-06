@@ -5,14 +5,9 @@ using Benny_Scraper.Models;
 
 namespace Benny_Scraper.DataAccess.Repository
 {
-    internal class NovelListRepository : Repository<NovelList>, INovelListRepository
+    internal class NovelListRepository(Database db) : Repository<NovelList>(db), INovelListRepository
     {
-        private Database _db;
-
-        public NovelListRepository(Database db) : base(db)
-        {
-            _db = db;
-        }
+        private Database _db = db;
 
         public void Update(NovelList novelList)
         {

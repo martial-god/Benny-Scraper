@@ -16,15 +16,9 @@ namespace Benny_Scraper.BusinessLogic.Factory
 
     public class DriverFactory : IDriverFactory
     {
-        private ConcurrentDictionary<int, IWebDriver> _drivers; // thread-safe version of the dictionary, no need to worry about multiple threads making changes
-        private int _counter;
+        private ConcurrentDictionary<int, IWebDriver> _drivers = new(); // thread-safe version of the dictionary, no need to worry about multiple threads making changes
+        private int _counter = 0;
 
-
-        public DriverFactory()
-        {
-            _drivers = new ConcurrentDictionary<int, IWebDriver>();
-            _counter = 0;
-        }
 
         /// <summary>
         /// Creates a driver and adds each driver to a dictonry of <int, IWebDriver><

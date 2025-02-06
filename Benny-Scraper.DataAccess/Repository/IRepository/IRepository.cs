@@ -9,9 +9,9 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
 {
     public interface IRepository<GenericDbObject> where GenericDbObject : class // Generic repository where we can pass in any object
     {
-        GenericDbObject GetById(Guid id);
+        GenericDbObject? GetById(Guid id);
 
-        Task<GenericDbObject> GetByIdAsync(Guid id, CancellationToken cancellation = default);
+        Task<GenericDbObject?> GetByIdAsync(Guid id, CancellationToken cancellation = default);
 
         IEnumerable<GenericDbObject> GetAll(
             Expression<Func<GenericDbObject, bool>>? filter = null, // filter is a lambda expression
@@ -40,12 +40,12 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
         /// <param name="filter"></param>
         /// <param name="includeProperties"></param>
         /// <returns></returns>
-        GenericDbObject GetFirstOrDefault(
+        GenericDbObject? GetFirstOrDefault(
             Expression<Func<GenericDbObject, bool>> filter,
             string? includeProperties = null
         );
 
-        Task<GenericDbObject> GetFirstOrDefaultAsync(
+        Task<GenericDbObject?> GetFirstOrDefaultAsync(
             Expression<Func<GenericDbObject, bool>> filter,
             string? includeProperties = null,
             CancellationToken cancellationToken = default

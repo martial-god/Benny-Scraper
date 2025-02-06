@@ -53,32 +53,23 @@ namespace Benny_Scraper.Models
     /// </summary>
     public class NovelDataBuffer : IDisposable
     {
-        public NovelDataBuffer()
-        {
-            ChapterUrls = new List<string>();
-            Description = new List<string>();
-            Genres = new List<string>();
-            AlternativeNames = new List<string>();
-            NovelUrl = string.Empty;
-        }
-
         public string Title { get; set; }
-        public List<string> ChapterUrls { get; set; }
+        public List<string> ChapterUrls { get; set; } = new();
         public string NovelStatus { get; set; }
         public string LastTableOfContentsPageUrl { get; set; }
         public bool IsNovelCompleted { get; set; }
         public string ThumbnailUrl { get; set; }
         public double Rating { get; set; }
         public int TotalRatings { get; set; }
-        public List<string>? Description { get; set; }
+        public List<string>? Description { get; set; } = new();
         public string Author { get; set; }
-        public List<string> Genres { get; set; }
-        public List<string> AlternativeNames { get; set; }
+        public List<string> Genres { get; set; } = new();
+        public List<string> AlternativeNames { get; set; } = new();
         public string MostRecentChapterTitle { get; set; }
         public string CurrentChapterUrl { get; set; }
         public string FirstChapter { get; set; }
         public byte[]? ThumbnailImage { get; set; }
-        public string NovelUrl { get; set; }
+        public string NovelUrl { get; set; } = string.Empty;
 
         public void Dispose()
         {

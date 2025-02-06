@@ -18,7 +18,6 @@ using CommandLine;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
-using NLog;
 using NLog.Targets;
 using System.Diagnostics;
 using System.Text;
@@ -54,11 +53,8 @@ namespace Benny_Scraper
             if (dbChangesMade)
                 Logger.Info("Database Initialized");
 
-
             if (args.Length > 0)
-            {
                 await RunAsync(args);
-            }
             else
             {
                 Logger.Info("Application Started");
@@ -71,13 +67,8 @@ namespace Benny_Scraper
             using (var scope = Container.BeginLifetimeScope())
             {
                 var logger = NLog.LogManager.GetCurrentClassLogger();
-
-                string instructions = GetInstructions();
-
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine(instructions);
-                Console.ResetColor();
-
+                DisplayInstructions();
+                
                 INovelProcessor novelProcessor = scope.Resolve<INovelProcessor>();
 
                 bool isApplicationRunning = true;
@@ -124,26 +115,28 @@ namespace Benny_Scraper
             }
         }
 
-        private static string GetInstructions()
+        private static void DisplayInstructions()
         {
-            HttpNovelScraper httpNovelScraper = new(); //used specifically for getting all supported urls.
-            var supportedSites = httpNovelScraper.GetSupportedSites();
+            // NovelScraper novelScraper = new(); //used specifically for getting all supported urls.
+            var scope = Container.BeginLifetimeScope();
+            var scraperSettings = scope.Resolve<NovelScraperSettings>();
+            var supportedSites = scraperSettings.SiteConfigurations.Select(config => $"https://{config.UrlPattern}").ToList();
+            string instructions = "\n" + $@"Welcome to our novel scraper application! Currently, we support the following websites:
+                 {string.Join("\n", supportedSites)}
 
-            string instructions = "\n" + $@"Welcome to our novel scraper application!
-                Currently, we support the following websites:
-                {string.Join("\n", supportedSites)}
+                 To use our application, please follow these steps:
+                 1. Visit a supported website.
+                 2. Choose a novel and navigate to its table of contents page.
+                 3. Copy the URL of this page.
+                 4. Paste the URL into our application when prompted.
 
-                To use our application, please follow these steps:
-                1. Visit a supported website.
-                2. Choose a novel and navigate to its table of contents page.
-                3. Copy the URL of this page.
-                4. Paste the URL into our application when prompted.
+                 Please ensure the URL is from the table of contents page of a novel.
+                 Our application will then download the novel and convert it into an EPUB file.
+                 Thank you for using our application! Enjoy your reading.";
 
-                Please ensure the URL is from the table of contents page of a novel.
-                Our application will then download the novel and convert it into an EPUB file.
-                Thank you for using our application! Enjoy your reading.";
-
-            return instructions;
+             Console.ForegroundColor = ConsoleColor.Blue;
+             Console.WriteLine(instructions);
+             Console.ResetColor();
         }
 
         #region CommandLine Methods
@@ -833,7 +826,6 @@ namespace Benny_Scraper
             builder.Register(c => new Database(new DbContextOptionsBuilder<Database>()
                 .UseSqlite(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();
 
-
             builder.RegisterType<DbInitializer>().As<DbInitializer>();
             builder.RegisterType<UnitOfWork>().As<IUnitOfWork>();
             builder.RegisterType<NovelProcessor>().As<INovelProcessor>();
@@ -872,10 +864,10 @@ namespace Benny_Scraper
                 var context = c.Resolve<IComponentContext>();
                 return key => context.ResolveNamed<INovelScraper>(key);
             });
-
+            
             builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
-            builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
-            builder.RegisterType<HttpNovelScraper>().Named<INovelScraper>("Http").InstancePerDependency();
+            builder.RegisterType<PuppeteerDriverService>().As<IPuppeteerDriverService>().SingleInstance();
+            builder.RegisterType<NovelScraper>().As<INovelScraper>().InstancePerDependency();
         }
 
         /// <summary>

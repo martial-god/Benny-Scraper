@@ -6,6 +6,6 @@ namespace Benny_Scraper.BusinessLogic.Interfaces
 {
     public interface INovelScraper
     {
-        public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig);       
+        public ScraperStrategy GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig);       
     }
 }

@@ -7,56 +7,34 @@ using System.Linq.Expressions;
 
 namespace Benny_Scraper.DataAccess.Repository
 {
-    public class Repository<GenericDbObject> : IRepository<GenericDbObject> where GenericDbObject : class
+    public class Repository<TGenericDbObject>(Database db) : IRepository<TGenericDbObject>
+        where TGenericDbObject : class
     {
         // adds the database context
-        private readonly Database _db;
-        internal DbSet<GenericDbObject> _dbSet;
+        private  readonly DbSet<TGenericDbObject> _dbSet = db.Set<TGenericDbObject>(); // set the dbset to the db set of the generic object. This is how we can use the generic repository
 
-        public Repository(Database db)
-        {
-            _db = db;
-            // make it so we don't have to keep using _db.Set.Add() or other methods
-            this._dbSet = _db.Set<GenericDbObject>(); // set the dbset to the db set of the generic object. This is how we can use the generic repository
-        }
+        // make it so we don't have to keep using _db.Set.Add() or other methods
 
-        public void Add(GenericDbObject entity)
+        public void Add(TGenericDbObject entity)
         {
             _dbSet.Add(entity);
         }
 
-        public void AddRange(IEnumerable<GenericDbObject> entities)
+        public void AddRange(IEnumerable<TGenericDbObject> entities)
         {
             _dbSet.AddRange(entities);
         }
 
-        public async Task AddAsync(GenericDbObject entity, CancellationToken cancellation = default)
+        public async Task AddAsync(TGenericDbObject entity, CancellationToken cancellation = default)
         {
             cancellation.ThrowIfCancellationRequested();
-            await _dbSet.AddAsync(entity);
+            await _dbSet.AddAsync(entity, cancellation);
         }
 
-        public async Task AddRangeAsync(IEnumerable<GenericDbObject> entities, CancellationToken cancellation = default)
+        public async Task AddRangeAsync(IEnumerable<TGenericDbObject> entities, CancellationToken cancellation = default)
         {
             cancellation.ThrowIfCancellationRequested();
-            await _dbSet.AddRangeAsync(entities);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="id">A non empty guid</param>
-        /// <returns></returns>
-        public GenericDbObject GetById(Guid id)
-        {
-            try
-            {
-                return _dbSet.Find(new object[] { id });
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            await _dbSet.AddRangeAsync(entities, cancellation);
         }
 
         /// <summary>
@@ -64,18 +42,21 @@ namespace Benny_Scraper.DataAccess.Repository
         /// </summary>
         /// <param name="id">A non-empty guid</param>
         /// <returns></returns>
-        public async Task<GenericDbObject> GetByIdAsync(Guid id, CancellationToken cancellation = default)
+        public TGenericDbObject? GetById(Guid id)
         {
-            try
-            {
-                cancellation.ThrowIfCancellationRequested();
-                return await _dbSet.FindAsync(new object[] { id }, cancellation);
+            return _dbSet.Find(id);
+        }
 
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="id">A non-empty guid</param>
+        /// <param name="cancellation"></param>
+        /// <returns></returns>
+        public async Task<TGenericDbObject?> GetByIdAsync(Guid id, CancellationToken cancellation = default)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            return await _dbSet.FindAsync(new { id }, cancellation);
         }
 
         /// <summary>
@@ -85,20 +66,16 @@ namespace Benny_Scraper.DataAccess.Repository
         /// <param name="orderBy">Ex: orderBy: o => o.OrderByDescending(obj => obj.DateCreated)</param>
         /// <param name="includedProperties"></param>
         /// <returns></returns>
-        public IEnumerable<GenericDbObject> GetAll(Expression<Func<GenericDbObject, bool>>? filter = null,
-            Func<IQueryable<GenericDbObject>, IOrderedQueryable<GenericDbObject>>? orderBy = null,
+        public IEnumerable<TGenericDbObject> GetAll(Expression<Func<TGenericDbObject, bool>>? filter = null,
+            Func<IQueryable<TGenericDbObject>, IOrderedQueryable<TGenericDbObject>>? orderBy = null,
             string? includedProperties = null)
         {
-            IQueryable<GenericDbObject> query = _dbSet;
+            IQueryable<TGenericDbObject> query = _dbSet;
             if (filter != null)
-            {
                 query = query.Where(filter);
-            }
 
             if (orderBy != null)
-            {
                 query = orderBy(query);
-            }
 
             if (includedProperties != null)
             {
@@ -119,22 +96,18 @@ namespace Benny_Scraper.DataAccess.Repository
         /// <param name="includeProperties"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task<IEnumerable<GenericDbObject>> GetAllAsync(Expression<Func<GenericDbObject, bool>>? filter = null,
-            Func<IQueryable<GenericDbObject>, IOrderedQueryable<GenericDbObject>>? orderBy = null,
+        public async Task<IEnumerable<TGenericDbObject>> GetAllAsync(Expression<Func<TGenericDbObject, bool>>? filter = null,
+            Func<IQueryable<TGenericDbObject>, IOrderedQueryable<TGenericDbObject>>? orderBy = null,
             string? includeProperties = null,
             CancellationToken cancellationToken = default
             )
         {
-            IQueryable<GenericDbObject> query = _dbSet;
+            IQueryable<TGenericDbObject> query = _dbSet;
             if (filter != null)
-            {
                 query = query.Where(filter);
-            }
 
             if (orderBy != null)
-            {
                 query = orderBy(query);
-            }
 
             if (includeProperties != null)
             {
@@ -154,9 +127,9 @@ namespace Benny_Scraper.DataAccess.Repository
         /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
         /// <param name="includeProperties"></param>
         /// <returns></returns>
-        public GenericDbObject GetFirstOrDefault(Expression<Func<GenericDbObject, bool>> filter, string? includeProperties = null)
+        public TGenericDbObject GetFirstOrDefault(Expression<Func<TGenericDbObject, bool>> filter, string? includeProperties = null)
         {
-            IQueryable<GenericDbObject> query = _dbSet;
+            IQueryable<TGenericDbObject> query = _dbSet;
             query = query.Where(filter);
             if (includeProperties != null)
             {
@@ -176,11 +149,11 @@ namespace Benny_Scraper.DataAccess.Repository
         /// <param name="includeProperties"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public Task<GenericDbObject> GetFirstOrDefaultAsync(Expression<Func<GenericDbObject, bool>> filter,
+        public Task<TGenericDbObject?> GetFirstOrDefaultAsync(Expression<Func<TGenericDbObject, bool>> filter,
             string? includeProperties = null,
             CancellationToken cancellationToken = default)
         {
-            IQueryable<GenericDbObject> query = _dbSet;
+            IQueryable<TGenericDbObject> query = _dbSet;
             query = query.Where(filter);
             if (includeProperties != null)
             {
@@ -195,12 +168,12 @@ namespace Benny_Scraper.DataAccess.Repository
             return query.FirstOrDefaultAsync(cancellationToken); // might return null
         }
 
-        public void Remove(GenericDbObject entity)
+        public void Remove(TGenericDbObject entity)
         {
             _dbSet.Remove(entity);
         }        
 
-        public void RemoveRange(IEnumerable<GenericDbObject> entity)
+        public void RemoveRange(IEnumerable<TGenericDbObject> entity)
         {
             _dbSet.RemoveRange(entity);
         }

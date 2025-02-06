@@ -1,8 +1,10 @@
 ﻿using System.Collections.Specialized;
 using System.Web;
+using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using PuppeteerSharp;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -40,10 +42,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
     }
-    public class LightNovelWorldStrategy : ScraperStrategy
+    public class LightNovelWorldStrategy(IPuppeteerDriverService puppeteerDriverService)
+        : ScraperStrategy(puppeteerDriverService)
     {
-        private Uri? _chaptersUri; // the url of the chapters pages are different from the table of contents page
+        private readonly IPuppeteerDriverService _puppeteerDriverService = puppeteerDriverService;
+        protected override bool RequiresBrowser => true;
         private readonly string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
+        
 
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
@@ -51,27 +56,34 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             SetBaseUri(_scraperData.SiteTableOfContents);
 
-            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+            // Get table of contents
+            var page = await _puppeteerDriverService.CreatePageAsync(_scraperData.SiteTableOfContents, false);
+            await WaitForCloudflareAsync(page);
+            var content = await page.GetContentAsync();
+
+            HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
+            
             var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
-            novelDataBuffer.NovelUrl = uri.ToString();
+            novelDataBuffer.NovelUrl = page.Url;
 
-            _chaptersUri = new Uri(uri + "/chapters");
+            // the url of the chapters pages are different from the table of contents page
+            Uri chaptersUri = new Uri(page.Url + "/chapters");
 
-            (htmlDocument, uri) = await LoadHtmlAsync(_chaptersUri);
+            await page.GoToAsync(chaptersUri?.ToString());
+        
+            htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 
-            var decodedHtmlDocument = DecodeHtml(htmlDocument);
-
-            int pageToStopAt = GetLastTableOfContentsPageNumber(decodedHtmlDocument);
+            int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
             SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
 
-            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_chaptersUri, true, pageToStopAt);
+            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, page: page);
             novelDataBuffer.ChapterUrls = chapterUrls;
             novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
 
             return novelDataBuffer;
         }
 
-        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
             try
@@ -82,9 +94,24 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception e)
             {
                 Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
+                throw new Exception($"Error occurred while getting novel data from table of contents. Error: {e}");
             }
-
-            return novelDataBuffer;
+        }
+        
+        private async Task WaitForCloudflareAsync(IPage page)
+        {
+            try
+            {
+                await page.WaitForSelectorAsync("#cf-challenge-running", new WaitForSelectorOptions 
+                {
+                    Timeout = 30000,
+                    Hidden = true
+                });
+            }
+            catch (TimeoutException)
+            {
+                Logger.Warn("Cloudflare challenge timeout");
+            }
         }
 
         private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelDataBuffer)
@@ -100,7 +127,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
         {
-            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig.Selectors.TableOfContentsPaginationListItems);
+            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.TableOfContentsPaginationListItems);
             int paginationCount = paginationNodes.Count;
 
             int pageToStopAt = 1;
@@ -109,7 +136,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 HtmlNode lastPageNode;
                 if (paginationCount == TotalPossiblePaginationTabs)
                 {
-                    lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig.Selectors.LastTableOfContentsPage);
+                    lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
                 }
                 else
                 {

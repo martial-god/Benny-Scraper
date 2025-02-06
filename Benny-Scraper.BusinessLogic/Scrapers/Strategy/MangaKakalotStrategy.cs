@@ -82,7 +82,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        public override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
             try
@@ -98,7 +98,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelDataBuffer;
         }
 
-        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             throw new NotImplementedException();
         }

@@ -75,7 +75,7 @@ public class NovelDramaStrategy : ScraperStrategy
         return novelDataBuffer;
     }
 
-    public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
     {
         var novelDataBuffer = new NovelDataBuffer();
         try
