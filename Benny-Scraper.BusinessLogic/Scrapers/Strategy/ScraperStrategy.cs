@@ -308,6 +308,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return _scraperData.SiteConfig ?? throw new NullReferenceException("SiteConfiguration is null");
         }
 
+        /// <summary>
+        /// This should really be called after a page has been created
+        /// </summary>
+        /// <returns></returns>
+        public IPage? GetCurrentPage()
+        {
+            return PuppeteerDriverService.GetCurrentPage();
+        }
+
         public async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlPublicAsync(Uri uri)
         {
             return await LoadHtmlAsync(uri);
@@ -489,7 +498,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         case true:
                             if (page is null)
                                 throw new ArgumentNullException($"{nameof(page)} cannot be null when RequiresBrowser is true.");
-                            await page.GoToAsync(tableOfContentUrl);
+                            await page.GoToAsync(tableOfContentUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
                             htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
                             break;
                         default:
@@ -571,8 +580,26 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Debug("Using HttpClient to get chapters data");
                     foreach (var url in chapterUrls)
                     {
-                        await _semaphoreSlim.WaitAsync();
-                        tasks.Add(GetChapterDataFromPageAsync(url));
+                        if (page is not null)
+                        {
+                            using var semaphore = new SemaphoreSlim(1);
+                            await semaphore.WaitAsync();
+                            try
+                            {
+                                // process one chapter at time. Still need to clean this up
+                                var chapterData = await GetChapterDataFromPageAsync(url, page);
+                                chapterDataBuffers.Add(chapterData);
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                            }
+                        }
+                        else
+                        {
+                            await _semaphoreSlim.WaitAsync();
+                            tasks.Add(GetChapterDataFromPageAsync(url));
+                        }
                     }
                     try
                     {
@@ -610,7 +637,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             string tempImageDirectory)
         {
             Logger.Debug("Using Puppeteer to get chapters data");
-            await page.GoToAsync(chapterUrls.First());
+            await page.GoToAsync(chapterUrls.First(), new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
 
             tempImageDirectory = CommonHelper.CreateTempDirectory();
 
@@ -754,7 +781,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             try
             {
                 Logger.Debug($"Waiting for images on page {singleUrl} to load.");
-                await page.GoToAsync(singleUrl);
+                await page.GoToAsync(singleUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
                 Logger.Debug("Images have been loaded.");
             }
             catch (PuppeteerException ex)
@@ -799,7 +826,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
 
-        private async Task<ChapterDataBuffer> GetChapterDataFromPageAsync(string url, IPage page = null)
+        private async Task<ChapterDataBuffer> GetChapterDataFromPageAsync(string url, IPage? page = null)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -817,7 +844,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         {
                             if (page is null)
                                 throw new ArgumentNullException($"{nameof(page)} cannot be null when {nameof(RequiresBrowser)} is true");
-                            await page.GoToAsync(url);
+                            await page.GoToAsync(url, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
                             htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
                         }
                         break;

@@ -11,13 +11,14 @@ public interface IPuppeteerDriverService
     Task<IPage> CreatePageAsync(Uri uri, bool headless = true);
     Task CloseBrowserAsync();
     Task<HtmlDocument> GetPageContentAsync(IPage page);
+    IPage? GetCurrentPage();
     // Getting cookies for puppeteersharp https://webscraping.ai/faq/puppeteer-sharp/how-can-i-manage-cookies-in-puppeteer-sharp
 }
 
 public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
 {
     private IBrowser? _browser;
-    private readonly ConcurrentDictionary<string, IPage> _pages = new();
+    private IPage _currentPage;
     private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
 
     public async Task<IBrowser> GetBrowserAsync(bool headless = true)
@@ -57,9 +58,10 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
         await page.EvaluateExpressionOnNewDocumentAsync("() => { delete navigator.__proto__.webdriver }");
 
         await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64)...");
-        await page.GoToAsync(uri.ToString());
-        _pages.TryAdd(uri.Host, page);
-        return page;
+        // Notes about waiting until page is fully loaded. https://www.puppeteersharp.com/api/PuppeteerSharp.WaitUntilNavigation.html
+        await page.GoToAsync(uri.ToString(), new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
+        _currentPage = page;
+        return _currentPage;
     }
     
     public async Task<HtmlDocument> GetPageContentAsync(IPage page)
@@ -77,6 +79,11 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             Dispose();
             throw new Exception($"Error while getting page content for {page.Url}", ex);
         }
+    }
+
+    public IPage? GetCurrentPage()
+    {
+        return _currentPage;
     }
     
     public async Task CloseBrowserAsync()

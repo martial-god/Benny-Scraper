@@ -4,6 +4,7 @@ using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
 using PuppeteerSharp;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
@@ -26,18 +27,29 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 };
                 foreach (var attribute in attributesToFetch)
                 {
-                    if (attribute == Attr.ThumbnailUrl) // always get a 403 forbidden error when trying to get the thumbnail image from lightnovelworld
+                    try
                     {
-                        HttpClient client = new HttpClient();
-                        var response = client.GetAsync($"https://webnovelworld.org{scraperData.SiteTableOfContents.AbsolutePath}").Result;
-                        HtmlDocument htmlDocumentForThumbnail = new HtmlDocument();
-                        htmlDocumentForThumbnail.LoadHtml(response.Content.ReadAsStringAsync().Result);
-                        FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForThumbnail, scraperData);
+                        if (attribute ==
+                            Attr.ThumbnailUrl) // always get a 403 forbidden error when trying to get the thumbnail image from lightnovelworld
+                        {
+                            HttpClient client = new HttpClient();
+                            var response = client
+                                .GetAsync($"https://webnovelworld.org{scraperData.SiteTableOfContents.AbsolutePath}")
+                                .Result;
+                            HtmlDocument htmlDocumentForThumbnail = new HtmlDocument();
+                            htmlDocumentForThumbnail.LoadHtml(response.Content.ReadAsStringAsync().Result);
+                            FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForThumbnail, scraperData);
+                        }
+                        else
+                        {
+                            FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                        Console.WriteLine($"Error when getting attribute {attribute}: {ex.Message}");
                     }
+                    
                 }
             }
         }
@@ -59,7 +71,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // Get table of contents
             var page = await _puppeteerDriverService.CreatePageAsync(_scraperData.SiteTableOfContents, false);
             await WaitForCloudflareAsync(page);
-            var content = await page.GetContentAsync();
 
             HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
             
@@ -69,7 +80,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // the url of the chapters pages are different from the table of contents page
             Uri chaptersUri = new Uri(page.Url + "/chapters");
 
-            await page.GoToAsync(chaptersUri?.ToString());
+            await page.GoToAsync(chaptersUri?.ToString(), new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
         
             htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 

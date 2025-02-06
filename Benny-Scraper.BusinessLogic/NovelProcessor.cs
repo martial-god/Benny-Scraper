@@ -1,4 +1,5 @@
 ﻿using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.FileGenerators;
 using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
@@ -79,7 +80,7 @@ public class NovelProcessor(
         Novel newNovel = CreateNovel(novelDataBuffer, novelTableOfContentsUri);
         Logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
-        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls);
+        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls, scraperStrategy.GetCurrentPage());
         newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
 
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
