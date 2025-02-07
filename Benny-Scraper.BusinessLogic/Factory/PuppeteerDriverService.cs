@@ -12,6 +12,7 @@ public interface IPuppeteerDriverService
     Task CloseBrowserAsync();
     Task<HtmlDocument> GetPageContentAsync(IPage page);
     IPage? GetCurrentPage();
+    void Dispose();
     // Getting cookies for puppeteersharp https://webscraping.ai/faq/puppeteer-sharp/how-can-i-manage-cookies-in-puppeteer-sharp
 }
 
@@ -71,6 +72,8 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             var htmlDocument = new HtmlDocument();
             var pageContent = await page.GetContentAsync();
             htmlDocument.LoadHtml(pageContent);
+            if (htmlDocument.DocumentNode is null || htmlDocument is null)
+                throw new NullReferenceException($"Document is null. Possibly a navigation or rate-limit -error");
             return htmlDocument;
         }
         catch (Exception ex)

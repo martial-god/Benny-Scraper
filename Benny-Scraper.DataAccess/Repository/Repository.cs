@@ -55,8 +55,15 @@ namespace Benny_Scraper.DataAccess.Repository
         /// <returns></returns>
         public async Task<TGenericDbObject?> GetByIdAsync(Guid id, CancellationToken cancellation = default)
         {
-            cancellation.ThrowIfCancellationRequested();
-            return await _dbSet.FindAsync(new { id }, cancellation);
+            try
+            {
+                cancellation.ThrowIfCancellationRequested();
+                return await _dbSet.FindAsync(id, cancellation);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
 
         /// <summary>
