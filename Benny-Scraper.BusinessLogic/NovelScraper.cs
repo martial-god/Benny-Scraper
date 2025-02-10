@@ -50,7 +50,7 @@ namespace Benny_Scraper.BusinessLogic
             AddStrategy("https://novelfull.com", new NovelFullStrategy());
             AddStrategy("https://mangakakalot.to", new MangaKakalotStrategy());
             AddStrategy("https://mangareader.to", new MangaReaderStrategy());
-            AddStrategy("https://mangakatana.com", new MangaKatanaStrategy());
+            AddStrategy("https://mangakatana.com", new MangaKatanaStrategy(_puppeteerDriverService));
             AddStrategy("https://noveldrama.com", new NovelDramaStrategy());
         }
         #endregion

@@ -1,6 +1,8 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks.Dataflow;
 using Benny_Scraper.Models;
 
 namespace Benny_Scraper.BusinessLogic.Helper
@@ -86,6 +88,7 @@ namespace Benny_Scraper.BusinessLogic.Helper
 
     public static class MyExtensions
     {
+        // https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/extension-methods
         /// <summary>
         /// Extension method for ICollection to add a range of items. Make
         /// </summary>
@@ -102,7 +105,50 @@ namespace Benny_Scraper.BusinessLogic.Helper
                 collection.Add(item);
             }
         }
+
+        public static Task ForEachAsync<T>(this IEnumerable<T> source, int dop, Func<T, Task> body)
+        {
+            async Task AwaitPartition(IEnumerator<T> partition)
+            {
+                using (partition)
+                {
+                    while (partition.MoveNext())
+                    {
+                        await body(partition.Current);
+                    }
+                }
+            }
+
+            return Task.WhenAll(Partitioner
+                .Create(source)
+                .GetPartitions(dop)
+                .AsParallel()
+                .Select(p => AwaitPartition(p)));
+        }
+        
+        public static async Task AsyncParallelForEach<T>(
+            this IAsyncEnumerable<T> source,
+            Func<T, Task> body,
+            int maxDegreeOfParallelism = DataflowBlockOptions.Unbounded,
+            TaskScheduler scheduler = null)
+        {
+            var options = new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = maxDegreeOfParallelism
+            };
+            if (scheduler != null)
+                options.TaskScheduler = scheduler;
+
+            var block = new ActionBlock<T>(body, options);
+
+            await foreach (var item in source)
+                block.Post(item);
+
+            block.Complete();
+            await block.Completion;
+        }
     }
+    
 
     public static class CommandExecutor
     {

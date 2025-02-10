@@ -54,8 +54,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
     }
-    public class LightNovelWorldStrategy(IPuppeteerDriverService puppeteerDriverService)
-        : ScraperStrategy(puppeteerDriverService)
+    public class LightNovelWorldStrategy(IPuppeteerDriverService puppeteerDriverService) : ScraperStrategy(puppeteerDriverService)
     {
         private readonly IPuppeteerDriverService _puppeteerDriverService = puppeteerDriverService;
         protected override bool RequiresBrowser => true;

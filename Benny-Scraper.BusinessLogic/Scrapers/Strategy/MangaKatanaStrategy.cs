@@ -2,6 +2,7 @@
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Text;
+using Benny_Scraper.BusinessLogic.Factory;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -10,13 +11,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     /// </summary>
     public class MangaKatanaInitializer : NovelDataInitializer
     {
-        public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
+        public static void FetchNovelContent(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
         {
             int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
             StringBuilder queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
             queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
             queryBuilder.Append(novelId);
-            Uri uriQueryForChapterUrls = new Uri(queryBuilder.ToString());
 
             var attributesToFetch = new List<Attr>()
             {
@@ -51,8 +51,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
     }
 
-    public class MangaKatanaStrategy : ScraperStrategy
+    public class MangaKatanaStrategy(IPuppeteerDriverService puppeteerDriverService) : ScraperStrategy(puppeteerDriverService)
     {
+        protected override bool RequiresBrowser => true;
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
@@ -80,20 +81,20 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelDataBuffer;
         }
 
-        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        protected override Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
             try
             {
-                await Task.WhenAll(MangaKatanaInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, _scraperData, this));
-                return novelDataBuffer;
+                MangaKatanaInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, _scraperData, this);
+                return Task.FromResult(novelDataBuffer);
             }
             catch (Exception e)
             {
                 Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
             }
 
-            return novelDataBuffer;
+            return Task.FromResult(novelDataBuffer);
         }
 
         protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)

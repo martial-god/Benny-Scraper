@@ -1,19 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="Google.Apis.Drive.v3" Version="1.58.0.2859" />
+    <PackageReference Include="Google.Apis.Drive.v3" />
   </ItemGroup>
-
   <ItemGroup>
     <Folder Include="client_access\" />
     <Folder Include="client_access\" />
   </ItemGroup>
-
 </Project>

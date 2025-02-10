@@ -318,6 +318,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return PuppeteerDriverService?.GetCurrentPage();
         }
 
+        public Task<IPage> CreateNewPuppeteerBrowserWithPageAsync(Uri uri, bool headless = true)
+        {
+            return PuppeteerDriverService.CreatePageAsync(uri, headless);
+        }
+
         public async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlPublicAsync(Uri uri)
         {
             return await LoadHtmlAsync(uri);
