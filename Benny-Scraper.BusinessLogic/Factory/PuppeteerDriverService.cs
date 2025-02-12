@@ -7,29 +7,33 @@ namespace Benny_Scraper.BusinessLogic.Factory;
 
 public interface IPuppeteerDriverService
 {
-    Task<IBrowser> GetBrowserAsync(bool headless = true);
-    Task<IPage> CreatePageAsync(Uri uri, bool headless = true);
-    Task CloseBrowserAsync();
-    Task<HtmlDocument> GetPageContentAsync(IPage page);
-    IPage? GetCurrentPage();
-    void Dispose();
-    // Getting cookies for puppeteersharp https://webscraping.ai/faq/puppeteer-sharp/how-can-i-manage-cookies-in-puppeteer-sharp
+    Task<IBrowser> GetOrCreateBrowserAsync(bool headless = true); // Implemented in PuppeteerDriverService
+    Task<IPage> CreatePageAndGoToAsync(Uri uri, bool headless = true); // Implemented in PuppeteerDriverService
+    Task CloseBrowserAsync(); // Implemented in PuppeteerDriverService
+    Task<HtmlDocument> GetPageContentAsync(IPage page); // Implemented in PuppeteerDriverService
+    Task<IPage> GetStealthPageAsync(bool headless = true); // Implemented in PuppeteerDriverService
+    void ReturnPage(IPage page); // Implemented in PuppeteerDriverService
+    void Dispose(); // Implemented in PuppeteerDriverService
 }
 
 public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
 {
-    private IBrowser? _browser;
-    private IPage _currentPage;
     private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+    private IBrowser? _browser;
+    // this is only for pages not in use
+    private readonly ConcurrentBag<IPage> _availablePages = new();
+    private readonly int _maxPoolSize = 5;
+    private bool _isDisposed;
 
-    public async Task<IBrowser> GetBrowserAsync(bool headless = true)
+    
+    public async Task<IBrowser> GetOrCreateBrowserAsync(bool headless = true)
     {
         if (_browser is not null && _browser.IsConnected)
             return _browser;
+        
         var browserFetcher = new BrowserFetcher();
-
-        var installedBrowsers = browserFetcher.GetInstalledBrowsers();
         await browserFetcher.DownloadAsync();
+        
         _browser = await Puppeteer.LaunchAsync(new LaunchOptions
         {
             Headless = headless, Args =
@@ -50,19 +54,20 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
         return _browser;
     }
 
-    public async Task<IPage> CreatePageAsync(Uri uri, bool headless = true)
+    /// <summary>
+    /// Because now you first "GetStealthPageAsync" then you do "GoToAsync" outside 
+    /// or create a separate method that merges them if you prefer.
+    /// </summary>
+    public async Task<IPage> CreatePageAndGoToAsync(Uri uri, bool headless = true)
     {
-        var browser = await GetBrowserAsync(headless);
-        var page = await browser.NewPageAsync();
+        var page = await GetStealthPageAsync(headless);
+        await page.GoToAsync(uri.ToString(), new NavigationOptions
+        {
+            WaitUntil = new[] { WaitUntilNavigation.Load },
+            Timeout = 60000
+        }).ConfigureAwait(false);
 
-        // Configure stealth
-        await page.EvaluateExpressionOnNewDocumentAsync("() => { delete navigator.__proto__.webdriver }");
-
-        await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64)...");
-        // Notes about waiting until page is fully loaded. https://www.puppeteersharp.com/api/PuppeteerSharp.WaitUntilNavigation.html
-        await page.GoToAsync(uri.ToString(), new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
-        _currentPage = page;
-        return _currentPage;
+        return page;
     }
     
     public async Task<HtmlDocument> GetPageContentAsync(IPage page)
@@ -79,14 +84,70 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
         catch (Exception ex)
         {
             _logger.Fatal($"Error while getting page content for {page.Url}: {ex}");
-            Dispose();
             throw new Exception($"Error while getting page content for {page.Url}", ex);
         }
     }
 
-    public IPage? GetCurrentPage()
+    /// <summary>
+    /// Gets a "stealth" page from the pool (or creates a new one if below maxPoolSize).
+    /// Does NOT navigate to a URL. 
+    /// </summary>
+    public async Task<IPage> GetStealthPageAsync(bool headless = true)
     {
-        return _currentPage;
+        var browser = await GetOrCreateBrowserAsync(headless);
+
+        if (_availablePages.TryTake(out var page))
+        {
+            if (!page.IsClosed)
+            {
+                _logger.Debug("Reusing page from the pool.");
+                return page;
+            }
+            _logger.Debug("Pooled page was closed, discarding it. Will create a new one.");
+        }
+
+        // If no page is available, see if we are under the max pool size
+        if (CountOpenPages() < _maxPoolSize)
+        {
+            var newPage = await browser.NewPageAsync().ConfigureAwait(false);
+
+            await newPage.EvaluateExpressionOnNewDocumentAsync("() => { delete navigator.__proto__.webdriver }");
+            await newPage.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64)...");
+            
+            _logger.Debug("Created a brand-new page for the pool.");
+            return newPage;
+        }
+        
+        _logger.Warn("Pool is full. Waiting for a page to be returned...");
+        while (true)
+        {
+            await Task.Delay(500);
+            if (_availablePages.TryTake(out var waitingPage))
+            {
+                if (!waitingPage.IsClosed)
+                    return waitingPage;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Returns the page to the pool for future reuse (unless it’s closed).
+    /// </summary>
+    public void ReturnPage(IPage page)
+    {
+        if (page.IsClosed)
+        {
+            _logger.Debug("Not returning a closed page to the pool.");
+            return;
+        }
+
+        _logger.Debug("Returning page to the pool.");
+        _availablePages.Add(page);
+    }
+    
+    private int CountOpenPages()
+    {
+        return _availablePages.Count + (_browser?.PagesAsync().Result?.Count() ?? 0);
     }
     
     public async Task CloseBrowserAsync()
@@ -98,5 +159,11 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
         }
     }
 
-    public void Dispose() => CloseBrowserAsync().Wait();
+    public void Dispose()
+    {
+        if (_isDisposed)
+            return;
+        _isDisposed = true;
+        CloseBrowserAsync().Wait();
+    }
 }

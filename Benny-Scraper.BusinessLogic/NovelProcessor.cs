@@ -70,8 +70,7 @@ public class NovelProcessor(
     private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration)
     {
         using NovelDataBuffer novelDataBuffer = await scraperStrategy.ScrapeAsync();
-
-        if (novelDataBuffer == null)
+        if (novelDataBuffer is null)
         {
             Logger.Error($"Failed to retrieve novel data from {novelTableOfContentsUri}");
             return;
@@ -80,7 +79,9 @@ public class NovelProcessor(
         Novel newNovel = CreateNovel(novelDataBuffer, novelTableOfContentsUri);
         Logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
-        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls, scraperStrategy.GetCurrentPuppeteerPage());
+        var browser = scraperStrategy.BrowserRequired ? await scraperStrategy.GetOrCreatePuppeteerBrowserAsync(headless: true) : null;
+
+        IEnumerable <ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls, browser);
         newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
 
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));

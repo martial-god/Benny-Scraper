@@ -68,7 +68,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetBaseUri(_scraperData.SiteTableOfContents);
 
             // Get table of contents
-            var page = await _puppeteerDriverService.CreatePageAsync(_scraperData.SiteTableOfContents, false);
+            await using var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, false);
             await WaitForCloudflareAsync(page);
 
             HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);

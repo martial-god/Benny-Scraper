@@ -1,19 +1,16 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Web;
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
-using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
 using Polly;
 using PuppeteerSharp;
-using SeleniumExtras.WaitHelpers;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -256,7 +253,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
         private static readonly HttpClient Client = new HttpClient(); // better to keep one instance through the life of the method
         private SemaphoreSlim _httpSemaphore; // limit the number of concurrent requests, prevent posssible rate limiting
-        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(2);
+        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(4, 4);
         private static readonly List<string> UserAgents = new List<string>
         {
             "Other", // found at https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
@@ -272,7 +269,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             if (RequiresBrowser && puppeteerDriverService is null)
                 throw new ArgumentNullException(nameof(puppeteerDriverService));
-            
+
             PuppeteerDriverService = puppeteerDriverService;
         }
 
@@ -309,19 +306,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return _scraperData.SiteConfig ?? throw new NullReferenceException("SiteConfiguration is null");
         }
 
-        /// <summary>
-        /// This should really be called after a page has been created
-        /// </summary>
-        /// <returns></returns>
-        public IPage? GetCurrentPuppeteerPage()
+        public async Task<IPage?> CreateNewPuppeteerBrowserWithPageAsync(bool headless = true)
         {
-            return PuppeteerDriverService?.GetCurrentPage();
+            if (RequiresBrowser && PuppeteerDriverService is not null && _scraperData is { SiteTableOfContents: not null }) { }
+            return await PuppeteerDriverService?.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, headless);
         }
 
-        public Task<IPage> CreateNewPuppeteerBrowserWithPageAsync(Uri uri, bool headless = true)
+        public async Task<IBrowser> GetOrCreatePuppeteerBrowserAsync(bool headless = true)
         {
-            return PuppeteerDriverService.CreatePageAsync(uri, headless);
+            return await PuppeteerDriverService.GetOrCreateBrowserAsync(headless);
         }
+
+        public bool BrowserRequired => RequiresBrowser;
 
         public async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlPublicAsync(Uri uri)
         {
@@ -334,7 +330,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             var retryPolicy = Policy
                 .Handle<HttpRequestException>()
-                .OrResult<(HtmlDocument, Uri)>(result => result is { Item1: null}) // Retry if the result is null
+                .OrResult<(HtmlDocument, Uri)>(result => result is { Item1: null }) // Retry if the result is null
                 .WaitAndRetryAsync(MaxRetries, retryAttempt =>
                     TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // exponential back-off
                     (outcome, timeSpan, retryCount, context) =>
@@ -563,13 +559,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterUrls;
         }
 
-        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls, IPage? page = null)
+        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls, IBrowser? browser = null)
         {
             var tempImageDirectory = string.Empty;
             int sequenceNumber = 1;
             var tasks = new List<Task<ChapterDataBuffer>>();
+            var resultBag = new ConcurrentBag<ChapterDataBuffer>();
             var chapterDataBuffers = new List<ChapterDataBuffer>();
-            
+
             try
             {
                 Logger.Info("Getting chapters data");
@@ -577,130 +574,100 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 // property pattern https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns#property-pattern
                 if (_scraperData.SiteConfig is { HasImagesForChapterContent: true } && RequiresBrowser)
                 {
-                    if (page is null)
+                    if (browser is null)
                         throw new ArgumentNullException(
-                            $"{nameof(page)} cannot be null when RequiresBrowser is true. Method {nameof(GetChaptersDataAsync)} is not allowed.}}");
+                            $"{nameof(browser)} cannot be null when RequiresBrowser is true. " +
+                            $"Method {nameof(GetChaptersDataAsync)} is not allowed.}}");
+
+                    await using var page = await PuppeteerDriverService.GetStealthPageAsync(false);
                     await GetChaptersWithImagesAsync(chapterUrls, chapterDataBuffers, tasks, page, tempImageDirectory);
-                    
+
                     chapterDataBuffers.ForEach(chapterDataBuffer => chapterDataBuffer.SequenceNumber = sequenceNumber++);
                     return chapterDataBuffers;
                 }
-                
-                Logger.Debug("Using HttpClient to get chapters data");
-                foreach (var url in chapterUrls)
-                {
-                    if (page is not null && RequiresBrowser)
-                    {
-                        await _puppeteerSemaphore.WaitAsync();
-                        try
-                        {
-                            // process one chapter at time. Still need to clean this up
-                            await Task.Delay(Random.Shared.Next(100, 3000));
-                            var chapterData = await GetChapterDataAsync(url, page);
-                            chapterDataBuffers.Add(chapterData);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"Error occurred while getting chapters data from {url}. Error: {ex}");
-                        }
-                        finally
-                        {
-                            _httpSemaphore.Release();
-                        }
-                    }
-                    else
-                    {
-                        await _httpSemaphore.WaitAsync();
-                        try
-                        {
-                            tasks.Add(GetChapterDataAsync(url, null));
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"Error occurred while getting chapter data from {url}. Error: {ex}");
-                        }
-                        finally
-                        {
-                            _httpSemaphore.Release();
-                        }
-                    }
-                }
 
-                try
+                // TODO: reduce the nesting here, looks quite bad.
+                if (RequiresBrowser && browser is not null)
                 {
-                    var taskResults = await Task.WhenAll(tasks);
-                    chapterDataBuffers.AddRange(taskResults);
+                    foreach (var chapterUrl in chapterUrls)
+                    {
+                        tasks.Add(Task.Run(async () =>
+                        {
+                            await _puppeteerSemaphore.WaitAsync();
+                            IPage? page = null;
+                            try
+                            {
+                                page = await PuppeteerDriverService.GetStealthPageAsync();
+                                var chapterData = await GetChapterDataWithRetryAsync(chapterUrl, page);
+                                resultBag.Add(chapterData);
+                                return chapterData;
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Error($"Error occurred while getting chapter data. Error: {ex}");
+                                throw;
+                            }
+                            finally
+                            {
+                                if (page is not null)
+                                    PuppeteerDriverService.ReturnPage(page); // Return page back to the pool so it's reused
+                                _puppeteerSemaphore.Release();
+                                Logger.Debug("Semaphore released");
+                            } 
+                        }));
+                        
+                    }
+                    await Task.WhenAll(tasks);
                 }
-                catch (Exception ex)
+                else
                 {
-                    Logger.Error($"Error while getting chapters data. {ex}");
-                    throw;
+                    foreach (var chapterUrl in chapterUrls)
+                    {
+                        tasks.Add(Task.Run(async () =>
+                        {
+                            await _httpSemaphore.WaitAsync();
+                            try
+                            {
+                                var chapterData = await GetChapterDataWithRetryAsync(chapterUrl, page: null);
+                                resultBag.Add(chapterData);
+                                return chapterData;
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Error($"Error occurred while getting chapter data. Error: {ex}");
+                                throw;
+                            }
+                            finally
+                            {
+                                _httpSemaphore.Release();
+                                Logger.Debug("Semaphore released");
+                            }
+                        }));
+                    }
                 }
 
                 Logger.Info("Finished getting chapters data");
-                
+                chapterDataBuffers = resultBag.ToList();
+
                 chapterDataBuffers.ForEach(chapterDataBuffer => chapterDataBuffer.SequenceNumber = sequenceNumber++);
                 return chapterDataBuffers;
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error while getting chapters data. {ex}");
+                throw;
+            }
+            finally
+            {
                 if (!string.IsNullOrEmpty(tempImageDirectory))
                 {
                     Directory.Delete(tempImageDirectory, true);
                     Logger.Info("Finished deleting temp directory");
                 }
-
-                throw;
-            }
-            finally
-            {
                 PuppeteerDriverService?.Dispose();
             }
         }
-        
-        // TODO: Figure out whether or not to use this. It works great for Puppeteer sites but does not handle parallel request, pretty slow.
-        public virtual async Task<List<ChapterDataBuffer>> GetChapterssDataAsync(List<string> chapterUrls, IPage? page = null)
-        {
-            var chapterDataBuffers = new List<ChapterDataBuffer>();
-            int sequenceNumber = 1;
-            Logger.Info("Getting chapters data");
 
-            foreach (var url in chapterUrls)
-            {
-                if (page != null && RequiresBrowser)
-                {
-                    await _puppeteerSemaphore.WaitAsync();
-                    try
-                    {
-                        // We only acquire once here, but inside the call we handle retries
-                        var chapter = await GetChapterDataWithRetryAsync(url, page);
-                        chapter.SequenceNumber = sequenceNumber++;
-                        chapterDataBuffers.Add(chapter);
-                    }
-                    finally
-                    {
-                        _puppeteerSemaphore.Release();
-                    }
-                }
-                else
-                {
-                    await _httpSemaphore.WaitAsync();
-                    try
-                    {
-                        var chapter = await GetChapterDataWithRetryAsync(url, null);
-                        chapterDataBuffers.Add(chapter);
-                    }
-                    finally
-                    {
-                        _httpSemaphore.Release();
-                    }
-                }
-            }
-
-            return chapterDataBuffers;
-        }
-        
         private async Task<ChapterDataBuffer> GetChapterDataWithRetryAsync(string url, IPage? page, int maxRetries = MaxRetries, double initialDelaySeconds = 5.0)
         {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
@@ -723,10 +690,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             DateLastModified = DateTime.Now
                         };
                     }
+
                     var baseDelay = initialDelaySeconds * Math.Pow(2, attempt - 1);
                     var jitterFactor = 0.5 + Random.Shared.NextDouble(); // 0.5x–1.5x
                     var finalDelay = baseDelay * jitterFactor * 1000;
-            
+
                     Logger.Warn($"Attempt {attempt} failed for {url}. Will retry in {finalDelay}s.");
                     await Task.Delay((int)finalDelay);
                 }
@@ -745,7 +713,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 await page.GoToAsync(url, new NavigationOptions
                 {
                     WaitUntil = new[] { WaitUntilNavigation.Load },
-                    Timeout = 10000 
+                    Timeout = 10000
                 });
                 HtmlDocument html = await PuppeteerDriverService.GetPageContentAsync(page);
                 ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
@@ -760,7 +728,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterDataBuffer;
         }
 
-        private void  ParseHtmlIntoChapterBuffer(HtmlDocument htmlDocument, ChapterDataBuffer chapterDataBuffer)
+        private void ParseHtmlIntoChapterBuffer(HtmlDocument htmlDocument, ChapterDataBuffer chapterDataBuffer)
         {
             var titleNode = htmlDocument?.DocumentNode?.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
             if (titleNode == null)
@@ -797,7 +765,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 chapterDataBuffer.Content = "No content found";
             }
         }
-
 
         private async Task GetChaptersWithImagesAsync(
             List<string> chapterUrls,
@@ -885,7 +852,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         /// </summary>
         /// <param name="htmlDocument"></param>
         /// <returns>Decoded HtmlDocument</returns>
-        protected static HtmlDocument DecodeHtml(HtmlDocument htmlDocument)
+        static HtmlDocument DecodeHtml(HtmlDocument htmlDocument)
         {
             Logger.Debug("Decoding HTML - Start");
             var decodedHtml = WebUtility.HtmlDecode(htmlDocument.DocumentNode.OuterHtml);
@@ -904,17 +871,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
         #region Private Methods
-        private void SetSiteConfiguration(SiteConfiguration siteConfig)
+        void SetSiteConfiguration(SiteConfiguration siteConfig)
         {
             _scraperData.SiteConfig = siteConfig;
         }
 
-        private void SetSiteTableOfContents(Uri siteTableOfContents)
+        void SetSiteTableOfContents(Uri siteTableOfContents)
         {
             _scraperData.SiteTableOfContents = siteTableOfContents;
         }
 
-        private void SetConcurrentRequestLimit(int concurrentRequestLimit)
+        void SetConcurrentRequestLimit(int concurrentRequestLimit)
         {
             if (concurrentRequestLimit < 1)
                 throw new ArgumentException("Concurrent request limit must be greater than 0");
@@ -989,7 +956,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterDataBuffer;
         }
 
-        private async Task<ChapterDataBuffer> GetChapterDataAsync(string url, IPage? page = null)
+        private async Task<ChapterDataBuffer> GetChapterDataAsync(string url, IBrowser? browser = null)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -1005,13 +972,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     case true:
                         {
-                            if (page is null)
-                                throw new ArgumentNullException($"{nameof(page)} cannot be null when {nameof(RequiresBrowser)} is true");
-                            await page.GoToAsync(url, new NavigationOptions
-                            {
-                                WaitUntil = new[] { WaitUntilNavigation.Load },
-                                Timeout = 60000
-                            });
+                            if (browser is null)
+                                throw new ArgumentNullException($"{nameof(browser)} cannot be null when {nameof(RequiresBrowser)} is true");
+
+                            await using var page = await PuppeteerDriverService.CreatePageAndGoToAsync(new Uri(url), true);
+
+                            // chapterDataBuffer = await GetChapterDataWithRetryAsync(url, browser, 6);
                             htmlDocument = await PuppeteerWithRetryAsync(page, url, maxRetries: 4);
                             if (htmlDocument is null)
                             {
@@ -1070,25 +1036,28 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 chapterDataBuffer.DateLastModified = DateTime.Now;
                 chapterDataBuffer.Url = url;
-                _httpSemaphore.Release();
-                _puppeteerSemaphore.Release();
+                // _httpSemaphore.Release();
+                // _puppeteerSemaphore.Release();
                 Logger.Info($"Semaphore released");
             }
 
             return chapterDataBuffer;
         }
-        
+
         private async Task<HtmlDocument?> PuppeteerWithRetryAsync(IPage page, string url, int maxRetries = 3)
         {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
-                    await page.GoToAsync(url, new NavigationOptions
+                    if (attempt > 1)
                     {
-                        WaitUntil = new[] { WaitUntilNavigation.Load },
-                        Timeout = 30000 // 1 minute or your choice
-                    });
+                        await page.GoToAsync(url, new NavigationOptions
+                        {
+                            WaitUntil = new[] { WaitUntilNavigation.Load },
+                            Timeout = 30000 // 1 minute or your choice
+                        });
+                    }
 
                     // If navigation succeeds, parse the DOM
                     var htmlDoc = await PuppeteerDriverService.GetPageContentAsync(page);
@@ -1105,7 +1074,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     // Backoff before next attempt
                     // e.g., 2s, 4s, 6s, or exponential with random jitter
-                    int delayMs = 2000 * attempt; 
+                    int delayMs = 2000 * attempt;
                     await Task.Delay(delayMs);
                 }
             }
@@ -1114,6 +1083,5 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
         #endregion
-
     }
 }
