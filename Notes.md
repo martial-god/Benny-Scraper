@@ -9,6 +9,13 @@
     - [HttpNovelScraper.cs](#httpnovelscrapercs)
   - [May Update](#may-update)
     - [Changing HttpNovelScraper.cs and SeleniumNovelScraper.cs to be base classes for the specific site scrapers / Goals for this month](#changing-httpnovelscrapercs-and-seleniumnovelscrapercs-to-be-base-classes-for-the-specific-site-scrapers--goals-for-this-month)
+- [2024](#2024)
+- [2025](#2025)
+  - [February](#february)
+    - [It all started with a small change...](#it-all-started-with-a-small-change)
+    - [Single Scraper from `HttpNovelScraper`/`SeleniumNovelScraper` => `NovelScraper`](#single-scraper-from-httpnovelscraperseleniumnovelscraper--novelscraper)
+    - [02/09/25 - 02/13/25](#020925---021325)
+    - [TODO](#todo)
 
 # Creating EPUB
 [Html to make an epub](https://www.thoughtco.com/create-epub-file-from-html-and-xml-3467282)
