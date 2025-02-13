@@ -251,9 +251,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
 
         protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
-        private static readonly HttpClient Client = new HttpClient(); // better to keep one instance through the life of the method
+
+        private static readonly HttpClient
+            Client = new HttpClient(); // better to keep one instance through the life of the method
+
         private SemaphoreSlim _httpSemaphore; // limit the number of concurrent requests, prevent posssible rate limiting
-        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(4, 4);
+
+        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(2, 2);
+
         private static readonly List<string> UserAgents = new List<string>
         {
             "Other", // found at https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
@@ -263,6 +268,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             "Mozilla/5.0 (Windows NT 5.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
             "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
         };
+
         private static int _userAgentIndex = 0;
 
         protected ScraperStrategy(IPuppeteerDriverService? puppeteerDriverService = null)
@@ -274,6 +280,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
         public abstract Task<NovelDataBuffer> ScrapeAsync();
+
         /// <summary>
         /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
         /// </summary>
@@ -281,6 +288,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         /// <returns></returns>
         /// 
         protected abstract NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
+
         /// <summary>
         /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
         /// </summary>
@@ -308,7 +316,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         public async Task<IPage?> CreateNewPuppeteerBrowserWithPageAsync(bool headless = true)
         {
-            if (RequiresBrowser && PuppeteerDriverService is not null && _scraperData is { SiteTableOfContents: not null }) { }
+            if (RequiresBrowser && PuppeteerDriverService is not null &&
+                _scraperData is { SiteTableOfContents: not null }) { }
+
             return await PuppeteerDriverService?.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, headless);
         }
 
@@ -326,13 +336,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         protected async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlAsync(Uri uri)
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+            ServicePointManager.SecurityProtocol =
+                SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 
             var retryPolicy = Policy
                 .Handle<HttpRequestException>()
                 .OrResult<(HtmlDocument, Uri)>(result => result is { Item1: null }) // Retry if the result is null
                 .WaitAndRetryAsync(MaxRetries, retryAttempt =>
-                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // exponential back-off
+                        TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // exponential back-off
                     (outcome, timeSpan, retryCount, context) =>
                     {
                         // Log the exception details here
@@ -348,15 +359,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 string userAgent = UserAgents[++_userAgentIndex % UserAgents.Count];
 
                 requestMessage.Headers.Add("User-Agent", userAgent);
-                requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
+                requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"),
+                    TimeSpan.FromSeconds(10));
                 Logger.Debug($"Sending request to {uri}");
                 var response = await Client.SendAsync(requestMessage);
                 if (!response.IsSuccessStatusCode)
                 {
-                    if (response.StatusCode == HttpStatusCode.TooManyRequests && (int)context["RetryCount"] >= MaxRetries)
+                    if (response.StatusCode == HttpStatusCode.TooManyRequests &&
+                        (int)context["RetryCount"] >= MaxRetries)
                         return (null, uri);
-                    throw new HttpRequestException($"Failed to load HTML document from {uri} after {MaxRetries} attempts. NovelStatus code: {response.StatusCode}");
+                    throw new HttpRequestException(
+                        $"Failed to load HTML document from {uri} after {MaxRetries} attempts. NovelStatus code: {response.StatusCode}");
                 }
+
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync();
 
@@ -370,7 +385,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     if (!string.IsNullOrEmpty(canonicalUrl) && canonicalUrl != uri.ToString())
                     {
                         Logger.Debug($"Canonical URL detected. Old URL: {uri}, Canonical URL: {canonicalUrl}");
-                        uri = new Uri(canonicalUrl);  // Update the Uri for next request
+                        uri = new Uri(canonicalUrl); // Update the Uri for next request
                     }
                 }
 
@@ -383,7 +398,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var uriString = uri.ToString();
             uriString = uriString.Replace("amp;", "");
             uri = new Uri(uriString);
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+            ServicePointManager.SecurityProtocol =
+                SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 
             int retryCount = 0;
             while (retryCount < MaxRetries)
@@ -407,6 +423,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     await Task.Delay(3000);
                 }
             }
+
             AppDomain.CurrentDomain.ProcessExit += (s, e) =>
             {
                 if (Directory.Exists(tempImageDirectory))
@@ -419,9 +436,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
 
         #region Url Helpers
+
         public bool IsValidHttpUrl(string url)
         {
-            return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+            return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) &&
+                   (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
         }
 
         protected virtual Uri TrimLastUriSegment(Uri siteUri)
@@ -438,6 +457,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Error($"siteUri, which is the url that was provided by the user is null.");
                 throw new ArgumentNullException(nameof(siteUri));
             }
+
             _scraperData.BaseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
         }
 
@@ -463,6 +483,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return -1;
         }
+
         #endregion
 
         /// <summary>
@@ -474,12 +495,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         /// <param name="pageToStartAt"></param>
         /// <param name="page"></param>
         /// <returns>Returns a ValueTuple that contains all the chapter urls and the url for the last page of the table of contents</returns>
-        protected virtual async Task<(List<string> ChapterUrls, string LastTableOfContentsUrl)> GetPaginatedChapterUrlsAsync(
-            Uri tableOfContentUri,
-            bool getAllChapters,
-            int pageToStopAt,
-            int pageToStartAt = 1,
-            IPage? page = null)
+        protected virtual async Task<(List<string> ChapterUrls, string LastTableOfContentsUrl)>
+            GetPaginatedChapterUrlsAsync(
+                Uri tableOfContentUri,
+                bool getAllChapters,
+                int pageToStopAt,
+                int pageToStartAt = 1,
+                IPage? page = null)
         {
             var chapterUrls = new List<string>();
 
@@ -499,8 +521,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     {
                         case true:
                             if (page is null)
-                                throw new ArgumentNullException($"{nameof(page)} cannot be null when RequiresBrowser is true.");
-                            await page.GoToAsync(tableOfContentUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
+                                throw new ArgumentNullException(
+                                    $"{nameof(page)} cannot be null when RequiresBrowser is true.");
+                            await page.GoToAsync(tableOfContentUrl,
+                                new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
                             htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
                             break;
                         default:
@@ -510,7 +534,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     if (_scraperData.BaseUri != null)
                     {
-                        List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
+                        List<string> chapterUrlsOnContentPage =
+                            GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
                         if (chapterUrlsOnContentPage.Any())
                             chapterUrls.AddRange(chapterUrlsOnContentPage);
                     }
@@ -523,10 +548,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Error($"Error occurred while navigating to {tableOfContentUrl}. Error: {e}");
                 }
             }
+
             return (chapterUrls, lastTableOfContentsUrl);
         }
 
-        protected virtual async Task<List<string>> GetChapterUrls(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt, int pageToStartAt = 1)
+        protected virtual async Task<List<string>> GetChapterUrls(Uri tableOfContentUri, bool getAllChapters,
+            int pageToStopAt, int pageToStartAt = 1)
         {
             List<string> chapterUrls = new List<string>();
             string baseTableOfContentUrl = tableOfContentUri + _scraperData.SiteConfig?.PaginationType;
@@ -542,7 +569,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     if (_scraperData.BaseUri != null)
                     {
-                        List<string> chapterUrlsOnContentPage = GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
+                        List<string> chapterUrlsOnContentPage =
+                            GetChapterUrlsInRange(htmlDocument, _scraperData.BaseUri, 1);
                         if (chapterUrlsOnContentPage.Any())
                             chapterUrls.AddRange(chapterUrlsOnContentPage);
                     }
@@ -559,12 +587,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterUrls;
         }
 
-        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls, IBrowser? browser = null)
+        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls,
+            IBrowser? browser = null)
         {
             var tempImageDirectory = string.Empty;
-            int sequenceNumber = 1;
             var tasks = new List<Task<ChapterDataBuffer>>();
-            var resultBag = new ConcurrentBag<ChapterDataBuffer>();
             var chapterDataBuffers = new List<ChapterDataBuffer>();
 
             try
@@ -582,7 +609,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     await using var page = await PuppeteerDriverService.GetStealthPageAsync(false);
                     await GetChaptersWithImagesAsync(chapterUrls, chapterDataBuffers, tasks, page, tempImageDirectory);
 
-                    chapterDataBuffers.ForEach(chapterDataBuffer => chapterDataBuffer.SequenceNumber = sequenceNumber++);
+                    chapterDataBuffers.ForEach(chapterDataBuffer =>
+                        chapterDataBuffer.SequenceNumber = chapterUrls.IndexOf(chapterDataBuffer.Url));
                     return chapterDataBuffers;
                 }
 
@@ -598,9 +626,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             try
                             {
                                 page = await PuppeteerDriverService.GetStealthPageAsync();
-                                var chapterData = await GetChapterDataWithRetryAsync(chapterUrl, page);
-                                resultBag.Add(chapterData);
-                                return chapterData;
+                                await Task.Delay(TimeSpan.FromSeconds(0, 1));
+                                return await GetChapterDataWithRetryAsync(chapterUrl, page);
+                                ;
                             }
                             catch (Exception ex)
                             {
@@ -610,14 +638,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             finally
                             {
                                 if (page is not null)
-                                    PuppeteerDriverService.ReturnPage(page); // Return page back to the pool so it's reused
+                                    PuppeteerDriverService
+                                        .ReturnPage(page); // Return page back to the pool so it's reused
                                 _puppeteerSemaphore.Release();
                                 Logger.Debug("Semaphore released");
-                            } 
+                            }
                         }));
-                        
+
                     }
+
                     await Task.WhenAll(tasks);
+                    PuppeteerDriverService?.Dispose();
                 }
                 else
                 {
@@ -628,9 +659,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             await _httpSemaphore.WaitAsync();
                             try
                             {
-                                var chapterData = await GetChapterDataWithRetryAsync(chapterUrl, page: null);
-                                resultBag.Add(chapterData);
-                                return chapterData;
+                                return await GetChapterDataWithRetryAsync(chapterUrl, page: null);
                             }
                             catch (Exception ex)
                             {
@@ -647,9 +676,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
 
                 Logger.Info("Finished getting chapters data");
-                chapterDataBuffers = resultBag.ToList();
+                chapterDataBuffers = tasks.Select(t => t.Result).ToList();
 
-                chapterDataBuffers.ForEach(chapterDataBuffer => chapterDataBuffer.SequenceNumber = sequenceNumber++);
+                chapterDataBuffers.ForEach(chapterDataBuffer =>
+                    chapterDataBuffer.SequenceNumber = chapterUrls.IndexOf(chapterDataBuffer.Url) + 1);
+                chapterDataBuffers.OrderBy(chapterDataBuffer => chapterDataBuffer.SequenceNumber).ToList();
                 return chapterDataBuffers;
             }
             catch (Exception ex)
@@ -664,17 +695,21 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Directory.Delete(tempImageDirectory, true);
                     Logger.Info("Finished deleting temp directory");
                 }
+
                 PuppeteerDriverService?.Dispose();
             }
         }
 
-        private async Task<ChapterDataBuffer> GetChapterDataWithRetryAsync(string url, IPage? page, int maxRetries = MaxRetries, double initialDelaySeconds = 5.0)
+        private async Task<ChapterDataBuffer> GetChapterDataWithRetryAsync(string url, IPage? page,
+            int maxRetries = MaxRetries, double initialDelaySeconds = 1.5)
         {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
                     var chapterData = await GetChapterDataNoSemaphoreAsync(url, page);
+                    chapterData.Url = url;
+                    chapterData.DateLastModified = DateTime.Now;
                     return chapterData;
                 }
                 catch (Exception)
@@ -699,6 +734,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     await Task.Delay((int)finalDelay);
                 }
             }
+
             // Should never actually get here
             return new ChapterDataBuffer { Url = url };
         }
@@ -710,11 +746,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             if (page != null && RequiresBrowser)
             {
-                await page.GoToAsync(url, new NavigationOptions
-                {
-                    WaitUntil = new[] { WaitUntilNavigation.Load },
-                    Timeout = 10000
-                });
+                await page.GoToAsync(url,
+                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load }, Timeout = 10000 });
                 HtmlDocument html = await PuppeteerDriverService.GetPageContentAsync(page);
                 ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
             }
@@ -730,14 +763,16 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private void ParseHtmlIntoChapterBuffer(HtmlDocument htmlDocument, ChapterDataBuffer chapterDataBuffer)
         {
-            var titleNode = htmlDocument?.DocumentNode?.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
+            var titleNode =
+                htmlDocument?.DocumentNode?.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
             if (titleNode == null)
                 throw new Exception("Title node missing – likely partial page or blocked.");
 
             chapterDataBuffer.Title = titleNode.InnerText.Trim();
 
-            var paragraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent)
-                                 ?? throw new Exception("Paragraph nodes missing.");
+            var paragraphNodes =
+                htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent)
+                ?? throw new Exception("Paragraph nodes missing.");
             var paragraphs = paragraphNodes
                 .Select(p => HtmlEntity.DeEntitize(p.InnerText.Trim()))
                 .ToList();
@@ -745,13 +780,16 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             if (paragraphs.Count < MinimumParagraphThreshold)
             {
                 Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
-                HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.AlternativeChapterContent);
-                List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
+                HtmlNodeCollection alternateParagraphNodes =
+                    htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.AlternativeChapterContent);
+                List<string> alternateParagraphs = alternateParagraphNodes
+                    .Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
                 Logger.Debug($"Alternate paragraphs count: {alternateParagraphs.Count}");
 
                 if (alternateParagraphs.Count > paragraphs.Count)
                 {
-                    Logger.Debug($"Alternate paragraphs count is greater than paragraphs count. Using alternate paragraphs");
+                    Logger.Debug(
+                        $"Alternate paragraphs count is greater than paragraphs count. Using alternate paragraphs");
                     paragraphs = alternateParagraphs;
                 }
             }
@@ -774,7 +812,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             string tempImageDirectory)
         {
             Logger.Debug("Using Puppeteer to get chapters data");
-            await page.GoToAsync(chapterUrls.First(), new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
+            await page.GoToAsync(chapterUrls.First(),
+                new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
 
             tempImageDirectory = CommonHelper.CreateTempDirectory();
 
@@ -782,6 +821,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 tasks.Add(GetChapterDataAsync(page, url, tempImageDirectory));
             }
+
             try
             {
                 var taskResults = await Task.WhenAll(tasks);
@@ -798,22 +838,22 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
                 else
                 {
-                    Logger.Warn($"Was unable to find temp directory {tempImageDirectory}. Please verify it was deleted successfully");
+                    Logger.Warn(
+                        $"Was unable to find temp directory {tempImageDirectory}. Please verify it was deleted successfully");
                 }
+
                 throw;
             }
         }
 
-        protected virtual List<string> GetChapterUrlsInRange(
-            HtmlDocument htmlDocument,
-            Uri baseSiteUri,
-            int? startChapter = null,
+        protected virtual List<string> GetChapterUrlsInRange(HtmlDocument htmlDocument, Uri baseSiteUri, int? startChapter = null,
             int? endChapter = null)
         {
             Logger.Info($"Getting chapter urls from table of contents");
             try
             {
-                HtmlNodeCollection chapterLinks = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterLinks);
+                HtmlNodeCollection chapterLinks =
+                    htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterLinks);
 
                 if (chapterLinks == null)
                 {
@@ -847,30 +887,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        /// <summary>
-        /// Decodes sites that use HTML encoded characters like class="&#x70;&#x61;&#x67;&#x69;&#x6E;&#x61;&#x74;&#x69;
-        /// </summary>
-        /// <param name="htmlDocument"></param>
-        /// <returns>Decoded HtmlDocument</returns>
-        static HtmlDocument DecodeHtml(HtmlDocument htmlDocument)
-        {
-            Logger.Debug("Decoding HTML - Start");
-            var decodedHtml = WebUtility.HtmlDecode(htmlDocument.DocumentNode.OuterHtml);
-            if (string.IsNullOrEmpty(decodedHtml))
-            {
-                Logger.Error("Decoded HTML was null");
-                return htmlDocument;
-            }
-
-            Logger.Debug("Decoding HTML - End");
-            var decodedHtmlDocument = new HtmlDocument();
-            decodedHtmlDocument.LoadHtml(decodedHtml);
-            Logger.Debug("Decoded HTML loaded into HtmlDocument");
-
-            return decodedHtmlDocument;
-        }
-
         #region Private Methods
+
         void SetSiteConfiguration(SiteConfiguration siteConfig)
         {
             _scraperData.SiteConfig = siteConfig;
@@ -902,17 +920,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             stopwatch.Start();
             var uriLastSegment = new Uri(singleUrl).Segments.Last();
 
-            var chapterDataBuffer = new ChapterDataBuffer()
-            {
-                TempDirectory = tempImageDirectory,
-                Url = singleUrl
-            };
+            var chapterDataBuffer = new ChapterDataBuffer() { TempDirectory = tempImageDirectory, Url = singleUrl };
 
             Logger.Debug($"Navigating to {singleUrl}");
             try
             {
                 Logger.Debug($"Waiting for images on page {singleUrl} to load.");
-                await page.GoToAsync(singleUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
+                await page.GoToAsync(singleUrl,
+                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } });
                 Logger.Debug("Images have been loaded.");
             }
             catch (PuppeteerException ex)
@@ -925,13 +940,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Finished navigating to {singleUrl} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             var htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
 
-            HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
+            HtmlNode titleNode =
+                htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
             chapterDataBuffer.Title = titleNode.InnerText.Trim() ?? uriLastSegment;
             Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
 
-            HtmlNodeCollection pageUrlNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-            var pageUrls = pageUrlNodes.Select(pageUrl => pageUrl.Attributes[_scraperData.SiteConfig?.Selectors?.ChapterContentImageUrlAttribute].Value).ToList();
-            bool isValidHttpUrls = pageUrls.Select(url => Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)).All(value => value);
+            HtmlNodeCollection pageUrlNodes =
+                htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
+            var pageUrls = pageUrlNodes.Select(pageUrl =>
+                pageUrl.Attributes[_scraperData.SiteConfig?.Selectors?.ChapterContentImageUrlAttribute].Value).ToList();
+            bool isValidHttpUrls = pageUrls.Select(url =>
+                    Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp ||
+                        uriResult.Scheme == Uri.UriSchemeHttps))
+                .All(value => value);
 
             if (!isValidHttpUrls)
             {
@@ -955,133 +976,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return chapterDataBuffer;
         }
-
-        private async Task<ChapterDataBuffer> GetChapterDataAsync(string url, IBrowser? browser = null)
-        {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-            HtmlDocument? htmlDocument;
-            Uri? uri;
-
-            var chapterDataBuffer = new ChapterDataBuffer();
-
-            try
-            {
-                Logger.Debug($"Navigating to {url}");
-                switch (RequiresBrowser)
-                {
-                    case true:
-                        {
-                            if (browser is null)
-                                throw new ArgumentNullException($"{nameof(browser)} cannot be null when {nameof(RequiresBrowser)} is true");
-
-                            await using var page = await PuppeteerDriverService.CreatePageAndGoToAsync(new Uri(url), true);
-
-                            // chapterDataBuffer = await GetChapterDataWithRetryAsync(url, browser, 6);
-                            htmlDocument = await PuppeteerWithRetryAsync(page, url, maxRetries: 4);
-                            if (htmlDocument is null)
-                            {
-                                Logger.Error($"Failed to retrieve Puppeteer content after retries: {url}");
-                                chapterDataBuffer.Title = "Failed to retrieve content";
-                                chapterDataBuffer.Content = "No content found";
-                                return chapterDataBuffer;
-                            }
-                        }
-                        break;
-                    default:
-                        (htmlDocument, uri) = await LoadHtmlAsync(new Uri(url));
-                        break;
-                }
-                Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
-
-                HtmlNode titleNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
-                chapterDataBuffer.Title = titleNode.InnerText.Trim();
-                Logger.Info($"Chapter title: {chapterDataBuffer.Title}");
-
-                HtmlNodeCollection paragraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-                var paragraphs = paragraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
-
-                if (paragraphs.Count < MinimumParagraphThreshold)
-                {
-                    Logger.Warn($"Paragraphs count is less than 5. Trying alternative selector");
-                    HtmlNodeCollection alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.AlternativeChapterContent);
-                    List<string> alternateParagraphs = alternateParagraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList();
-                    Logger.Debug($"Alternate paragraphs count: {alternateParagraphs.Count}");
-
-                    if (alternateParagraphs.Count > paragraphs.Count)
-                    {
-                        Logger.Debug($"Alternate paragraphs count is greater than paragraphs count. Using alternate paragraphs");
-                        paragraphs = alternateParagraphs;
-                    }
-                }
-
-                chapterDataBuffer.Content = string.Join("\n", paragraphs);
-                int contentCount = chapterDataBuffer.Content.Count(c => c == '\n');
-
-                if (string.IsNullOrWhiteSpace(chapterDataBuffer.Content) || contentCount < 5)
-                {
-                    Logger.Debug($"No content found for {url}");
-                    chapterDataBuffer.Content = "No content found";
-                }
-
-                Logger.Info($"Finished processing chapter data. Time taken: {stopwatch.ElapsedMilliseconds} ms");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex);
-                return chapterDataBuffer;
-            }
-            finally
-            {
-                chapterDataBuffer.DateLastModified = DateTime.Now;
-                chapterDataBuffer.Url = url;
-                // _httpSemaphore.Release();
-                // _puppeteerSemaphore.Release();
-                Logger.Info($"Semaphore released");
-            }
-
-            return chapterDataBuffer;
-        }
-
-        private async Task<HtmlDocument?> PuppeteerWithRetryAsync(IPage page, string url, int maxRetries = 3)
-        {
-            for (int attempt = 1; attempt <= maxRetries; attempt++)
-            {
-                try
-                {
-                    if (attempt > 1)
-                    {
-                        await page.GoToAsync(url, new NavigationOptions
-                        {
-                            WaitUntil = new[] { WaitUntilNavigation.Load },
-                            Timeout = 30000 // 1 minute or your choice
-                        });
-                    }
-
-                    // If navigation succeeds, parse the DOM
-                    var htmlDoc = await PuppeteerDriverService.GetPageContentAsync(page);
-                    return htmlDoc;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"Puppeteer attempt {attempt} failed for {url}: {ex.Message}");
-                    if (attempt == maxRetries)
-                    {
-                        Logger.Error($"All {maxRetries} Puppeteer attempts failed for {url}.");
-                        return null;
-                    }
-
-                    // Backoff before next attempt
-                    // e.g., 2s, 4s, 6s, or exponential with random jitter
-                    int delayMs = 2000 * attempt;
-                    await Task.Delay(delayMs);
-                }
-            }
-
-            return null; // Should never reach here
-        }
-
         #endregion
     }
 }

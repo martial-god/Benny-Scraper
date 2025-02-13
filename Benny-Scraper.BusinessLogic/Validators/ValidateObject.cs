@@ -17,12 +17,20 @@ namespace Benny_Scraper.BusinessLogic.Validators
 
             if (!validator.TryValidateObjectRecursive(obj, validationErrors))
             {
-                //Handle errors however you want
-                foreach (var error in validationErrors)
+                try
                 {
-                    Console.WriteLine(error.ErrorMessage);
-                    validationErrors.Add(error);
+                    //Handle errors however you want
+                    foreach (var error in validationErrors)
+                    {
+                        Console.WriteLine(error.ErrorMessage);
+                        validationErrors.Add(error);
+                    }
                 }
+                catch (Exception ex)
+                {
+                    return validationErrors;
+                }
+                
             }
             
             return validationErrors;

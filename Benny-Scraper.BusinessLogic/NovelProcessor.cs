@@ -54,8 +54,17 @@ public class NovelProcessor(
         else // make changes to an existing novel.
         {
             ValidateObject validator = new ValidateObject();
-            var errors = validator.Validate(novel);
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
+            var errors = validator.Validate(novel);
+            if (errors.Any())
+            {
+                Logger.Fatal($"Novel retreived was not a valid novel Id: {novel.Id}");
+                foreach (var error in errors)
+                {
+                    Logger.Warn(error.ErrorMessage);
+                }
+                return;
+            }
             Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.WriteLine($"Current saved novel chapter: {novel.CurrentChapter}");
             Console.WriteLine($"Date Created: {novel.DateCreated}");
@@ -76,6 +85,7 @@ public class NovelProcessor(
             return;
         }
 
+        novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
         Novel newNovel = CreateNovel(novelDataBuffer, novelTableOfContentsUri);
         Logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
@@ -136,8 +146,9 @@ public class NovelProcessor(
 
         var sortedSavedChapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
         var newChapterUrls = DetermineNewChaptersToScrape(novel.CurrentChapterUrl, sortedSavedChapters, novel.Id, novelDataBuffer.ChapterUrls);
+        var browser = scraperStrategy.BrowserRequired ? await scraperStrategy.GetOrCreatePuppeteerBrowserAsync(headless: true) : null;
 
-        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls);
+        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls, browser);
         List<Models.Chapter> newChapters = CreateChapters(chapterDataBuffers, novel.Id);
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
         UpdateNovel(novel, novelDataBuffer, newChapters);
