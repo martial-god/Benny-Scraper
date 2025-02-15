@@ -587,8 +587,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterUrls;
         }
 
-        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls,
-            IBrowser? browser = null)
+        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls, IBrowser? browser = null)
         {
             var tempImageDirectory = string.Empty;
             var tasks = new List<Task<ChapterDataBuffer>>();
@@ -606,11 +605,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             $"{nameof(browser)} cannot be null when RequiresBrowser is true. " +
                             $"Method {nameof(GetChaptersDataAsync)} is not allowed.}}");
 
-                    await using var page = await PuppeteerDriverService.GetStealthPageAsync(false);
-                    await GetChaptersWithImagesAsync(chapterUrls, chapterDataBuffers, tasks, page, tempImageDirectory);
+                    var page = await PuppeteerDriverService.GetStealthPageAsync();
+                    chapterDataBuffers = await GetChaptersWithImagesAsync(chapterUrls, tasks, tempImageDirectory);
 
                     chapterDataBuffers.ForEach(chapterDataBuffer =>
-                        chapterDataBuffer.SequenceNumber = chapterUrls.IndexOf(chapterDataBuffer.Url));
+                        chapterDataBuffer.SequenceNumber = chapterUrls.IndexOf(chapterDataBuffer.Url) + 1);
+                    chapterDataBuffers.OrderBy(chapterDataBuffer => chapterDataBuffer.SequenceNumber).ToList();
                     return chapterDataBuffers;
                 }
 
@@ -628,7 +628,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                                 page = await PuppeteerDriverService.GetStealthPageAsync();
                                 await Task.Delay(TimeSpan.FromSeconds(0, 1));
                                 return await GetChapterDataWithRetryAsync(chapterUrl, page);
-                                ;
                             }
                             catch (Exception ex)
                             {
@@ -638,8 +637,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             finally
                             {
                                 if (page is not null)
-                                    PuppeteerDriverService
-                                        .ReturnPage(page); // Return page back to the pool so it's reused
+                                    PuppeteerDriverService.ReturnPage(page); // Return page back to the pool so it's reused
                                 _puppeteerSemaphore.Release();
                                 Logger.Debug("Semaphore released");
                             }
@@ -744,18 +742,27 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var chapterDataBuffer = new ChapterDataBuffer();
             var stopwatch = Stopwatch.StartNew();
 
-            if (page != null && RequiresBrowser)
+            try
             {
-                await page.GoToAsync(url,
-                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load }, Timeout = 10000 });
-                HtmlDocument html = await PuppeteerDriverService.GetPageContentAsync(page);
-                ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
+                if (page != null && RequiresBrowser)
+                {
+                    await page.GoToAsync(url,
+                        new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load }, Timeout = 10000 });
+                    HtmlDocument html = await PuppeteerDriverService.GetPageContentAsync(page);
+                    ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
+                }
+                else
+                {
+                    (HtmlDocument html, Uri uri) = await LoadHtmlAsync(new Uri(url));
+                    ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                (HtmlDocument html, Uri uri) = await LoadHtmlAsync(new Uri(url));
-                ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
+                Logger.Warn($"Error occurred while getting chapter data. Error: {ex.Message}");
+                throw;
             }
+            
 
             Logger.Info($"Finished processing chapter data from {url}. Time taken: {stopwatch.ElapsedMilliseconds} ms");
             return chapterDataBuffer;
@@ -804,29 +811,37 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        private async Task GetChaptersWithImagesAsync(
+        private async Task<List<ChapterDataBuffer>> GetChaptersWithImagesAsync(
             List<string> chapterUrls,
-            List<ChapterDataBuffer> chapterDataBuffers,
             List<Task<ChapterDataBuffer>> tasks,
-            IPage page,
             string tempImageDirectory)
         {
             Logger.Debug("Using Puppeteer to get chapters data");
-            await page.GoToAsync(chapterUrls.First(),
-                new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
+            // await page.GoToAsync(chapterUrls.First(),
+            //     new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } });
 
             tempImageDirectory = CommonHelper.CreateTempDirectory();
 
-            foreach (var url in chapterUrls)
-            {
-                tasks.Add(GetChapterDataAsync(page, url, tempImageDirectory));
-            }
-
+            IPage page = null;
             try
             {
+                var chapterDataBuffers = new List<ChapterDataBuffer>();
+                foreach (var url in chapterUrls)
+                {
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        // await _puppeteerSemaphore.WaitAsync();
+                        page = await PuppeteerDriverService.GetStealthPageAsync();
+                        var chapterData =  await GetChapterDataAsync(page, url, tempImageDirectory);
+                        chapterData.Url = url;
+                        chapterData.DateLastModified = DateTime.Now;
+                        return chapterData;
+                    }));
+                }
                 var taskResults = await Task.WhenAll(tasks);
                 chapterDataBuffers.AddRange(taskResults);
                 Logger.Info($"Finished getting chapters data. Total chapters: {chapterDataBuffers.Count}");
+                return chapterDataBuffers;
             }
             catch (Exception ex)
             {
@@ -841,8 +856,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Warn(
                         $"Was unable to find temp directory {tempImageDirectory}. Please verify it was deleted successfully");
                 }
-
                 throw;
+            }
+            finally
+            {
+                if (page is not null)
+                    PuppeteerDriverService.ReturnPage(page); // Return page back to the pool so it's reused
+                // _puppeteerSemaphore.Release();
+                Logger.Debug("Semaphore released");
             }
         }
 
@@ -927,7 +948,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Debug($"Waiting for images on page {singleUrl} to load.");
                 await page.GoToAsync(singleUrl,
-                    new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } });
+                    new NavigationOptions { WaitUntil = new[]
+                        {
+                            WaitUntilNavigation.DOMContentLoaded
+                        },
+                        Timeout = 30000
+                    });
+
+                // await WaitForAllImagesAsync(page);
                 Logger.Debug("Images have been loaded.");
             }
             catch (PuppeteerException ex)
@@ -938,44 +966,64 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             Logger.Info($"Finished navigating to {singleUrl} Time taken: {stopwatch.ElapsedMilliseconds} ms");
-            var htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
-
-            HtmlNode titleNode =
-                htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
-            chapterDataBuffer.Title = titleNode.InnerText.Trim() ?? uriLastSegment;
-            Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
-
-            HtmlNodeCollection pageUrlNodes =
-                htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
-            var pageUrls = pageUrlNodes.Select(pageUrl =>
-                pageUrl.Attributes[_scraperData.SiteConfig?.Selectors?.ChapterContentImageUrlAttribute].Value).ToList();
-            bool isValidHttpUrls = pageUrls.Select(url =>
-                    Uri.TryCreate(url, UriKind.Absolute, out var uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp ||
-                        uriResult.Scheme == Uri.UriSchemeHttps))
-                .All(value => value);
-
-            if (!isValidHttpUrls)
+            try
             {
-                Logger.Error("Invalid page urls");
-                return chapterDataBuffer;
-            }
+                var htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
 
-            chapterDataBuffer.Pages = new List<PageData>();
-            foreach (var url in pageUrls)
-            {
-                Logger.Debug($"Getting page image from {url}");
-                stopwatch.Reset();
-                var imagePath = await DownloadImageAsync(new Uri(url), tempImageDirectory);
-                Logger.Debug($"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
-                chapterDataBuffer.Pages.Add(new PageData
+                HtmlNode titleNode =
+                    htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
+                chapterDataBuffer.Title = titleNode.InnerText.Trim() ?? uriLastSegment;
+                Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
+
+                HtmlNodeCollection pageUrlNodes =
+                    htmlDocument.DocumentNode.SelectNodes(_scraperData.SiteConfig?.Selectors.ChapterContent);
+                var pageUrls = pageUrlNodes.Select(pageUrl =>
+                        pageUrl.Attributes[_scraperData.SiteConfig?.Selectors?.ChapterContentImageUrlAttribute].Value)
+                    .ToList();
+                bool isValidHttpUrls = pageUrls.Select(url =>
+                        Uri.TryCreate(url, UriKind.Absolute, out var uriResult) &&
+                        (uriResult.Scheme == Uri.UriSchemeHttp ||
+                         uriResult.Scheme == Uri.UriSchemeHttps))
+                    .All(value => value);
+
+                if (!isValidHttpUrls)
                 {
-                    Url = url,
-                    ImagePath = imagePath
-                });
+                    Logger.Error("Invalid page urls");
+                    return chapterDataBuffer;
+                }
+
+                chapterDataBuffer.Pages = new List<PageData>();
+                foreach (var url in pageUrls)
+                {
+                    Logger.Debug($"Getting page image from {url}");
+                    stopwatch.Reset();
+                    var imagePath = await DownloadImageAsync(new Uri(url), tempImageDirectory);
+                    Logger.Debug(
+                        $"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+                    chapterDataBuffer.Pages.Add(new PageData { Url = url, ImagePath = imagePath });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error while getting chapter data from {singleUrl}: {ex.Message}");
             }
 
             return chapterDataBuffer;
         }
+        
+        private async Task WaitForAllImagesAsync(IPage page)
+        {
+            await page.WaitForFunctionAsync(
+                @"() => {
+            const imgs = Array.from(document.querySelectorAll('img'));
+            if (!imgs.length) return false;
+            return imgs.every(img => img.complete && img.naturalWidth > 0);
+        }",
+                new WaitForFunctionOptions { Timeout = 60000 }
+            );
+        }
         #endregion
     }
+    
+    
 }
