@@ -830,12 +830,27 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     tasks.Add(Task.Run(async () =>
                     {
-                        // await _puppeteerSemaphore.WaitAsync();
-                        page = await PuppeteerDriverService.GetStealthPageAsync();
-                        var chapterData =  await GetChapterDataAsync(page, url, tempImageDirectory);
-                        chapterData.Url = url;
-                        chapterData.DateLastModified = DateTime.Now;
-                        return chapterData;
+                        try
+                        {
+                            await _puppeteerSemaphore.WaitAsync();
+                            page = await PuppeteerDriverService.GetStealthPageAsync();
+                            var chapterData =  await GetChapterDataAsync(page, url, tempImageDirectory);
+                            chapterData.Url = url;
+                            chapterData.DateLastModified = DateTime.Now;
+                            return chapterData;
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Error occurred while getting chapter data. Error: {ex}");
+                            throw;
+                        }
+                        finally
+                        {
+                            if (page is not null)
+                                PuppeteerDriverService.ReturnPage(page); // Return page back to the pool so it's reused
+                            _puppeteerSemaphore.Release();
+                            Logger.Debug("Semaphore released");
+                        }
                     }));
                 }
                 var taskResults = await Task.WhenAll(tasks);

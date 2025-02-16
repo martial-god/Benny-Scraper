@@ -13,14 +13,15 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
         public const string PdfFileExtension = ".pdf";
 
-        public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration)
+        public (string, bool) CreatePdf(Novel novel, List<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration)
         {
-            string pdfSaveLocation = string.Empty;
-            bool isPdfSplit = false;
+            string pdfSaveLocation;
+            var isPdfSplit = false;
             Logger.Info("Creating PDFs for {0}", novel.Title);
             int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter => chapter.Pages).Count();
-            int totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || !chapter.Pages.Any());
-            var missingChapterUrls = novel.Chapters.Where(chapter => chapter.Pages == null).Select(chapter => chapter.Url);
+            var missingChapters = novel.Chapters.Where(chapter => chapter.Pages == null || !chapter.Pages.Any()).ToList();
+            var totalMissingChapters = missingChapters.Count();
+            var missingChapterUrls = missingChapters.Select(chapter => chapter.Url);
 
             Logger.Info(new string('=', 50));
             Console.ForegroundColor = ConsoleColor.Blue;
@@ -93,7 +94,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         }
 
 
-        public string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
+        public string CreateSinglePdf(Novel novel, List<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath)
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -116,7 +117,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 foreach (var imagePath in imagePaths)
                 {
                     XImage img;
-                    using var image = Image.Load(imagePath);
+                    var image = Image.Load(imagePath);
                     img = XImage.FromStream(() => ConvertImageToStream(image));
                     PdfPage page = document.AddPage();
                     page.Width = XUnit.FromPoint(img.PixelWidth);

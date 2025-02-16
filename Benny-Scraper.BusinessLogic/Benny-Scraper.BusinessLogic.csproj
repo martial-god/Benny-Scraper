@@ -21,6 +21,7 @@
     <PackageReference Include="Selenium.WebDriver" />
     <PackageReference Include="SeleniumExtras.WaitHelpers" />
     <PackageReference Include="SharpZipLib" />
+    <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="System.Text.Encoding.CodePages" />
     <PackageReference Include="WebDriverManager" />
     <PackageReference Include="PdfSharpCore" />

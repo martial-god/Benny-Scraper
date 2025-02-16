@@ -91,7 +91,7 @@ public class NovelProcessor(
 
         var browser = scraperStrategy.BrowserRequired ? await scraperStrategy.GetOrCreatePuppeteerBrowserAsync(headless: true) : null;
 
-        IEnumerable <ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls, browser);
+        var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls, browser);
         newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
 
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));

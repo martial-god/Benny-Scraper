@@ -18,7 +18,9 @@ using CommandLine;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using MigraDocCore.DocumentObjectModel.MigraDoc.DocumentObjectModel.Shapes;
 using NLog.Targets;
+using SixLabors.ImageSharp.PixelFormats;
 using System.Diagnostics;
 using System.Text;
 using LogLevel = NLog.LogLevel;
@@ -41,6 +43,7 @@ namespace Benny_Scraper
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();
+            ImageSource.ImageSourceImpl = new ImageSharp3CompatibleImageSource<Rgba32>();
 
             var builder = new ContainerBuilder();
             ConfigureServices(builder);
