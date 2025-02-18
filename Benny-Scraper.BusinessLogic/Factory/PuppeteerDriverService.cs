@@ -23,7 +23,7 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
     private IBrowser? _browser;
     // this is only for pages not in use
     private readonly ConcurrentBag<IPage> _availablePages = new();
-    private readonly int _maxPoolSize = 1;
+    private readonly int _maxPoolSize = 2;
     private bool _isDisposed;
 
 

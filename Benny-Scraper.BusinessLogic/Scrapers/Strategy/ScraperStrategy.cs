@@ -256,7 +256,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private SemaphoreSlim _httpSemaphore; // limit the number of concurrent requests, prevent posssible rate limiting
 
-        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(2, 2);
 
         private static readonly List<string> UserAgents = new List<string>
         {
