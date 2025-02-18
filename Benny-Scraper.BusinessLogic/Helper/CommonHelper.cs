@@ -189,8 +189,7 @@ namespace Benny_Scraper.BusinessLogic.Helper
             }
         }
     }
-
-
+    
     public static class CommandExecutor
     {
         public static bool IsWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);

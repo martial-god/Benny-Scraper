@@ -68,7 +68,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetBaseUri(_scraperData.SiteTableOfContents);
 
             // Get table of contents
-            await using var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, false);
+            var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, false);
             await WaitForCloudflareAsync(page);
 
             HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
@@ -82,6 +82,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             await page.GoToAsync(chaptersUri?.ToString(), new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
         
             htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
+            await _puppeteerDriverService.CloseBrowserAsync();
 
             int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
             SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object

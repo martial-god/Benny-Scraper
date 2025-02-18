@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Web;
@@ -257,7 +256,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private SemaphoreSlim _httpSemaphore; // limit the number of concurrent requests, prevent posssible rate limiting
 
-        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(2, 2);
+        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(1, 1);
 
         private static readonly List<string> UserAgents = new List<string>
         {
@@ -605,12 +604,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             $"{nameof(browser)} cannot be null when RequiresBrowser is true. " +
                             $"Method {nameof(GetChaptersDataAsync)} is not allowed.}}");
 
-                    var page = await PuppeteerDriverService.GetStealthPageAsync();
                     chapterDataBuffers = await GetChaptersWithImagesAsync(chapterUrls, tasks, tempImageDirectory);
 
                     chapterDataBuffers.ForEach(chapterDataBuffer =>
                         chapterDataBuffer.SequenceNumber = chapterUrls.IndexOf(chapterDataBuffer.Url) + 1);
-                    chapterDataBuffers.OrderBy(chapterDataBuffer => chapterDataBuffer.SequenceNumber).ToList();
+                    chapterDataBuffers = chapterDataBuffers.OrderBy(chapterDataBuffer => chapterDataBuffer.SequenceNumber).ToList();
                     return chapterDataBuffers;
                 }
 
@@ -762,7 +760,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Warn($"Error occurred while getting chapter data. Error: {ex.Message}");
                 throw;
             }
-            
+
 
             Logger.Info($"Finished processing chapter data from {url}. Time taken: {stopwatch.ElapsedMilliseconds} ms");
             return chapterDataBuffer;
@@ -834,7 +832,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         {
                             await _puppeteerSemaphore.WaitAsync();
                             page = await PuppeteerDriverService.GetStealthPageAsync();
-                            var chapterData =  await GetChapterDataAsync(page, url, tempImageDirectory);
+                            var chapterData = await GetChapterDataAsync(page, url, tempImageDirectory);
                             chapterData.Url = url;
                             chapterData.DateLastModified = DateTime.Now;
                             return chapterData;
@@ -962,15 +960,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             try
             {
                 Logger.Debug($"Waiting for images on page {singleUrl} to load.");
-                await page.GoToAsync(singleUrl,
-                    new NavigationOptions { WaitUntil = new[]
-                        {
-                            WaitUntilNavigation.DOMContentLoaded
-                        },
-                        Timeout = 30000
-                    });
+                await page.GoToAsync(singleUrl);
 
-                // await WaitForAllImagesAsync(page);
+                await page.WaitForSelectorAsync("#imgs img[src]",
+                    new WaitForSelectorOptions { Timeout = 60000 });
                 Logger.Debug("Images have been loaded.");
             }
             catch (PuppeteerException ex)
@@ -983,7 +976,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Finished navigating to {singleUrl} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             try
             {
-                var htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
+                var htmlDocument = await PuppeteerDriverService.GetRawPageContentAsync(page);
+                if (htmlDocument is null)
+                {
+                    Logger.Warn($"Failed to get page content for {singleUrl}");
+                    return chapterDataBuffer;
+                }
 
                 HtmlNode titleNode =
                     htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.ChapterTitle);
@@ -1025,7 +1023,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return chapterDataBuffer;
         }
-        
+
         private async Task WaitForAllImagesAsync(IPage page)
         {
             await page.WaitForFunctionAsync(
@@ -1039,6 +1037,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
         #endregion
     }
-    
-    
+
+
 }

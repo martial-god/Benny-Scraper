@@ -149,10 +149,15 @@ private void RegisterStrategy()
 #### 02/09/25  - 02/13/25
 1. Five days later, only 3 days working on this and I just yesterday was successfully able to scrape Cloudflare sites using Puppeteer, though things are extremely slow. I will need to do test based on concurrency.
 2. Original http scrapers still work fine.
-3. Using `tasks.Add(Task.Run(async () => {....}))` to run the scraping tasks concurrently maintained the order of the of the chapters in tasks. That was nice to know.
+3. Using `tasks.Add(Task.Run(async () => {....}))` to run the scraping tasks concurrently maintained the order of the chapters in tasks. That was nice to know.
 ### TODO
 1. Get manga sites to work with Puppeteer. The issue seems to be about waiting for elements such as images to load.
 2. Split up `NovelProcessor` and `ScraperStrategy` into smaller classes as it is too long and hard to follow.
 3. Add a new `configuration` row; change `concurrency_limit` to `http_concurrency_limit` and add `puppeteer_concurrency_limit`, which will allow for users to set limits based on the scraper type. 
 4. . It may be a good idea to allow for each site to have its own concurrency limit, if none is provided then the default will be used. This will allow for more granular control based on users' preferences.
 5. Go back to working on either the game, the app, or the website.
+#### 02/11/25 - 02/17/25
+1. Manga scraping works with Puppeteer, tried with 1 semaphore and one page. Resolved UTF16 errors when getting content base on. https://stackoverflow.com/questions/38895537/how-to-remove-utf16-characters-from-string
+2. I still need to split up and decouple Scraper Strategy.
+3. The issue with **PdfSharp** was resolved after finding a solution on their github page. A new extension method has been added to the `Helper` folder.
+4. I need to create a method whose only responsibility is getting `ChapterData` as, all my method return the exact same thing a `List<ChapterData`, yet they each call their own thing.
