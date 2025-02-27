@@ -527,7 +527,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                                 throw new InvalidOperationException("Page is closed");
                             await page.GoToAsync(tableOfContentUrl);
 
-                            await page.WaitForSelectorAsync("ul[class*='chapter-list'] li a",
+                            await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.ChapterLinks}",
                                 new WaitForSelectorOptions { Timeout = 10000 });
                             htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
                             break;
@@ -763,7 +763,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         throw new Exception($"error going to page. Response {response.Status}");
                     }
 
-                    await page.WaitForSelectorAsync(".chapter-title",
+                    await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.ChapterTitle}",
                         new WaitForSelectorOptions { Timeout = 10000 });
                     HtmlDocument html = await PuppeteerDriverService.GetPageContentAsync(page);
                     ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
@@ -982,7 +982,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 await page.GoToAsync(singleUrl);
 
                 Logger.Info($"Went to page.");
-                await page.WaitForSelectorAsync("#imgs img[src]",
+                await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.ChapterContent}",
                     new WaitForSelectorOptions { Timeout = 60000, Visible = true });
                 Logger.Debug("Images have been loaded.");
             }

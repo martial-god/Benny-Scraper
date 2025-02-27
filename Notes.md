@@ -161,3 +161,6 @@ private void RegisterStrategy()
 2. I still need to split up and decouple Scraper Strategy.
 3. The issue with **PdfSharp** was resolved after finding a solution on their github page. A new extension method has been added to the `Helper` folder.
 4. I need to create a method whose only responsibility is getting `ChapterData` as, all my method return the exact same thing a `List<ChapterData`, yet they each call their own thing.
+#### 02/26/26
+1. Found puppeteer did have a way to use xpath when waitng for selectors. https://stackoverflow.com/questions/62320494/wait-for-an-xpath-in-puppeteer
+2. Pages would run into issuewhere they were no longer useful, added a way to handle that when getting pages.

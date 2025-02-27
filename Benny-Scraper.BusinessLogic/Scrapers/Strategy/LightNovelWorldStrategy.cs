@@ -83,7 +83,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 await page.GoToAsync(chaptersUri?.ToString());
 
-                await page.WaitForSelectorAsync("h1", new WaitForSelectorOptions { Timeout = 10000 });
+                await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.NovelTitle}", new WaitForSelectorOptions { Timeout = 10000 });
 
                 htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 
