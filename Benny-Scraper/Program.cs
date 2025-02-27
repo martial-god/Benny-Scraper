@@ -39,7 +39,7 @@ namespace Benny_Scraper
         static async Task Main(string[] args)
         {
             DeleteOldLogs();
-            SetupLogger(LogLevel.Debug);
+            SetupLogger(LogLevel.Info);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             SQLitePCL.Batteries.Init();
             Configuration = BuildConfiguration();

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using HtmlAgilityPack;
 using NLog;
 using PuppeteerSharp;
@@ -23,7 +24,7 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
     private IBrowser? _browser;
     // this is only for pages not in use
     private readonly ConcurrentBag<IPage> _availablePages = new();
-    private readonly int _maxPoolSize = 2;
+    private readonly int _maxPoolSize = 3;
     private bool _isDisposed;
 
 
@@ -63,11 +64,14 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
     public async Task<IPage> CreatePageAndGoToAsync(Uri uri, bool headless = true)
     {
         var page = await GetStealthPageAsync(headless);
-        await page.GoToAsync(uri.ToString(), new NavigationOptions
+        var response = await page.GoToAsync(uri.ToString(), new NavigationOptions
         {
             WaitUntil = new[] { WaitUntilNavigation.Load },
-            Timeout = 60000
-        }).ConfigureAwait(false);
+            Timeout = 30000
+        });
+
+        if (response.Status != HttpStatusCode.OK)
+            throw new Exception($"Failed to navigate to {uri}. Status code: {response.Status}");
 
         return page;
     }
@@ -142,12 +146,24 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
 
         if (_availablePages.TryTake(out var page))
         {
-            if (!page.IsClosed)
+            try
             {
-                _logger.Debug("Reusing page from the pool.");
-                return page;
+                if (page.Url == null)
+                    await page
+                        .CloseAsync(); // found cases where page will have a null url which will then start failing all following calls. Already removed by the TryTake
+
+                if (!page.IsClosed)
+                {
+                    _logger.Debug("Reusing page from the pool.");
+                    return page;
+                }
+                _logger.Debug("Pooled page was closed, discarding it. Will create a new one.");
             }
-            _logger.Debug("Pooled page was closed, discarding it. Will create a new one.");
+            catch (NullReferenceException ex)
+            {
+                _logger.Warn($"Page Url was most likely null or the page can no longer be used. Closing it");
+                await page.CloseAsync();
+            }
         }
 
         // If no page is available, see if we are under the max pool size
@@ -156,7 +172,7 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
         var browserPagesCount = _browser?.PagesAsync().Result.Count();
         if (countOfPages < _maxPoolSize)
         {
-            var newPage = await browser.NewPageAsync().ConfigureAwait(false);
+            var newPage = await browser.NewPageAsync();
 
             await newPage.EvaluateExpressionOnNewDocumentAsync("() => { delete navigator.__proto__.webdriver }");
             await newPage.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64)...");

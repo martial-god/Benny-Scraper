@@ -256,7 +256,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private SemaphoreSlim _httpSemaphore; // limit the number of concurrent requests, prevent posssible rate limiting
 
-        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(2, 2);
+        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(2);
 
         private static readonly List<string> UserAgents = new List<string>
         {
@@ -522,8 +522,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             if (page is null)
                                 throw new ArgumentNullException(
                                     $"{nameof(page)} cannot be null when RequiresBrowser is true.");
-                            await page.GoToAsync(tableOfContentUrl,
-                                new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
+                            var foo = page.IsClosed;
+                            if (foo)
+                                throw new InvalidOperationException("Page is closed");
+                            await page.GoToAsync(tableOfContentUrl);
+
+                            await page.WaitForSelectorAsync("ul[class*='chapter-list'] li a",
+                                new WaitForSelectorOptions { Timeout = 10000 });
                             htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
                             break;
                         default:
@@ -542,7 +547,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     if (!getAllChapters && !isPageNew)
                         break;
                 }
-                catch (HttpRequestException e)
+                catch (Exception e)
                 {
                     Logger.Error($"Error occurred while navigating to {tableOfContentUrl}. Error: {e}");
                 }
@@ -596,6 +601,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Info("Getting chapters data");
 
+                //if (RequiresBrowser && browser is null)
+                //    throw new ArgumentNullException(
+                //        $"{nameof(browser)} cannot be null when RequiresBrowser is true. Method {nameof(GetChaptersDataAsync)} is not allowed.");
+
+
                 // property pattern https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns#property-pattern
                 if (_scraperData.SiteConfig is { HasImagesForChapterContent: true } && RequiresBrowser)
                 {
@@ -613,7 +623,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
 
                 // TODO: reduce the nesting here, looks quite bad.
-                if (RequiresBrowser && browser is not null)
+                if (RequiresBrowser && browser is not null && !browser.IsClosed)
                 {
                     foreach (var chapterUrl in chapterUrls)
                     {
@@ -693,6 +703,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
 
                 PuppeteerDriverService?.Dispose();
+                Logger.Info("Finished disposing PuppeteerDriverService");
             }
         }
 
@@ -744,8 +755,16 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 if (page != null && RequiresBrowser)
                 {
-                    await page.GoToAsync(url,
+                    var response = await page.GoToAsync(url,
                         new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load }, Timeout = 10000 });
+
+                    if (response.Status != HttpStatusCode.OK)
+                    {
+                        throw new Exception($"error going to page. Response {response.Status}");
+                    }
+
+                    await page.WaitForSelectorAsync(".chapter-title",
+                        new WaitForSelectorOptions { Timeout = 10000 });
                     HtmlDocument html = await PuppeteerDriverService.GetPageContentAsync(page);
                     ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
                 }
@@ -804,7 +823,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             if (string.IsNullOrWhiteSpace(chapterDataBuffer.Content) || contentCount < 5)
             {
-                // Logger.Debug($"No content found for {url}");
+                Logger.Debug("No content found for");
                 chapterDataBuffer.Content = "No content found";
             }
         }
@@ -962,8 +981,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Debug($"Waiting for images on page {singleUrl} to load.");
                 await page.GoToAsync(singleUrl);
 
+                Logger.Info($"Went to page.");
                 await page.WaitForSelectorAsync("#imgs img[src]",
-                    new WaitForSelectorOptions { Timeout = 60000 });
+                    new WaitForSelectorOptions { Timeout = 60000, Visible = true });
                 Logger.Debug("Images have been loaded.");
             }
             catch (PuppeteerException ex)

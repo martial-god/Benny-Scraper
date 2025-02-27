@@ -4,7 +4,6 @@ using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using Microsoft.Extensions.Logging;
 using PuppeteerSharp;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
@@ -49,7 +48,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     {
                         Console.WriteLine($"Error when getting attribute {attribute}: {ex.Message}");
                     }
-                    
+
                 }
             }
         }
@@ -59,7 +58,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private readonly IPuppeteerDriverService _puppeteerDriverService = puppeteerDriverService;
         protected override bool RequiresBrowser => true;
         private readonly string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
-        
+
 
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
@@ -68,30 +67,47 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             SetBaseUri(_scraperData.SiteTableOfContents);
 
             // Get table of contents
-            var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, false);
-            await WaitForCloudflareAsync(page);
+            try
+            {
+                var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents,
+                    false);
+                await WaitForCloudflareAsync(page);
 
-            HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
-            
-            var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
-            novelDataBuffer.NovelUrl = page.Url;
+                HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 
-            // the url of the chapters pages are different from the table of contents page
-            Uri chaptersUri = new Uri(page.Url + "/chapters");
+                var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
+                novelDataBuffer.NovelUrl = page.Url;
 
-            await page.GoToAsync(chaptersUri?.ToString(), new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
-        
-            htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
-            await _puppeteerDriverService.CloseBrowserAsync();
+                // the url of the chapters pages are different from the table of contents page
+                Uri chaptersUri = new Uri(page.Url + "/chapters");
 
-            int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
-            SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
+                await page.GoToAsync(chaptersUri?.ToString());
 
-            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, page: page);
-            novelDataBuffer.ChapterUrls = chapterUrls;
-            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+                await page.WaitForSelectorAsync("h1", new WaitForSelectorOptions { Timeout = 10000 });
 
-            return novelDataBuffer;
+                htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
+
+                int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
+                SetCurrentChapterUrl(htmlDocument,
+                    novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
+
+                var (chapterUrls, lastTableOfContentsUrl) =
+                    await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, page: page);
+                novelDataBuffer.ChapterUrls = chapterUrls;
+                novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+
+                return novelDataBuffer;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error when getting novel info from title page. {ex}");
+                await _puppeteerDriverService.CloseBrowserAsync();
+                throw;
+            }
+            finally
+            {
+                Console.WriteLine($"Got Novel Data");
+            }
         }
 
         protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
@@ -108,12 +124,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 throw new Exception($"Error occurred while getting novel data from table of contents. Error: {e}");
             }
         }
-        
+
         private async Task WaitForCloudflareAsync(IPage page)
         {
             try
             {
-                await page.WaitForSelectorAsync("#cf-challenge-running", new WaitForSelectorOptions 
+                await page.WaitForSelectorAsync("#cf-challenge-running", new WaitForSelectorOptions
                 {
                     Timeout = 30000,
                     Hidden = true
