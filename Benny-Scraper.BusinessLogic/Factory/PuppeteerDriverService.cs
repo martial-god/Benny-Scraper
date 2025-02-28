@@ -14,6 +14,7 @@ public interface IPuppeteerDriverService
     Task<HtmlDocument> GetPageContentAsync(IPage page);
     Task<HtmlDocument> GetRawPageContentAsync(IPage page);
     Task<IPage> GetStealthPageAsync(bool headless = true);
+    Task GoToAndWaitForByXpath(IPage page, string url, string selector, WaitForSelectorOptions options);
     void ReturnPage(IPage page);
     void Dispose();
 }
@@ -93,7 +94,13 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             throw new Exception($"Error while getting page content for {page.Url}", ex);
         }
     }
-    
+
+    public async Task GoToAndWaitForByXpath(IPage page, string url, string selector, WaitForSelectorOptions options)
+    {
+        await page.GoToAsync(url);
+        await page.WaitForSelectorAsync($"xpath/{selector}", options);
+    }
+
     /// <summary>
     /// Sanitizes html to avoid JSON exceptions that Puppeteer has ThrowInvalidOperationException_ReadIncompleteUTF16().
     /// </summary>
@@ -161,8 +168,9 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             }
             catch (NullReferenceException ex)
             {
-                _logger.Warn($"Page Url was most likely null or the page can no longer be used. Closing it");
-                await page.CloseAsync();
+                _logger.Debug($"Page Url was most likely null or the page can no longer be used. Need a new browser");
+                await CloseBrowserAsync();
+                browser = await GetOrCreateBrowserAsync(headless);
             }
         }
 
@@ -241,6 +249,7 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             await _browser.CloseAsync();
             _availablePages.Clear();
             _browser = null;
+            _logger.Debug("Closed the browser.");
         }
     }
 

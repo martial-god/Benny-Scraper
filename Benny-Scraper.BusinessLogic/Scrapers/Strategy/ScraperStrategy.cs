@@ -601,19 +601,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Info("Getting chapters data");
 
-                //if (RequiresBrowser && browser is null)
-                //    throw new ArgumentNullException(
-                //        $"{nameof(browser)} cannot be null when RequiresBrowser is true. Method {nameof(GetChaptersDataAsync)} is not allowed.");
+                if (RequiresBrowser && browser is null)
+                    throw new ArgumentNullException(
+                        $"{nameof(browser)} cannot be null when RequiresBrowser is true. " +
+                        $"Method {nameof(GetChaptersDataAsync)} is not allowed.");
 
 
                 // property pattern https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns#property-pattern
                 if (_scraperData.SiteConfig is { HasImagesForChapterContent: true } && RequiresBrowser)
                 {
-                    if (browser is null)
-                        throw new ArgumentNullException(
-                            $"{nameof(browser)} cannot be null when RequiresBrowser is true. " +
-                            $"Method {nameof(GetChaptersDataAsync)} is not allowed.}}");
-
                     chapterDataBuffers = await GetChaptersWithImagesAsync(chapterUrls, tasks, tempImageDirectory);
 
                     chapterDataBuffers.ForEach(chapterDataBuffer =>
@@ -737,13 +733,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     var jitterFactor = 0.5 + Random.Shared.NextDouble(); // 0.5x–1.5x
                     var finalDelay = baseDelay * jitterFactor * 1000;
 
-                    Logger.Warn($"Attempt {attempt} failed for {url}. Will retry in {finalDelay}s.");
                     await Task.Delay((int)finalDelay);
                 }
             }
 
             // Should never actually get here
-            return new ChapterDataBuffer { Url = url };
+            return new ChapterDataBuffer { Url = url, DateLastModified = DateTime.Now };
         }
 
         private async Task<ChapterDataBuffer> GetChapterDataNoSemaphoreAsync(string url, IPage? page)
@@ -760,7 +755,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     if (response.Status != HttpStatusCode.OK)
                     {
-                        throw new Exception($"error going to page. Response {response.Status}");
+                        throw new Exception($"Error going to page. Response {response.Status}");
                     }
 
                     await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.ChapterTitle}",
@@ -776,10 +771,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
             catch (Exception ex)
             {
-                Logger.Warn($"Error occurred while getting chapter data. Error: {ex.Message}");
+                Logger.Debug($"Error occurred while getting chapter data. Error: {ex.Message}");
                 throw;
             }
-
 
             Logger.Info($"Finished processing chapter data from {url}. Time taken: {stopwatch.ElapsedMilliseconds} ms");
             return chapterDataBuffer;
@@ -979,10 +973,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             try
             {
                 Logger.Debug($"Waiting for images on page {singleUrl} to load.");
-                await page.GoToAsync(singleUrl);
-
-                Logger.Info($"Went to page.");
-                await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.ChapterContent}",
+                await PuppeteerDriverService.GoToAndWaitForByXpath(page, singleUrl,
+                    _scraperData.SiteConfig?.Selectors.ChapterContent,
                     new WaitForSelectorOptions { Timeout = 60000, Visible = true });
                 Logger.Debug("Images have been loaded.");
             }
@@ -1043,20 +1035,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return chapterDataBuffer;
         }
-
-        private async Task WaitForAllImagesAsync(IPage page)
-        {
-            await page.WaitForFunctionAsync(
-                @"() => {
-            const imgs = Array.from(document.querySelectorAll('img'));
-            if (!imgs.length) return false;
-            return imgs.every(img => img.complete && img.naturalWidth > 0);
-        }",
-                new WaitForFunctionOptions { Timeout = 60000 }
-            );
-        }
         #endregion
     }
-
-
 }
