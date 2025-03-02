@@ -164,3 +164,5 @@ private void RegisterStrategy()
 #### 02/26/26
 1. Found puppeteer did have a way to use xpath when waitng for selectors. https://stackoverflow.com/questions/62320494/wait-for-an-xpath-in-puppeteer
 2. Pages would run into issuewhere they were no longer useful, added a way to handle that when getting pages.
+#### 03/01/26
+1. Found that disabling headless mode for puppeteer for Cloudflare sites resulted in successful scraping, no `403 Forbidden` errors. The user needs to be notified that this will be the case.

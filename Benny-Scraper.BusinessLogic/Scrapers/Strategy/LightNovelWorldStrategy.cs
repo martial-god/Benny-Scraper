@@ -48,7 +48,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     {
                         Console.WriteLine($"Error when getting attribute {attribute}: {ex.Message}");
                     }
-
                 }
             }
         }
@@ -59,7 +58,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected override bool RequiresBrowser => true;
         private readonly string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
 
-
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Starting scraper for {this.GetType().Name}");
@@ -69,9 +67,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // Get table of contents
             try
             {
-                var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents,
-                    false);
-                await WaitForCloudflareAsync(page);
+                var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, false);
 
                 HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 
@@ -88,8 +84,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 
                 int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
-                SetCurrentChapterUrl(htmlDocument,
-                    novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
+                SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
 
                 var (chapterUrls, lastTableOfContentsUrl) =
                     await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, page: page);
@@ -125,22 +120,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        private async Task WaitForCloudflareAsync(IPage page)
-        {
-            try
-            {
-                await page.WaitForSelectorAsync("#cf-challenge-running", new WaitForSelectorOptions
-                {
-                    Timeout = 30000,
-                    Hidden = true
-                });
-            }
-            catch (TimeoutException)
-            {
-                Logger.Warn("Cloudflare challenge timeout");
-            }
-        }
-
         private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelDataBuffer)
         {
             var currentChapterNode = htmlDocument.DocumentNode.SelectSingleNode(_latestChapterXpath);
@@ -162,9 +141,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 HtmlNode lastPageNode;
                 if (paginationCount == TotalPossiblePaginationTabs)
-                {
                     lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(_scraperData.SiteConfig?.Selectors.LastTableOfContentsPage);
-                }
                 else
                 {
                     lastPageNode = paginationNodes[paginationCount - 2]; // Get the second last node which is the last page number
@@ -176,9 +153,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 // If the URL is relative, make sure to add a scheme and host
                 if (!lastPageUri.IsAbsoluteUri) // like this: /novel/the-authors-pov-14051336/chapters?page=9
-                {
                     lastPageUri = new Uri(_scraperData.BaseUri + lastPageUrl);
-                }
 
                 NameValueCollection query = HttpUtility.ParseQueryString(lastPageUri.Query);
 

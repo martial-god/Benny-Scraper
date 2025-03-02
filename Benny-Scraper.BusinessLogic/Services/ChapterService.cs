@@ -2,17 +2,11 @@
 using Benny_Scraper.DataAccess.Repository.IRepository;
 using Benny_Scraper.Models;
 
-namespace Benny_Scraper.BusinessLogic.Services
+namespace Benny_Scraper.BusinessLogic.Services;
+public class ChapterService(IUnitOfWork unitOfWork) : IChapterService
 {
-    public class ChapterService(IUnitOfWork unitOfWork) : IChapterService
+    public async Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId)
     {
-        #region Dependency Injection
-
-        #endregion
-
-        public async Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId)
-        {
-            return await unitOfWork.Chapter.GetLastSavedChapterAsyncByNovelId(novelId);
-        }
+        return await unitOfWork.Chapter.GetLastSavedChapterAsyncByNovelId(novelId);
     }
 }

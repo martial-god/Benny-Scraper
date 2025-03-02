@@ -6,8 +6,7 @@ using Benny_Scraper.BusinessLogic.Helper;
 using PdfSharpCore.Pdf;
 using PdfSharpCore.Pdf.IO;
 
-namespace Benny_Scraper.BusinessLogic.FileGenerators
-{
+namespace Benny_Scraper.BusinessLogic.FileGenerators;
     public class PdfGenerator
     {
         private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
@@ -211,4 +210,3 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             return memoryStream;
         }
     }
-}

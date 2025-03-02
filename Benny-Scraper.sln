@@ -5,8 +5,6 @@ VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benny-Scraper", "Benny-Scraper\Benny-Scraper.csproj", "{5A986A1A-950C-4309-9A2C-6321BE773EDD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GoogleDriveClient", "GoogleDriveClient\GoogleDriveClient.csproj", "{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benny-Scraper.Models", "Benny-Scraper.Models\Benny-Scraper.Models.csproj", "{AB95D056-20ED-4F57-9734-D6AC4BAB0545}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benny-Scraper.DataAccess", "Benny-Scraper.DataAccess\Benny-Scraper.DataAccess.csproj", "{9612A507-A28A-4811-A662-3109259CA649}"
@@ -28,10 +26,6 @@ Global
 		{5A986A1A-950C-4309-9A2C-6321BE773EDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A986A1A-950C-4309-9A2C-6321BE773EDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5A986A1A-950C-4309-9A2C-6321BE773EDD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BF2F9A27-C27E-452B-A34F-29C7909BF6EF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{AB95D056-20ED-4F57-9734-D6AC4BAB0545}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AB95D056-20ED-4F57-9734-D6AC4BAB0545}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AB95D056-20ED-4F57-9734-D6AC4BAB0545}.Release|Any CPU.ActiveCfg = Release|Any CPU

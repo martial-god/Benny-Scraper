@@ -1,10 +1,7 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Interfaces;
+﻿using Benny_Scraper.BusinessLogic.Interfaces;
 
-namespace Benny_Scraper.BusinessLogic.Factory.Interfaces
+namespace Benny_Scraper.BusinessLogic.Factory.Interfaces;
+public interface INovelScraperFactory
 {
-    public interface INovelScraperFactory
-    {
-        INovelScraper CreateScraper(Uri novelTableOfContentsUrig);
-    }
+    INovelScraper CreateScraper(Uri novelTableOfContentsUrig);
 }

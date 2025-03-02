@@ -18,8 +18,6 @@
     <PackageReference Include="Polly" />
     <PackageReference Include="PuppeteerSharp" />
     <PackageReference Include="RecursiveDataAnnotationsValidation" />
-    <PackageReference Include="Selenium.WebDriver" />
-    <PackageReference Include="SeleniumExtras.WaitHelpers" />
     <PackageReference Include="SharpZipLib" />
     <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="System.Text.Encoding.CodePages" />

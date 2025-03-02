@@ -1,10 +1,8 @@
 ﻿using Benny_Scraper.Models;
 
-namespace Benny_Scraper.BusinessLogic.Services.Interface
+namespace Benny_Scraper.BusinessLogic.Services.Interface;
+public interface IChapterService
 {
-    public interface IChapterService
-    {
-        Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId);
-    }
-
+    Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId);
 }
+

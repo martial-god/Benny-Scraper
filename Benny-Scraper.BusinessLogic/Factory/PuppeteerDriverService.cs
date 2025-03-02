@@ -12,7 +12,7 @@ public interface IPuppeteerDriverService
     Task<IPage> CreatePageAndGoToAsync(Uri uri, bool headless = true);
     Task CloseBrowserAsync();
     Task<HtmlDocument> GetPageContentAsync(IPage page);
-    Task<HtmlDocument> GetRawPageContentAsync(IPage page);
+    Task<HtmlDocument> GetSafeSanitizedPageContentAsync(IPage page);
     Task<IPage> GetStealthPageAsync(bool headless = true);
     Task GoToAndWaitForByXpath(IPage page, string url, string selector, WaitForSelectorOptions options);
     void ReturnPage(IPage page);
@@ -25,12 +25,14 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
     private IBrowser? _browser;
     // this is only for pages not in use
     private readonly ConcurrentBag<IPage> _availablePages = new();
-    private readonly int _maxPoolSize = 3;
+    private readonly int _maxPoolSize = 1;
     private bool _isDisposed;
 
 
     public async Task<IBrowser> GetOrCreateBrowserAsync(bool headless = true)
     {
+        if (!headless)
+            _logger.Info("<=========== Browser window will open to bypass Cloudflare protection.\r\n\tThis is normal - don't interact with it! =========>");
         if (_browser is not null && _browser.IsConnected)
             return _browser;
 
@@ -51,7 +53,8 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
                 "--no-service-autorun",
                 "--no-default-browser-check",
                 "--disable-extensions",
-                "--headless=new" // this should handle headless detection for chrome 109+
+                "--window-size=1,1"
+                //"--headless=new" // this should handle headless detection for chrome 109+
             ]
         });
 
@@ -59,24 +62,30 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
     }
 
     /// <summary>
-    /// Because now you first "GetStealthPageAsync" then you do "GoToAsync" outside 
-    /// or create a separate method that merges them if you prefer.
+    /// Headless should be true for most cases. If you need to bypass Cloudflare, set it to false.
     /// </summary>
     public async Task<IPage> CreatePageAndGoToAsync(Uri uri, bool headless = true)
     {
         var page = await GetStealthPageAsync(headless);
         var response = await page.GoToAsync(uri.ToString(), new NavigationOptions
         {
-            WaitUntil = new[] { WaitUntilNavigation.Load },
+            WaitUntil = new[] { WaitUntilNavigation.Networkidle2 },
             Timeout = 30000
         });
-
+        
         if (response.Status != HttpStatusCode.OK)
             throw new Exception($"Failed to navigate to {uri}. Status code: {response.Status}");
 
         return page;
     }
 
+    /// <summary>
+    /// Gets the content of a page and returns it as an HtmlDocument.
+    /// </summary>
+    /// <param name="page"></param>
+    /// <returns></returns>
+    /// <exception cref="NullReferenceException"></exception>
+    /// <exception cref="Exception"></exception>
     public async Task<HtmlDocument> GetPageContentAsync(IPage page)
     {
         try
@@ -125,7 +134,13 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
         return await page.EvaluateFunctionAsync<string>(script);
     }
 
-    public async Task<HtmlDocument> GetRawPageContentAsync(IPage page)
+    /// <summary>
+    /// This method is used to get the page content in a safe way to avoid JSON exceptions.
+    /// </summary>
+    /// <param name="page"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    public async Task<HtmlDocument> GetSafeSanitizedPageContentAsync(IPage page)
     {
         try
         {
@@ -140,8 +155,6 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             throw new Exception($"Error while getting page content for {page.Url}", ex);
         }
     }
-
-
 
     /// <summary>
     /// Gets a "stealth" page from the pool (or creates a new one if below maxPoolSize).

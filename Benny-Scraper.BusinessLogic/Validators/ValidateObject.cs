@@ -1,39 +1,37 @@
-﻿using RecursiveDataAnnotationsValidation;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using RecursiveDataAnnotationsValidation;
 
-namespace Benny_Scraper.BusinessLogic.Validators
+namespace Benny_Scraper.BusinessLogic.Validators;
+public class ValidateObject
 {
-    public class ValidateObject
+    /// <summary>
+    /// Validates an object using the DataAnnotations attributes, will recursively go through all properties and validate them as well.
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <returns></returns>
+    public List<ValidationResult> Validate(object obj)
     {
-        /// <summary>
-        /// Validates an object using the DataAnnotations attributes, will recursively go through all properties and validate them as well.
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public List<ValidationResult> Validate(object obj)
-        {
-            RecursiveDataAnnotationValidator validator = new RecursiveDataAnnotationValidator();
-            List<ValidationResult> validationErrors = new List<ValidationResult>();
+        RecursiveDataAnnotationValidator validator = new RecursiveDataAnnotationValidator();
+        List<ValidationResult> validationErrors = new List<ValidationResult>();
 
-            if (!validator.TryValidateObjectRecursive(obj, validationErrors))
+        if (!validator.TryValidateObjectRecursive(obj, validationErrors))
+        {
+            try
             {
-                try
+                //Handle errors however you want
+                foreach (var error in validationErrors)
                 {
-                    //Handle errors however you want
-                    foreach (var error in validationErrors)
-                    {
-                        Console.WriteLine(error.ErrorMessage);
-                        validationErrors.Add(error);
-                    }
+                    Console.WriteLine(error.ErrorMessage);
+                    validationErrors.Add(error);
                 }
-                catch (Exception ex)
-                {
-                    return validationErrors;
-                }
-                
             }
-            
-            return validationErrors;
+            catch (Exception ex)
+            {
+                return validationErrors;
+            }
+
         }
+
+        return validationErrors;
     }
 }

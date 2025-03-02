@@ -1,8 +1,6 @@
-﻿namespace Benny_Scraper.BusinessLogic.Config
+﻿namespace Benny_Scraper.BusinessLogic.Config;
+public class XmlSelectors
 {
-    public class XmlSelectors
-    {
-        public string PackageOpfManifest { get; set; }
-        public string PackageOpfSpine { get; set; }
-    }
+    public string PackageOpfManifest { get; set; }
+    public string PackageOpfSpine { get; set; }
 }

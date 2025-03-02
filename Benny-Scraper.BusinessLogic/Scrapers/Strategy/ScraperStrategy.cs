@@ -251,30 +251,31 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
 
-        private static readonly HttpClient
-            Client = new HttpClient(); // better to keep one instance through the life of the method
+        // better to keep one instance through the life of the method
+        private static readonly HttpClient Client = new HttpClient();
 
-        private SemaphoreSlim _httpSemaphore; // limit the number of concurrent requests, prevent posssible rate limiting
+        private SemaphoreSlim _httpSemaphore; // limit the number of concurrent requests, prevent possible rate limiting
 
-        private SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(2);
+        private readonly SemaphoreSlim _puppeteerSemaphore = new SemaphoreSlim(1);
 
-        private static readonly List<string> UserAgents = new List<string>
-        {
+        private static readonly List<string> UserAgents =
+        [
             "Other", // found at https://stackoverflow.com/questions/62402504/c-sharp-httpclient-postasync-403-forbidden-with-ssl
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",
             "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
             "Mozilla/5.0 (Windows NT 5.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
             "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
-        };
+        ];
 
         private static int _userAgentIndex = 0;
 
-        protected ScraperStrategy(IPuppeteerDriverService? puppeteerDriverService = null)
+        protected ScraperStrategy(SemaphoreSlim httpSemaphore, IPuppeteerDriverService? puppeteerDriverService = null)
         {
             if (RequiresBrowser && puppeteerDriverService is null)
                 throw new ArgumentNullException(nameof(puppeteerDriverService));
 
+            _httpSemaphore = httpSemaphore;
             PuppeteerDriverService = puppeteerDriverService;
         }
 
@@ -879,8 +880,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
                 else
                 {
-                    Logger.Warn(
-                        $"Was unable to find temp directory {tempImageDirectory}. Please verify it was deleted successfully");
+                    Logger.Warn($"Was unable to find temp directory {tempImageDirectory}. Please verify it was deleted successfully");
                 }
                 throw;
             }
@@ -988,7 +988,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Finished navigating to {singleUrl} Time taken: {stopwatch.ElapsedMilliseconds} ms");
             try
             {
-                var htmlDocument = await PuppeteerDriverService.GetRawPageContentAsync(page);
+                var htmlDocument = await PuppeteerDriverService.GetSafeSanitizedPageContentAsync(page);
                 if (htmlDocument is null)
                 {
                     Logger.Warn($"Failed to get page content for {singleUrl}");
