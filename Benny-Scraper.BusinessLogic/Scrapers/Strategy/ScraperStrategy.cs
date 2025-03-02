@@ -270,12 +270,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private static int _userAgentIndex = 0;
 
-        protected ScraperStrategy(SemaphoreSlim httpSemaphore, IPuppeteerDriverService? puppeteerDriverService = null)
+        protected ScraperStrategy(IPuppeteerDriverService? puppeteerDriverService = null)
         {
             if (RequiresBrowser && puppeteerDriverService is null)
                 throw new ArgumentNullException(nameof(puppeteerDriverService));
 
-            _httpSemaphore = httpSemaphore;
             PuppeteerDriverService = puppeteerDriverService;
         }
 
