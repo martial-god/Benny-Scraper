@@ -4,7 +4,8 @@ using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using PuppeteerSharp;
+using OpenQA.Selenium;
+using SeleniumExtras.WaitHelpers;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -52,9 +53,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
     }
-    public class LightNovelWorldStrategy(IPuppeteerDriverService puppeteerDriverService) : ScraperStrategy(puppeteerDriverService)
+
+    public class LightNovelWorldStrategy(IDriverFactory driverFactory) : ScraperStrategy(driverFactory)
     {
-        private readonly IPuppeteerDriverService _puppeteerDriverService = puppeteerDriverService;
+        private readonly IDriverFactory _driverFactory = driverFactory;
         protected override bool RequiresBrowser => true;
         private readonly string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
 
@@ -67,27 +69,36 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // Get table of contents
             try
             {
-                var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, false);
+                var driverObj = await _driverFactory.CreateDriverAsync(_scraperData.SiteTableOfContents.ToString(), isHeadless: false);
 
-                HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
+                HtmlDocument htmlDocument = _driverFactory.GetPageContent(driverObj.Id);
 
                 var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
-                novelDataBuffer.NovelUrl = page.Url;
+                novelDataBuffer.NovelUrl = driverObj.Driver.Url;
 
                 // the url of the chapters pages are different from the table of contents page
-                Uri chaptersUri = new Uri(page.Url + "/chapters");
+                Uri chaptersUri = new Uri(driverObj.Driver.Url + "/chapters");
 
-                await page.GoToAsync(chaptersUri?.ToString());
+                _driverFactory.GoToAndWait<IWebElement>(driverObj.Id, chaptersUri?.ToString(),
+                    drv =>
+                    {
+                        // First wait until document.readyState is complete.
+                        var readyState = ((IJavaScriptExecutor)drv).ExecuteScript("return document.readyState").ToString();
+                        if (!readyState.Equals("complete"))
+                            return null;
 
-                await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.NovelTitle}", new WaitForSelectorOptions { Timeout = 10000 });
+                        // Then wait until the target element is visible.
+                        return ExpectedConditions.ElementIsVisible(By.XPath(_scraperData.SiteConfig?.Selectors.NovelTitle))(drv);
+                    }
+                    );
 
-                htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
+                htmlDocument = _driverFactory.GetPageContent(driverObj.Id);
 
                 int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
                 SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
 
                 var (chapterUrls, lastTableOfContentsUrl) =
-                    await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, page: page);
+                    await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, driverObj.Id);
                 novelDataBuffer.ChapterUrls = chapterUrls;
                 novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
 
@@ -96,7 +107,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error($"Error when getting novel info from title page. {ex}");
-                await _puppeteerDriverService.CloseBrowserAsync();
+                _driverFactory.DisposeAllDrivers();
                 throw;
             }
             finally

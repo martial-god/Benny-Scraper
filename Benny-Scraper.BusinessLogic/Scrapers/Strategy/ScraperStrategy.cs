@@ -8,8 +8,10 @@ using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using NLog;
+using OpenQA.Selenium;
 using Polly;
 using PuppeteerSharp;
+using SeleniumExtras.WaitHelpers;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -240,6 +242,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     public abstract class ScraperStrategy
     {
         private IPuppeteerDriverService? PuppeteerDriverService { get; }
+        private IDriverFactory? _driverFactory { get; }
         protected virtual bool RequiresBrowser => false;
         protected ScraperData _scraperData = new ScraperData();
         private int ConcurrentRequestsLimit { get; set; } = 2;
@@ -276,6 +279,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 throw new ArgumentNullException(nameof(puppeteerDriverService));
 
             PuppeteerDriverService = puppeteerDriverService;
+        }
+
+        protected ScraperStrategy(IDriverFactory driverFactory)
+        {
+            if (RequiresBrowser && driverFactory is null)
+                throw new ArgumentNullException(nameof(driverFactory));
+            _driverFactory = driverFactory;
         }
 
         public abstract Task<NovelDataBuffer> ScrapeAsync();
@@ -321,9 +331,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return await PuppeteerDriverService?.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, headless);
         }
 
-        public async Task<IBrowser> GetOrCreatePuppeteerBrowserAsync(bool headless = true)
+        public async Task<IWebDriver> GetOrCreatePuppeteerBrowserAsync(bool headless = true)
         {
-            return await PuppeteerDriverService.GetOrCreateBrowserAsync(headless);
+            try
+            {
+                return _driverFactory.GetDriverById(1);
+            }
+            catch
+            {
+                var driverObj = await _driverFactory.CreateDriverAsync("about:blank");
+                return driverObj.Driver;
+            }
         }
 
         public bool BrowserRequired => RequiresBrowser;
@@ -492,7 +510,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         /// <param name="getAllChapters"></param>
         /// <param name="pageToStopAt"></param>
         /// <param name="pageToStartAt"></param>
-        /// <param name="page"></param>
+        /// <param name="driverId"></param>
         /// <returns>Returns a ValueTuple that contains all the chapter urls and the url for the last page of the table of contents</returns>
         protected virtual async Task<(List<string> ChapterUrls, string LastTableOfContentsUrl)>
             GetPaginatedChapterUrlsAsync(
@@ -500,7 +518,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 bool getAllChapters,
                 int pageToStopAt,
                 int pageToStartAt = 1,
-                IPage? page = null)
+                int driverId = -1)
         {
             var chapterUrls = new List<string>();
 
@@ -519,17 +537,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     switch (RequiresBrowser)
                     {
                         case true:
-                            if (page is null)
+                            if (driverId is -1)
                                 throw new ArgumentNullException(
-                                    $"{nameof(page)} cannot be null when RequiresBrowser is true.");
-                            var foo = page.IsClosed;
-                            if (foo)
-                                throw new InvalidOperationException("Page is closed");
-                            await page.GoToAsync(tableOfContentUrl);
+                                    $"driver cannot be null when RequiresBrowser is true.");
+                            _driverFactory.GoToAndWait(driverId, tableOfContentUrl,
+                                ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterLinks)));
 
-                            await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.ChapterLinks}",
-                                new WaitForSelectorOptions { Timeout = 10000 });
-                            htmlDocument = await PuppeteerDriverService.GetPageContentAsync(page);
+                            htmlDocument = _driverFactory.GetPageContent(driverId);
                             break;
                         default:
                             (htmlDocument, uri) = await LoadHtmlAsync(new Uri(tableOfContentUrl));
@@ -591,7 +605,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return chapterUrls;
         }
 
-        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls, IBrowser? browser = null)
+        public virtual async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<string> chapterUrls, IWebDriver driver = null)
         {
             var tempImageDirectory = string.Empty;
             var tasks = new List<Task<ChapterDataBuffer>>();
@@ -601,9 +615,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Info("Getting chapters data");
 
-                if (RequiresBrowser && browser is null)
+                if (RequiresBrowser && driver is null)
                     throw new ArgumentNullException(
-                        $"{nameof(browser)} cannot be null when RequiresBrowser is true. " +
+                        $"{nameof(driver)} cannot be null when RequiresBrowser is true. " +
                         $"Method {nameof(GetChaptersDataAsync)} is not allowed.");
 
 
@@ -619,19 +633,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 }
 
                 // TODO: reduce the nesting here, looks quite bad.
-                if (RequiresBrowser && browser is not null && !browser.IsClosed)
+                if (RequiresBrowser && driver is not null)
                 {
                     foreach (var chapterUrl in chapterUrls)
                     {
                         tasks.Add(Task.Run(async () =>
                         {
                             await _puppeteerSemaphore.WaitAsync();
-                            IPage? page = null;
                             try
                             {
-                                page = await PuppeteerDriverService.GetStealthPageAsync();
                                 await Task.Delay(TimeSpan.FromSeconds(0, 1));
-                                return await GetChapterDataWithRetryAsync(chapterUrl, page);
+                                return await GetChapterDataWithRetryAsync(chapterUrl, driver);
                             }
                             catch (Exception ex)
                             {
@@ -640,8 +652,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             }
                             finally
                             {
-                                if (page is not null)
-                                    PuppeteerDriverService.ReturnPage(page); // Return page back to the pool so it's reused
+                                //if (page is not null)
+                                //    PuppeteerDriverService.ReturnPage(page); // Return page back to the pool so it's reused
                                 _puppeteerSemaphore.Release();
                                 Logger.Debug("Semaphore released");
                             }
@@ -661,7 +673,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             await _httpSemaphore.WaitAsync();
                             try
                             {
-                                return await GetChapterDataWithRetryAsync(chapterUrl, page: null);
+                                return await GetChapterDataWithRetryAsync(chapterUrl, driver: null);
                             }
                             catch (Exception ex)
                             {
@@ -698,19 +710,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Info("Finished deleting temp directory");
                 }
 
-                PuppeteerDriverService?.Dispose();
+                _driverFactory.DisposeAllDrivers();
                 Logger.Info("Finished disposing PuppeteerDriverService");
             }
         }
 
-        private async Task<ChapterDataBuffer> GetChapterDataWithRetryAsync(string url, IPage? page,
+        private async Task<ChapterDataBuffer> GetChapterDataWithRetryAsync(string url, IWebDriver? driver,
             int maxRetries = MaxRetries, double initialDelaySeconds = 1.5)
         {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
-                    var chapterData = await GetChapterDataNoSemaphoreAsync(url, page);
+                    var chapterData = await GetChapterDataNoSemaphoreAsync(url, driver);
                     chapterData.Url = url;
                     chapterData.DateLastModified = DateTime.Now;
                     return chapterData;
@@ -741,26 +753,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return new ChapterDataBuffer { Url = url, DateLastModified = DateTime.Now };
         }
 
-        private async Task<ChapterDataBuffer> GetChapterDataNoSemaphoreAsync(string url, IPage? page)
+        private async Task<ChapterDataBuffer> GetChapterDataNoSemaphoreAsync(string url, IWebDriver? driver)
         {
             var chapterDataBuffer = new ChapterDataBuffer();
             var stopwatch = Stopwatch.StartNew();
 
             try
             {
-                if (page != null && RequiresBrowser)
+                if (driver != null && RequiresBrowser)
                 {
-                    var response = await page.GoToAsync(url,
-                        new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load }, Timeout = 10000 });
-
-                    if (response.Status != HttpStatusCode.OK)
-                    {
-                        throw new Exception($"Error going to page. Response {response.Status}");
-                    }
-
-                    await page.WaitForSelectorAsync($"xpath/{_scraperData.SiteConfig?.Selectors.ChapterTitle}",
-                        new WaitForSelectorOptions { Timeout = 10000 });
-                    HtmlDocument html = await PuppeteerDriverService.GetPageContentAsync(page);
+                    _driverFactory.GoToAndWait(1, url,
+                        ExpectedConditions.ElementExists(By.XPath(_scraperData.SiteConfig?.Selectors.ChapterTitle)));
+                    
+                    HtmlDocument html = _driverFactory.GetPageContent(1);
                     ParseHtmlIntoChapterBuffer(html, chapterDataBuffer);
                 }
                 else

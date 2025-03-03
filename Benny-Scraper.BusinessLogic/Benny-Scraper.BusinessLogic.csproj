@@ -13,11 +13,13 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Autofac.Extensions.DependencyInjection" />
+    <PackageReference Include="DotNetSeleniumExtras.WaitHelpers" />
     <PackageReference Include="HtmlAgilityPack" />
     <PackageReference Include="NLog" />
     <PackageReference Include="Polly" />
     <PackageReference Include="PuppeteerSharp" />
     <PackageReference Include="RecursiveDataAnnotationsValidation" />
+    <PackageReference Include="Selenium.WebDriver" />
     <PackageReference Include="SharpZipLib" />
     <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="System.Text.Encoding.CodePages" />

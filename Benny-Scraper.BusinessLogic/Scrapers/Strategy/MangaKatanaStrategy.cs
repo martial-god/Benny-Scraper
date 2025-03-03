@@ -51,7 +51,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
     }
 
-    public class MangaKatanaStrategy(IPuppeteerDriverService puppeteerDriverService) : ScraperStrategy(puppeteerDriverService)
+    public class MangaKatanaStrategy(IDriverFactory driverFactory) : ScraperStrategy(driverFactory)
     {
         protected override bool RequiresBrowser => true;
         public override async Task<NovelDataBuffer> ScrapeAsync()

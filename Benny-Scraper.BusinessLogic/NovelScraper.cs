@@ -14,10 +14,15 @@ public class NovelScraper : INovelScraper
     private readonly Dictionary<string, ScraperStrategy> _strategies = new Dictionary<string, ScraperStrategy>();
     private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
     private readonly IPuppeteerDriverService _puppeteerDriverService;
+    private readonly IDriverFactory _driverFactory;
 
-    public NovelScraper(IPuppeteerDriverService puppeteerDriverService, IOptions<NovelScraperSettings> settings)
+    public NovelScraper(
+        IPuppeteerDriverService puppeteerDriverService,
+        IDriverFactory driverFactory,
+        IOptions<NovelScraperSettings> settings)
     {
         _puppeteerDriverService = puppeteerDriverService; // need to either handle the class or create another for non http constructor
+        _driverFactory = driverFactory;
         RegisterStrategy();
     }
 
@@ -44,11 +49,11 @@ public class NovelScraper : INovelScraper
 
     private void RegisterStrategy()
     {
-        AddStrategy("https://www.lightnovelworld.com", new LightNovelWorldStrategy(_puppeteerDriverService));
+        AddStrategy("https://www.lightnovelworld.com", new LightNovelWorldStrategy(_driverFactory));
         AddStrategy("https://novelfull.com", new NovelFullStrategy());
         AddStrategy("https://mangakakalot.to", new MangaKakalotStrategy());
         AddStrategy("https://mangareader.to", new MangaReaderStrategy());
-        AddStrategy("https://mangakatana.com", new MangaKatanaStrategy(_puppeteerDriverService));
+        AddStrategy("https://mangakatana.com", new MangaKatanaStrategy(_driverFactory));
         AddStrategy("https://noveldrama.com", new NovelDramaStrategy());
     }
     #endregion

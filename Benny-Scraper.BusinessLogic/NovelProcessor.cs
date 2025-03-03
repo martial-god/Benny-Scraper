@@ -89,9 +89,9 @@ public class NovelProcessor(
         Novel newNovel = CreateNovel(novelDataBuffer, novelTableOfContentsUri);
         Logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
-        var browser = scraperStrategy.BrowserRequired ? await scraperStrategy.GetOrCreatePuppeteerBrowserAsync(headless: true) : null;
+        var driver = scraperStrategy.BrowserRequired ? await scraperStrategy.GetOrCreatePuppeteerBrowserAsync(headless: true) : null;
 
-        var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls, browser);
+        var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(novelDataBuffer.ChapterUrls, driver);
         newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
 
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));

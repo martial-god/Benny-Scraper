@@ -867,6 +867,7 @@ internal class Program
             return key => context.ResolveNamed<INovelScraper>(key);
         });
 
+        builder.RegisterType<DriverFactory>().As<IDriverFactory>().InstancePerDependency();
         builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
         builder.RegisterType<PuppeteerDriverService>().As<IPuppeteerDriverService>().SingleInstance();
         builder.RegisterType<NovelScraper>().As<INovelScraper>().InstancePerDependency();
