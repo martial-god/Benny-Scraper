@@ -5,6 +5,7 @@ using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using OpenQA.Selenium;
+using PuppeteerSharp;
 using SeleniumExtras.WaitHelpers;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
@@ -54,9 +55,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         }
     }
 
-    public class LightNovelWorldStrategy(IDriverFactory driverFactory) : ScraperStrategy(driverFactory)
+    public class LightNovelWorldStrategy(IPuppeteerDriverService puppeteerDriverService) : ScraperStrategy(puppeteerDriverService)
     {
-        private readonly IDriverFactory _driverFactory = driverFactory;
+        private readonly IPuppeteerDriverService _puppeteerDriverService = puppeteerDriverService;
         protected override bool RequiresBrowser => true;
         private readonly string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
 
@@ -69,36 +70,26 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // Get table of contents
             try
             {
-                var driverObj = await _driverFactory.CreateDriverAsync(_scraperData.SiteTableOfContents.ToString(), isHeadless: false);
+                var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, true);
 
-                HtmlDocument htmlDocument = _driverFactory.GetPageContent(driverObj.Id);
+                HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 
                 var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
-                novelDataBuffer.NovelUrl = driverObj.Driver.Url;
+                novelDataBuffer.NovelUrl = page.Url;
 
                 // the url of the chapters pages are different from the table of contents page
-                Uri chaptersUri = new Uri(driverObj.Driver.Url + "/chapters");
+                Uri chaptersUri = new Uri(page.Url + "/chapters");
 
-                _driverFactory.GoToAndWait<IWebElement>(driverObj.Id, chaptersUri?.ToString(),
-                    drv =>
-                    {
-                        // First wait until document.readyState is complete.
-                        var readyState = ((IJavaScriptExecutor)drv).ExecuteScript("return document.readyState").ToString();
-                        if (!readyState.Equals("complete"))
-                            return null;
+                await page.GoToAsync(chaptersUri.ToString());
+                await _puppeteerDriverService.GoToAndWaitForByXpath(page, chaptersUri.ToString(), _scraperData.SiteConfig?.Selectors.NovelTitle, new WaitForSelectorOptions { Timeout = 10000 });
 
-                        // Then wait until the target element is visible.
-                        return ExpectedConditions.ElementIsVisible(By.XPath(_scraperData.SiteConfig?.Selectors.NovelTitle))(drv);
-                    }
-                    );
-
-                htmlDocument = _driverFactory.GetPageContent(driverObj.Id);
+                htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 
                 int pageToStopAt = GetLastTableOfContentsPageNumber(htmlDocument);
                 SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
 
                 var (chapterUrls, lastTableOfContentsUrl) =
-                    await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, driverObj.Id);
+                    await GetPaginatedChapterUrlsAsync(chaptersUri, true, pageToStopAt, page: page);
                 novelDataBuffer.ChapterUrls = chapterUrls;
                 novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
 
@@ -107,12 +98,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error($"Error when getting novel info from title page. {ex}");
-                _driverFactory.DisposeAllDrivers();
+                _puppeteerDriverService.Dispose();
                 throw;
-            }
-            finally
-            {
-                Console.WriteLine($"Got Novel Data");
             }
         }
 

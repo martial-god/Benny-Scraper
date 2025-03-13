@@ -49,7 +49,7 @@ public class NovelScraper : INovelScraper
 
     private void RegisterStrategy()
     {
-        AddStrategy("https://www.lightnovelworld.com", new LightNovelWorldStrategy(_driverFactory));
+        AddStrategy("https://www.lightnovelworld.com", new LightNovelWorldStrategy(_puppeteerDriverService));
         AddStrategy("https://novelfull.com", new NovelFullStrategy());
         AddStrategy("https://mangakakalot.to", new MangaKakalotStrategy());
         AddStrategy("https://mangareader.to", new MangaReaderStrategy());
