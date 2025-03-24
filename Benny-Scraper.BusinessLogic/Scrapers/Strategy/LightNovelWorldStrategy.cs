@@ -70,7 +70,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // Get table of contents
             try
             {
-                var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, true);
+                var page = await _puppeteerDriverService.CreatePageAndGoToAsync(_scraperData.SiteTableOfContents, false);
 
                 HtmlDocument htmlDocument = await _puppeteerDriverService.GetPageContentAsync(page);
 

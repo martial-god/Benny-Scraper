@@ -723,7 +723,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Info("Finished deleting temp directory");
                 }
 
-                _driverFactory.DisposeAllDrivers();
+                _driverFactory?.DisposeAllDrivers();
+                await PuppeteerDriverService?.CloseBrowserAsync();
                 Logger.Info("Finished disposing PuppeteerDriverService");
             }
         }

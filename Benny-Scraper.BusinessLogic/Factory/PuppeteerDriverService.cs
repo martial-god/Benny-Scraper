@@ -69,8 +69,8 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
         var page = await GetStealthPageAsync(headless);
         var response = await page.GoToAsync(uri.ToString(), new NavigationOptions
         {
-            WaitUntil = new[] { WaitUntilNavigation.Networkidle2 },
-            Timeout = 30000
+            WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded },
+            Timeout = 60000
         });
         
         if (response.Status != HttpStatusCode.OK)
@@ -169,8 +169,7 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             try
             {
                 if (page.Url == null)
-                    await page
-                        .CloseAsync(); // found cases where page will have a null url which will then start failing all following calls. Already removed by the TryTake
+                    await page.CloseAsync(); // found cases where page will have a null url which will then start failing all following calls. Already removed by the TryTake
 
                 if (!page.IsClosed)
                 {
@@ -262,7 +261,7 @@ public class PuppeteerDriverService : IPuppeteerDriverService, IDisposable
             await _browser.CloseAsync();
             _availablePages.Clear();
             _browser = null;
-            _logger.Debug("Closed the browser.");
+            _logger.Info("Closed the browser.");
         }
     }
 
