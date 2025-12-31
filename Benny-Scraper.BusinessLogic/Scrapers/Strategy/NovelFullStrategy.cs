@@ -6,12 +6,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
     namespace Impl
     {
-        public class NovelFullInitializer : NovelDataInitializer
+        public abstract class NovelFullInitializer : NovelDataInitializer
         {
             //Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
             //child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
             //the implementation would require both.
-            public static void FetchNovelContent(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
+            public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 var tableOfContents = scraperData.SiteTableOfContents;
                 var attributesToFetch = new List<Attr>()
@@ -32,7 +32,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 foreach (var attribute in attributesToFetch)
                 {
-                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                    await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
                 }
 
                 var fullCurrentChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
@@ -52,8 +52,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
 
-            SetBaseUri(_scraperData.SiteTableOfContents);
-            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+            SetBaseUri(ScraperData.SiteTableOfContents);
+            var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 
             try
             {
@@ -72,22 +72,26 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
-            int pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, _scraperData.BaseUri);
+            var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
 
-            var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_scraperData.SiteTableOfContents, true, pageToStopAt);
+            var (chapterUrls, chapterTitles, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
 
             novelDataBuffer.ChapterUrls = chapterUrls;
+            novelDataBuffer.ChapterTitles = chapterTitles;
             novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+
+            // Sort chapters based on site configuration
+            SortChapters(novelDataBuffer);
 
             return novelDataBuffer;
         }
 
-        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
             try
             {
-                NovelFullInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, _scraperData);
+                await NovelFullInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData);
                 return novelDataBuffer;
             }
             catch (Exception e)
@@ -96,6 +100,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             return novelDataBuffer;
+        }
+
+        protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        {
+            throw new NotImplementedException();
         }
     }
 }

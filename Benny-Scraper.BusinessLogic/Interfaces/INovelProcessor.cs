@@ -2,6 +2,6 @@
 {
     public interface INovelProcessor
     {
-        public Task ProcessNovelAsync(Uri novelTableOfContentsUri);
+        public Task ProcessNovelAsync(Uri novelTableOfContentsUri, int? beginChapter = null, int? endChapter = null);
     }
 }

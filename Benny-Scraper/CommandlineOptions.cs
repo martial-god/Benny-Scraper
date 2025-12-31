@@ -59,5 +59,32 @@ namespace Benny_Scraper
 
         [Option('U', "update-all", Required = false, HelpText = "Updates all non-completed novels in database. Will only update ones that were not modified the same day")]
         public bool UpdateAll { get; set; }
+
+        [Option('t', "test-site", Required = false, HelpText = "Test connectivity to a site [URL]. Attempts to fetch the page and extract the title to verify Cloudflare bypass is working.")]
+        public string TestSite { get; set; }
+
+        [Option("test-all", Required = false, HelpText = "Test connectivity to all supported sites. Useful for verifying Cloudflare bypass is working across all configured sites.")]
+        public bool TestAll { get; set; }
+
+        [Option("test-interactive", Required = false, HelpText = "Interactive mode for testing a new site [URL]. Guides you through testing each field and generates a JSON configuration.")]
+        public string TestInteractive { get; set; }
+
+        [Option("test-field", Required = false, HelpText = "Test a specific field with XPath [FIELD:XPATH]. TOC fields (test on table-of-contents page): Title, Author, Description, Genres, Status, AlternativeNames, Thumbnail, ChapterLinks. Chapter fields (test on chapter page): ChapterTitle, ChapterContent. TIP: When copying XPath from DevTools, change inner double quotes to single quotes to avoid shell quoting conflicts. Example: --test-field \"Title://*[@id='novel-title']\" <URL>")]
+        public string TestField { get; set; }
+
+        [Option("validate-config", Required = false, HelpText = "Validate an existing site configuration by name [STRING]. Tests all selectors against a live URL.")]
+        public string ValidateConfig { get; set; }
+
+        [Option("validate-all-configs", Required = false, HelpText = "Validate all active site configurations. Tests selectors for each configured site.")]
+        public bool ValidateAllConfigs { get; set; }
+
+        [Option('B', "begin-chapter", Required = false, HelpText = "Beginning chapter number for range selection [INT]. If not specified, starts from chapter 1.")]
+        public int? BeginChapter { get; set; }
+
+        [Option('E', "end-chapter", Required = false, HelpText = "Ending chapter number for range selection [INT]. If not specified, downloads to the last chapter.")]
+        public int? EndChapter { get; set; }
+
+        [Value(0, MetaName = "url", Required = false, HelpText = "Novel table of contents URL to download. Can be combined with -B and -E options for chapter range selection.")]
+        public string Url { get; set; }
     }
 }

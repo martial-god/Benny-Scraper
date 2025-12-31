@@ -28,7 +28,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             _epubTemplates = epubTemplates.Value;
         }
 
-        public void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage)
+        public void CreateEpub(Novel? novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage)
         {
             Logger.Info("Creating epub file. Novel: {0}, Chapters: {1}, OutputFilePath: {2}", novel.Title, chapters.Count(), outputFilePath);
             string tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());

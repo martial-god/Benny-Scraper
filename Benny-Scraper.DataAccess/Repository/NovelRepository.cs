@@ -18,7 +18,7 @@ namespace Benny_Scraper.DataAccess.Repository
             _db = db;
         }
 
-        public void Update(Novel novel)
+        public void Update(Novel? novel)
         {
             _db.Novels.Update(novel);
         }

@@ -1,13 +1,13 @@
-﻿using System.Globalization;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using System.Globalization;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 
-public class NovelDramaInitializer : NovelDataInitializer
+public abstract class NovelDramaInitializer : NovelDataInitializer
 {
-    public static void FetchNovelContent(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
+    public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
     {
         var tableOfContents = scraperData.SiteTableOfContents;
         var attributesToFetch = new List<Attr>()
@@ -25,7 +25,7 @@ public class NovelDramaInitializer : NovelDataInitializer
 
         foreach (var attribute in attributesToFetch)
         {
-            FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
         }
 
         var fullCurrentChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
@@ -46,8 +46,8 @@ public class NovelDramaStrategy : ScraperStrategy
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
         Logger.Info($"Getting novel data for {this.GetType().Name}");
-        SetBaseUri(_scraperData.SiteTableOfContents);
-        var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+        SetBaseUri(ScraperData.SiteTableOfContents);
+        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 
         try
         {
@@ -63,24 +63,34 @@ public class NovelDramaStrategy : ScraperStrategy
         }
     }
 
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+    {
+        throw new NotImplementedException();
+    }
+
     private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
     {
         var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
 
         int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
-        var (chapterUrls, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_scraperData.SiteTableOfContents, true, pageToStopAt);
+        var (chapterUrls, chapterTitles, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
 
         novelDataBuffer.ChapterUrls = chapterUrls;
+        novelDataBuffer.ChapterTitles = chapterTitles;
         novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl; // this needs to be updated as it is not the same as what was set in FetchNovelDataFromTableOfContentsAsync
+
+        // Sort chapters based on site configuration
+        SortChapters(novelDataBuffer);
+
         return novelDataBuffer;
     }
 
-    public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+    protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {
         var novelDataBuffer = new NovelDataBuffer();
         try
         {
-            NovelDramaInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, _scraperData);
+            await NovelDramaInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData);
             return novelDataBuffer;
         }
         catch (Exception e)
@@ -100,9 +110,9 @@ public class NovelDramaStrategy : ScraperStrategy
 
             int lastPageNumber = int.Parse(lastPage, NumberStyles.AllowThousands);
 
-            if (_scraperData.SiteConfig?.PageOffSet > 0)
+            if (ScraperData.SiteConfig?.PageOffSet > 0)
             {
-                lastPageNumber += _scraperData.SiteConfig.PageOffSet;
+                lastPageNumber += ScraperData.SiteConfig.PageOffSet;
             }
 
             Logger.Info($"Last table of contents page number is {lastPage}");

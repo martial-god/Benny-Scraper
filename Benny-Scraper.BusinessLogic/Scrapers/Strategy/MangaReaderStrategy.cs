@@ -8,7 +8,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     /// <summary>
     /// Strategy for https://mangareader.to/
     /// </summary>
-    public class MangaReaderInitializer : NovelDataInitializer
+    public abstract class MangaReaderInitializer : NovelDataInitializer
     {
         public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
         {
@@ -27,20 +27,22 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Attr.AlternativeNames,
                 Attr.Description,
                 Attr.ThumbnailUrl,
-                Attr.ChapterUrls,
                 Attr.CurrentChapter
             };
 
             foreach (var attribute in attributesToFetch)
             {
-                FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
             }
+
+            // Extract chapter URLs and titles in one pass
+            scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
+
+            // Sort chapters based on site configuration
+            scraperStrategy.SortChapters(novelDataBuffer);
 
             if (novelDataBuffer.ChapterUrls.Any())
             {
-                // chapters are in reverse order
-                novelDataBuffer.ChapterUrls.Reverse();
-                novelDataBuffer.ChapterUrls = novelDataBuffer.ChapterUrls.Select(partialUrl => new Uri(scraperData.BaseUri, partialUrl).ToString()).ToList();
                 novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
             }
             if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
@@ -56,9 +58,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
-            SetBaseUri(_scraperData.SiteTableOfContents);
+            SetBaseUri(ScraperData.SiteTableOfContents);
 
-            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+            var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 
             try
             {
@@ -80,12 +82,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelDataBuffer;
         }
 
-        public override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
             try
             {
-                await Task.WhenAll(MangaReaderInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, _scraperData, this));
+                await Task.WhenAll(MangaReaderInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this));
                 return novelDataBuffer;
             }
             catch (Exception e)
@@ -96,7 +98,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelDataBuffer;
         }
 
-        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             throw new NotImplementedException();
         }

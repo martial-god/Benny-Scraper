@@ -5,8 +5,8 @@ namespace Benny_Scraper.Models
     public class Configuration
     {
         [Key]
-        public int Id { get; set; }
-        public string? Name { get; set; }
+        public int Id { get; init; }
+        public string? Name { get; init; }
         public bool AutoUpdate { get; set; }
         public int ConcurrencyLimit { get; set; }
         public string? SaveLocation { get; set; }

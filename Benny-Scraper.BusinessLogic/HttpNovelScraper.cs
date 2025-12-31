@@ -12,20 +12,21 @@ namespace Benny_Scraper.BusinessLogic
     {
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private ScraperStrategy _scraperStrategy;
-        private Dictionary<string, ScraperStrategy> _websiteMap = new Dictionary<string, ScraperStrategy>();
+        private readonly Dictionary<string, ScraperStrategy> _websiteMap = new();
 
-        public HttpNovelScraper()
+        public HttpNovelScraper(ScraperStrategy scraperStrategy)
         {
+            _scraperStrategy = scraperStrategy;
             AddSupportForWebsite();
         }
 
         #region setup maps
-        public void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy)
+        private void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy)
         {
             _websiteMap.Add(siteName, scraperStrategy);
         }
 
-        void AddSupportForWebsite()
+        private void AddSupportForWebsite()
         {
             AddSiteToMap("https://www.lightnovelworld.com", new LightNovelWorldStrategy());
             AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
@@ -33,6 +34,7 @@ namespace Benny_Scraper.BusinessLogic
             AddSiteToMap("https://mangareader.to", new MangaReaderStrategy());
             AddSiteToMap("https://mangakatana.com", new MangaKatanaStrategy());
             AddSiteToMap("https://noveldrama.com", new NovelDramaStrategy());
+            AddSiteToMap("https://wuxiaworld.com", new WuxiaWorldStrategy());
         }
         #endregion
 
@@ -44,7 +46,7 @@ namespace Benny_Scraper.BusinessLogic
         /// <returns></returns>
         public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
-            string baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
+            var baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
 
             if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))
             {

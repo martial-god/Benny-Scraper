@@ -87,6 +87,13 @@ Commands:
 
   --get-extension              Gets the saved default extensions for mangas.
 
+  -t, --test-site              Test connectivity to a site [URL]. Attempts to fetch the page and extract the title to verify
+                               Cloudflare bypass is working. Useful for testing a site before implementing a scraper strategy.
+
+  --test-all                   Test connectivity to all supported sites. Displays which sites are accessible and which are
+                               blocked by Cloudflare or other protection. Runs automatically on application startup in
+                               interactive mode.
+
   --help                       Display this help screen.
 
   --version                    Display version information.
@@ -127,6 +134,20 @@ Usage examples:
   Update location of a novel by its id, you can get ID from the --list or -l command:
     dotnet Benny-Scraper.dll --update-novel-saved-location-by-id [ID]    ex: 00000000-0000-0000-0000-000000000000         You will be prompted to enter the full path for the FOLDER your file(s) are stored
     Benny-Scraper -L [ID]
+
+  Test connectivity to a specific site before implementing a scraper:
+    dotnet Benny-Scraper.dll --test-site https://wanderinginn.com
+    dotnet Benny-Scraper.dll -t https://novelfull.com
+    Benny-Scraper -t https://example.com/novel/table-of-contents
+
+  Test connectivity to all supported sites to see which ones are accessible:
+    dotnet Benny-Scraper.dll --test-all
+    Benny-Scraper --test-all
+
+  Interactive mode commands (when running without arguments):
+    test <url>        Test a specific site URL
+    test-all          Test all supported sites
+    exit              Quit the application
 
 For more information about each command and option, run:
   dotnet Benny-Scraper.dll [COMMAND] --help

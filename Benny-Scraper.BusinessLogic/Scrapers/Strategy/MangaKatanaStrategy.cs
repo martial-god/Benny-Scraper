@@ -8,15 +8,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     /// <summary>
     /// Strategy for https://mangakatana.com/
     /// </summary>
-    public class MangaKatanaInitializer : NovelDataInitializer
+    public abstract class MangaKatanaInitializer : NovelDataInitializer
     {
         public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
         {
             int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
-            StringBuilder queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
+            var queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
             queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
             queryBuilder.Append(novelId);
-            Uri uriQueryForChapterUrls = new Uri(queryBuilder.ToString());
 
             var attributesToFetch = new List<Attr>()
             {
@@ -27,20 +26,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Attr.AlternativeNames,
                 Attr.Description,
                 Attr.ThumbnailUrl,
-                Attr.ChapterUrls,
                 Attr.CurrentChapter
             };
 
             foreach (var attribute in attributesToFetch)
             {
-                FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
+                await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
             }
+
+            scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
+            scraperStrategy.SortChapters(novelDataBuffer);
 
             if (novelDataBuffer.ChapterUrls.Any())
             {
-                // chapters are in reverse order
-                novelDataBuffer.ChapterUrls.Reverse();
-                novelDataBuffer.ChapterUrls = novelDataBuffer.ChapterUrls.Select(partialUrl => new Uri(scraperData.BaseUri, partialUrl).ToString()).ToList();
                 novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
             }
             if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
@@ -56,9 +54,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
-            SetBaseUri(_scraperData.SiteTableOfContents);
+            SetBaseUri(ScraperData.SiteTableOfContents);
 
-            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
+            var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 
             try
             {
@@ -80,12 +78,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelDataBuffer;
         }
 
-        public override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
             try
             {
-                await Task.WhenAll(MangaKatanaInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, _scraperData, this));
+                await Task.WhenAll(MangaKatanaInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this));
                 return novelDataBuffer;
             }
             catch (Exception e)
@@ -96,7 +94,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return novelDataBuffer;
         }
 
-        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             throw new NotImplementedException();
         }

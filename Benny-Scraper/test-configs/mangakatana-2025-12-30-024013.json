@@ -1,0 +1,20 @@
+{
+  "name": "Mangakatana",
+  "urlPattern": "mangakatana.com",
+  "hasPagination": false,
+  "selectors": {
+    "chapterLinks": "//ul[@class=\u0027chapters\u0027]//a/@href",
+    "novelAuthor": "//a[@class=\u0027author\u0027]/text()",
+    "novelGenres": "//div[@class=\u0027genres\u0027]/a/text()",
+    "novelDescription": "//a[@class=\u0027author\u0027]/text()"
+  },
+  "chaptersPerPage": 0,
+  "pageOffSet": 0,
+  "completedStatus": "completed",
+  "hasNovelInfoOnDifferentPage": false,
+  "isSeleniumSite": false,
+  "hasImagesForChapterContent": true,
+  "cloudflareProtection": 0,
+  "isActive": true,
+  "chapterSortOrder": 0
+}

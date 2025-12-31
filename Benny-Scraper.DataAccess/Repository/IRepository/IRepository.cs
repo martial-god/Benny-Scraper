@@ -45,7 +45,7 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
             string? includeProperties = null
         );
 
-        Task<GenericDbObject> GetFirstOrDefaultAsync(
+        Task<GenericDbObject?> GetFirstOrDefaultAsync(
             Expression<Func<GenericDbObject, bool>> filter,
             string? includeProperties = null,
             CancellationToken cancellationToken = default

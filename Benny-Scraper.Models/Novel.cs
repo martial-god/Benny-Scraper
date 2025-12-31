@@ -15,15 +15,18 @@ namespace Benny_Scraper.Models
 
         public string? Author { get; set; }
 
-        [StringLength(50)] public string SiteName { get; set; }
-        public string Url { get; set; }
+        [StringLength(50)] public string SiteName { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
         public string? Genre { get; set; }
         public string? Description { get; set; }
 
-        public string FirstChapter { get; set; }
-        public string CurrentChapter { get; set; }
-        public string CurrentChapterUrl { get; set; }
+        public string FirstChapter { get; set; } = string.Empty;
+        public string CurrentChapter { get; set; } = string.Empty;
+        public string CurrentChapterUrl { get; set; } = string.Empty;
         public int? TotalChapters { get; set; }
+        public int? ChapterRangeBegin { get; set; }
+        public int? ChapterRangeEnd { get; set; }
+        public bool IsPartialDownload { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }
 
@@ -56,6 +59,7 @@ namespace Benny_Scraper.Models
         public NovelDataBuffer()
         {
             ChapterUrls = new List<string>();
+            ChapterTitles = new List<string>();
             Description = new List<string>();
             Genres = new List<string>();
             AlternativeNames = new List<string>();
@@ -64,6 +68,7 @@ namespace Benny_Scraper.Models
 
         public string Title { get; set; }
         public List<string> ChapterUrls { get; set; }
+        public List<string> ChapterTitles { get; set; }
         public string NovelStatus { get; set; }
         public string LastTableOfContentsPageUrl { get; set; }
         public bool IsNovelCompleted { get; set; }
@@ -83,6 +88,7 @@ namespace Benny_Scraper.Models
         public void Dispose()
         {
             ChapterUrls.Clear();
+            ChapterTitles.Clear();
             Description?.Clear();
             Genres.Clear();
             AlternativeNames.Clear();

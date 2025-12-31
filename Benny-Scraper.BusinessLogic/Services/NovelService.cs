@@ -33,7 +33,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         /// <param name="novel"></param>
         /// <param name="newChapters"></param>
         /// <returns></returns>
-        public async Task UpdateAndAddChaptersAsync(Novel novel, IEnumerable<Chapter> newChapters)
+        public async Task UpdateAndAddChaptersAsync(Novel? novel, IEnumerable<Chapter> newChapters)
         {            
             _unitOfWork.Novel.Update(novel); //update existing
 
@@ -45,7 +45,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         /// </summary>
         /// <param name="novel"></param>
         /// <returns></returns>
-        public async Task UpdateAsync(Novel novel)
+        public async Task UpdateAsync(Novel? novel)
         {
             novel.DateLastModified = DateTime.Now;
             _unitOfWork.Novel.Update(novel);
@@ -57,7 +57,7 @@ namespace Benny_Scraper.BusinessLogic.Services
             return await _unitOfWork.Novel.GetAllAsync();
         }
 
-        public async Task<Novel> GetByUrlAsync(Uri uri)
+        public async Task<Novel?> GetByUrlAsync(Uri uri)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString);
             if (context != null)

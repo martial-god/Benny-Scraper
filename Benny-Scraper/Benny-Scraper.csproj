@@ -33,6 +33,7 @@
     <PackageReference Include="Selenium.WebDriver.IEDriver" Version="4.14.0" />
     <PackageReference Include="SeleniumExtras.WaitHelpers" Version="1.0.2" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.7" />
+    <PackageReference Include="System.Management" Version="10.0.1" />
     <PackageReference Include="WebDriverManager" Version="2.17.1" />
   </ItemGroup>
 

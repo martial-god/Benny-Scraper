@@ -27,10 +27,17 @@ namespace Benny_Scraper.BusinessLogic.Factory
         /// <returns>Scraper instance that implemnts INovelService </returns>
         public INovelScraper CreateScraper(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
-            bool isSeleniumUrl = siteConfig.IsSeleniumSite;
+            bool entireSiteRequiresSelenium = siteConfig.EntireSiteRequiresSelenium;
+            bool requiresSeleniumForCloudflare = siteConfig.CloudflareProtection == CloudflareProtectionLevel.JsChallenge;
 
-            if (isSeleniumUrl)
+            if (entireSiteRequiresSelenium || requiresSeleniumForCloudflare)
             {
+                if (requiresSeleniumForCloudflare && !entireSiteRequiresSelenium)
+                {
+                    Logger.Warn($"Site {siteConfig.Name} has CloudflareProtection set to JsChallenge but EntireSiteRequiresSelenium is false.");
+                    Logger.Warn($"Automatically using Selenium scraper due to Cloudflare protection.");
+                }
+
                 try
                 {
                     return _novelScraperResolver("Selenium");
@@ -40,6 +47,11 @@ namespace Benny_Scraper.BusinessLogic.Factory
                     Logger.Error($"Error when getting SeleniumNovelScraper. {ex}");
                     throw;
                 }
+            }
+
+            if (siteConfig.CloudflareProtection == CloudflareProtectionLevel.Detected)
+            {
+                Logger.Info($"Site {siteConfig.Name} has Cloudflare protection detected. Using HttpClient with enhanced headers.");
             }
 
             try

@@ -6,7 +6,7 @@ using WebDriverManager.DriverConfigs.Impl;
 
 namespace Benny_Scraper.BusinessLogic.Factory
 {
-    public enum Broswer
+    public enum Browser
     {
         Chrome,
         Firefox,
@@ -16,9 +16,8 @@ namespace Benny_Scraper.BusinessLogic.Factory
 
     public class DriverFactory : IDriverFactory
     {
-        private ConcurrentDictionary<int, IWebDriver> _drivers; // thread-safe version of the dictionary, no need to worry about multiple threads making changes
+        private readonly ConcurrentDictionary<int, IWebDriver> _drivers; // thread-safe version of the dictionary, no need to worry about multiple threads making changes
         private int _counter;
-
 
         public DriverFactory()
         {
@@ -38,7 +37,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
         {
             switch (browser)
             {
-                case (int)Broswer.Chrome:
+                case (int)Browser.Chrome:
                     var chromeDriverService = ChromeDriverService.CreateDefaultService(); // needs to be first in order to have the driver ready when called asycnhronously
                     chromeDriverService.HideCommandPromptWindow = true; // hides command prompt window https://stackoverflow.com/questions/53218843/stop-chromedriver-console-window-from-appearing-selenium-c-sharp
                     new WebDriverManager.DriverManager().SetUpDriver(new ChromeConfig()); // should install a new chromedriver if there is an update
@@ -71,7 +70,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
         {
             switch (browser)
             {
-                case (int)Broswer.Chrome:
+                case (int)Browser.Chrome:
                     var chromeDriverService = ChromeDriverService.CreateDefaultService();
                     chromeDriverService.HideCommandPromptWindow = true;
                     new WebDriverManager.DriverManager().SetUpDriver(new ChromeConfig());

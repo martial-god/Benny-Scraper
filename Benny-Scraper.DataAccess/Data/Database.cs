@@ -60,6 +60,9 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Novel>().Property(x => x.CurrentChapterUrl).HasColumnName("current_chapter_url");
             modelBuilder.Entity<Novel>().Property(x => x.FileType).HasColumnName("file_type");
             modelBuilder.Entity<Novel>().Property(x => x.SavedFileIsSplit).HasColumnName("saved_file_is_split");
+            modelBuilder.Entity<Novel>().Property(x => x.ChapterRangeBegin).HasColumnName("chapter_range_begin");
+            modelBuilder.Entity<Novel>().Property(x => x.ChapterRangeEnd).HasColumnName("chapter_range_end");
+            modelBuilder.Entity<Novel>().Property(x => x.IsPartialDownload).HasColumnName("is_partial_download");
             modelBuilder.Entity<Novel>()
                 .HasMany(x => x.Chapters)
                 .WithOne(x => x.Novel)
@@ -92,7 +95,7 @@ namespace Benny_Scraper.DataAccess.Data
         #endregion
 
         // Creates maps to the database
-        public DbSet<Novel> Novels { get; set; }
+        public DbSet<Novel?> Novels { get; set; }
         public DbSet<NovelList> NovelLists { get; set; }
         public DbSet<Chapter> Chapters { get; set; }
         public DbSet<Page> Pages { get; set; }
