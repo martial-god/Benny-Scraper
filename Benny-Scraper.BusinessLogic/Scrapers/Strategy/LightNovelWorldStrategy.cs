@@ -77,10 +77,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
+            throw new NotImplementedException();
+        }
+
+        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        {
             var novelDataBuffer = new NovelDataBuffer();
             try
             {
-                LightNovelWorldInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, ScraperData);
+                await LightNovelWorldInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, ScraperData);
                 return novelDataBuffer;
             }
             catch (Exception e)
@@ -90,6 +95,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return novelDataBuffer;
         }
+        
+        
 
         private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelDataBuffer)
         {

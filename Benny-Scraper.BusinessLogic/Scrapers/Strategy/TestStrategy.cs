@@ -292,6 +292,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.NovelTitle = xpath, true);
         await TestFieldAsync("Author", "//a[@class='author']/text()", NovelDataInitializer.Attr.Author, xpath => _config.Selectors.NovelAuthor = xpath, false);
         await TestFieldAsync("Description", "//div[@class='description']/p/text()", NovelDataInitializer.Attr.Description, xpath => _config.Selectors.NovelDescription = xpath, false);
+        await TestFieldAsync("Current Chapter Link", "//*[@id='en-chapters']/li[1]/a", NovelDataInitializer.Attr.CurrentChapter, xpath => _config.Selectors.LatestChapterLink = xpath, false);
         await TestFieldAsync("Genres", "//div[@class='genres']/a/text()", NovelDataInitializer.Attr.Genres, xpath => _config.Selectors.NovelGenres = xpath, false);
 
         TestCompletedStatusSetting();
@@ -411,7 +412,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         }
     }
 
-    private async Task TestFieldAsync(string fieldName, string exampleXPath, NovelDataInitializer.Attr attribute, Action<string> setSelectorAction, bool required)
+    private async Task TestFieldAsync(string fieldName, string exampleXPath, NovelDataInitializer.Attr attribute, Action<string> setSelectorAction, bool isRequired)
     {
         var fieldVerified = false;
 
@@ -422,7 +423,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             Console.WriteLine($"Example: {exampleXPath}");
             Console.ResetColor();
 
-            if (!required)
+            if (!isRequired)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.Write("(Optional) ");
@@ -434,7 +435,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
 
             if (string.IsNullOrEmpty(xpath))
             {
-                if (required)
+                if (isRequired)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("✗ Required field - skipped");
@@ -470,7 +471,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 {
                     fieldVerified = true;
 
-                    if (!required || success) continue;
+                    if (!isRequired || success) continue;
                     _requiredFieldsFailed = true;
 
                     if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
@@ -497,7 +498,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 {
                     fieldVerified = true;
 
-                    if (required && !success)
+                    if (isRequired && !success)
                     {
                         _requiredFieldsFailed = true;
 

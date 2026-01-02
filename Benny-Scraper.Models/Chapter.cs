@@ -40,7 +40,7 @@ namespace Benny_Scraper.Models
         public int SequenceNumber { get; set; } // using the Table of Contents order as the definitive order of chapters, this avoids issues with sorting by chapter title where titles contain numbers
         public DateTime DateLastModified { get; set; }
         public ICollection<PageData>? Pages { get; set; }
-        public string TempDirectory { get; set; }
+        public string TempDirectory { get; init; }
 
         public void Dispose()
         {

@@ -11,6 +11,7 @@ using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using Benny_Scraper.BusinessLogic.Services;
 using Benny_Scraper.BusinessLogic.Services.Interface;
+using Benny_Scraper.BusinessLogic.Utilities;
 using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.DataAccess.DbInitializer;
 using Benny_Scraper.DataAccess.Repository;
@@ -48,6 +49,9 @@ namespace Benny_Scraper
             var builder = new ContainerBuilder();
             ConfigureServices(builder);
             Container = builder.Build();
+
+            // Ensure Selenium drivers (and other unmanaged resources) are disposed even on crash/exit.
+            ShutdownHooks.Register(Container.Resolve<IDriverFactory>());
 
             await using var scope = Container.BeginLifetimeScope();
             var dbInitializer = scope.Resolve<DbInitializer>();
@@ -152,7 +156,7 @@ namespace Benny_Scraper
 
         private static string GetInstructions()
         {
-            HttpNovelScraper httpNovelScraper = new(new NovelFullStrategy()); //used specifically for getting all supported urls.
+            HttpNovelScraper httpNovelScraper = new(); //used specifically for getting all supported urls.
             var supportedSites = httpNovelScraper.GetSupportedSites();
 
             var instructions = "\n" + $@"Welcome to our novel scraper application!
@@ -1062,7 +1066,7 @@ namespace Benny_Scraper
         /// </summary>
         private static async Task TestAllSitesAsync()
         {
-            HttpNovelScraper httpNovelScraper = new(new NovelFullStrategy());
+            HttpNovelScraper httpNovelScraper = new();
             var supportedSites = httpNovelScraper.GetSupportedSites();
 
             var novelScraperSettings = Configuration.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
@@ -1512,6 +1516,9 @@ namespace Benny_Scraper
             // Centralized HttpClient creation (shared handler, per-call HttpClient instances)
             builder.RegisterType<HttpClientFactory>().As<IHttpClientFactory>().SingleInstance();
 
+            // Centralized Selenium driver factory (so all drivers can be disposed on shutdown)
+            builder.RegisterType<DriverFactory>().As<IDriverFactory>().SingleInstance();
+
             builder.Register(c =>
             {
                 var config = c.Resolve<IConfiguration>();
@@ -1564,3 +1571,4 @@ namespace Benny_Scraper
         #endregion
     }
 }
+

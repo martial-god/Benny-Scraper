@@ -14,9 +14,8 @@ namespace Benny_Scraper.BusinessLogic
         private ScraperStrategy _scraperStrategy;
         private readonly Dictionary<string, ScraperStrategy> _websiteMap = new();
 
-        public HttpNovelScraper(ScraperStrategy scraperStrategy)
+        public HttpNovelScraper()
         {
-            _scraperStrategy = scraperStrategy;
             AddSupportForWebsite();
         }
 
@@ -33,8 +32,8 @@ namespace Benny_Scraper.BusinessLogic
             AddSiteToMap("https://mangakakalot.to", new MangaKakalotStrategy());
             AddSiteToMap("https://mangareader.to", new MangaReaderStrategy());
             AddSiteToMap("https://mangakatana.com", new MangaKatanaStrategy());
-            AddSiteToMap("https://noveldrama.com", new NovelDramaStrategy());
-            AddSiteToMap("https://wuxiaworld.com", new WuxiaWorldStrategy());
+            AddSiteToMap("https://noveldrama.org", new NovelDramaStrategy());
+            AddSiteToMap("https://www.wuxiaworld.com", new WuxiaWorldStrategy());
         }
         #endregion
 

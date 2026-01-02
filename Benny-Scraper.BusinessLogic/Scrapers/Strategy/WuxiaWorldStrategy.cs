@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
@@ -14,64 +15,41 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
         NovelDataBuffer novelDataBuffer,
         HtmlDocument htmlDocument,
         ScraperData scraperData,
-        ScraperStrategy scraperStrategy)
+        ScraperStrategy scraperStrategy,
+        List<Attr> attributesToFetch)
     {
-        var result = int.TryParse(
-            scraperData.SiteTableOfContents?.Segments.Last()
-                .Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out var novelId);
-        if (!result)
-        {
-            throw new ArgumentException("Could not parse novel ID from URL.");
-        }
-
-        var queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
-        queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
-        queryBuilder.Append(novelId);
-        var uriQueryForChapterUrls = new Uri(queryBuilder.ToString());
-        var (htmlDocumentForChapterUrls, uri) = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
-
-        var attributesToFetch = new List<Attr>()
-        {
-            Attr.Title,
-            Attr.Author,
-            Attr.NovelStatus,
-            Attr.Genres,
-            Attr.AlternativeNames,
-            Attr.Description,
-            Attr.ThumbnailUrl,
-            Attr.CurrentChapter
-        };
+        Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
 
         foreach (var attribute in attributesToFetch)
         {
-            if (attribute == Attr.CurrentChapter)
-            {
-                await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocumentForChapterUrls,
-                    scraperData);
-                novelDataBuffer.CurrentChapterUrl =
-                    new Uri(scraperData.BaseUri, novelDataBuffer.CurrentChapterUrl).ToString();
-            }
-            else
-            {
-                await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
-            }
+            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
         }
 
-        scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocumentForChapterUrls, novelDataBuffer, scraperData);
-        scraperStrategy.SortChapters(novelDataBuffer);
-
-        if (novelDataBuffer.ChapterUrls.Count != 0)
+        if (attributesToFetch.Contains(Attr.ChapterUrls))
         {
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
+            scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
+            scraperStrategy.SortChapters(novelDataBuffer);
+            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.Count != 0
+                ? novelDataBuffer.ChapterUrls.First()
+                : string.Empty;
         }
+            
     }
 }
 
 public class WuxiaWorldStrategy : ScraperStrategy
 {
+    /// <summary>
+    /// This particular scraper requires Selenium for the Chapter Urls and Nowel Imge Thumbnail
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
         Logger.Info($"Getting novel data for {GetType().Name}");
+        if (ScraperData.SiteTableOfContents == null)
+            throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
+        
         SetBaseUri(ScraperData.SiteTableOfContents);
         var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 
@@ -91,10 +69,34 @@ public class WuxiaWorldStrategy : ScraperStrategy
 
     protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {
+        Debug.Assert(ScraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
         var novelDataBuffer = new NovelDataBuffer();
         try
         {
-            await Task.WhenAll(WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this));
+            var attributesToFetchUsingHttp = new List<NovelDataInitializer.Attr>()
+            {
+                NovelDataInitializer.Attr.Title,
+                NovelDataInitializer.Attr.Author,
+                NovelDataInitializer.Attr.NovelStatus,
+                NovelDataInitializer.Attr.Description,
+                NovelDataInitializer.Attr.CurrentChapter
+            };
+            var attributesToFetchUsingSelenium = new List<NovelDataInitializer.Attr>()
+            {
+                NovelDataInitializer.Attr.ThumbnailUrl,
+                NovelDataInitializer.Attr.ChapterUrls,
+            };
+            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetchUsingHttp);
+            
+            var htmlDocumentUsingSeleniumAsync = await GetHtmlDocumentUsingSeleniumAsync(
+                ScraperData.SiteTableOfContents.ToString(),
+                ScraperData.SiteConfig!.Selectors.ChapterLinks,
+                novelDataBuffer.Title,
+                "Chapter Links", 
+                false,
+                30);
+            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocumentUsingSeleniumAsync, ScraperData, this, attributesToFetchUsingSelenium);
+            
             return novelDataBuffer;
         }
         catch (Exception e)

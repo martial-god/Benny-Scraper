@@ -34,19 +34,19 @@ namespace Benny_Scraper.BusinessLogic.Utilities
 
             DisplayChapterList(chapterTitles, totalChapters);
 
-            var volumeRanges = DetectVolumes(chapterTitles);
-            if (volumeRanges.Count > 0)
-            {
-                Logger.Info($"Detected {volumeRanges.Count} volume boundaries");
-                Console.WriteLine("\nDetected Volume Boundaries:");
-                foreach (var vol in volumeRanges)
-                {
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine($"  [{vol.Begin,4}-{vol.End,4}] {vol.Name}");
-                    Console.ResetColor();
-                }
-                Console.WriteLine();
-            }
+            // var volumeRanges = DetectVolumes(chapterTitles);
+            // if (volumeRanges.Count > 0)
+            // {
+            //     Logger.Info($"Detected {volumeRanges.Count} volume boundaries");
+            //     Console.WriteLine("\nDetected Volume Boundaries:");
+            //     foreach (var vol in volumeRanges)
+            //     {
+            //         Console.ForegroundColor = ConsoleColor.Cyan;
+            //         Console.WriteLine($"  [{vol.Begin,4}-{vol.End,4}] {vol.Name}");
+            //         Console.ResetColor();
+            //     }
+            //     Console.WriteLine();
+            // }
 
             // Prompt for flexible input
             Console.WriteLine("\nEnter chapter selection:");

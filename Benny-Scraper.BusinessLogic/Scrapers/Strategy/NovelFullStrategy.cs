@@ -1,4 +1,5 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using System.Diagnostics;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 
@@ -13,7 +14,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             //the implementation would require both.
             public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
             {
-                var tableOfContents = scraperData.SiteTableOfContents;
+                Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
                 var attributesToFetch = new List<Attr>()
                 {
                     Attr.Author,
@@ -35,9 +36,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
                 }
 
-                var fullCurrentChapterUrl = new Uri(tableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
-                var fullThumbnailUrl = new Uri(tableOfContents, novelDataBuffer.ThumbnailUrl?.TrimStart('/')).ToString();
-                var fullLastTableOfContentUrl = new Uri(tableOfContents, novelDataBuffer.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
+                var fullCurrentChapterUrl = new Uri(scraperData.SiteTableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
+                var fullThumbnailUrl = new Uri(scraperData.SiteTableOfContents, novelDataBuffer.ThumbnailUrl?.TrimStart('/')).ToString();
+                var fullLastTableOfContentUrl = new Uri(scraperData.SiteTableOfContents, novelDataBuffer.LastTableOfContentsPageUrl?.TrimStart('/')).ToString();
 
                 novelDataBuffer.ThumbnailUrl = fullThumbnailUrl;
                 novelDataBuffer.LastTableOfContentsPageUrl = fullCurrentChapterUrl;
@@ -51,13 +52,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
-
+            if (ScraperData.SiteTableOfContents == null)
+                throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
             SetBaseUri(ScraperData.SiteTableOfContents);
             var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 
             try
             {
-                NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
+                var novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
                 novelDataBuffer.NovelUrl = uri.ToString();
 
                 return novelDataBuffer;
