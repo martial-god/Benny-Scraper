@@ -1,11 +1,11 @@
-using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Factory;
+using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 
@@ -468,48 +468,48 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             switch (response)
             {
                 case "y" or "yes":
-                {
-                    fieldVerified = true;
-
-                    if (!isRequired || success) continue;
-                    _requiredFieldsFailed = true;
-
-                    if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
                     {
-                        _titleFailed = true;
-                    }
+                        fieldVerified = true;
 
-                    break;
-                }
-                case "n":
-                case "no":
-                case "retry":
-                case "r":
-                {
-                    if (!success)
-                    {
-                        PromptSeleniumForTocIfNeeded(fieldName);
-                    }
-
-                    setSelectorAction(string.Empty);
-                    continue;
-                }
-                default:
-                {
-                    fieldVerified = true;
-
-                    if (isRequired && !success)
-                    {
+                        if (!isRequired || success) continue;
                         _requiredFieldsFailed = true;
 
                         if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
                         {
                             _titleFailed = true;
                         }
-                    }
 
-                    break;
-                }
+                        break;
+                    }
+                case "n":
+                case "no":
+                case "retry":
+                case "r":
+                    {
+                        if (!success)
+                        {
+                            PromptSeleniumForTocIfNeeded(fieldName);
+                        }
+
+                        setSelectorAction(string.Empty);
+                        continue;
+                    }
+                default:
+                    {
+                        fieldVerified = true;
+
+                        if (isRequired && !success)
+                        {
+                            _requiredFieldsFailed = true;
+
+                            if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
+                            {
+                                _titleFailed = true;
+                            }
+                        }
+
+                        break;
+                    }
             }
         }
     }
@@ -623,18 +623,18 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 case "no":
                 case "retry":
                 case "r":
-                {
-                    // Prompt about Selenium if field failed
-                    if (!success)
                     {
-                        PromptSeleniumForTocIfNeeded("Thumbnail");
-                    }
+                        // Prompt about Selenium if field failed
+                        if (!success)
+                        {
+                            PromptSeleniumForTocIfNeeded("Thumbnail");
+                        }
 
-                    // Clear the selectors to retry
-                    _config.Selectors.NovelThumbnailUrl = string.Empty;
-                    _config.Selectors.ThumbnailUrlAttribute = string.Empty;
-                    continue;
-                }
+                        // Clear the selectors to retry
+                        _config.Selectors.NovelThumbnailUrl = string.Empty;
+                        _config.Selectors.ThumbnailUrlAttribute = string.Empty;
+                        continue;
+                    }
                 default:
                     // Default to accepting the result
                     fieldVerified = true;
@@ -1003,17 +1003,17 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 case "no":
                 case "retry":
                 case "r":
-                {
-                    // Prompt about Selenium if field failed
-                    if (!success)
                     {
-                        PromptSeleniumForChapterContent("Chapter Title");
-                    }
+                        // Prompt about Selenium if field failed
+                        if (!success)
+                        {
+                            PromptSeleniumForChapterContent("Chapter Title");
+                        }
 
-                    // Clear the selector to retry
-                    _config.Selectors.ChapterTitle = string.Empty;
-                    continue;
-                }
+                        // Clear the selector to retry
+                        _config.Selectors.ChapterTitle = string.Empty;
+                        continue;
+                    }
                 default:
                     // Default to accepting the result
                     fieldVerified = true;
@@ -1172,18 +1172,18 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 case "no":
                 case "retry":
                 case "r":
-                {
-                    // Prompt about Selenium if field failed
-                    if (!success)
                     {
-                        PromptSeleniumForChapterContent("Chapter Content");
-                    }
+                        // Prompt about Selenium if field failed
+                        if (!success)
+                        {
+                            PromptSeleniumForChapterContent("Chapter Content");
+                        }
 
-                    // Clear the selectors to retry
-                    _config.Selectors.ChapterContent = string.Empty;
-                    _config.Selectors.ChapterContentImageUrlAttribute = string.Empty;
-                    continue;
-                }
+                        // Clear the selectors to retry
+                        _config.Selectors.ChapterContent = string.Empty;
+                        _config.Selectors.ChapterContentImageUrlAttribute = string.Empty;
+                        continue;
+                    }
                 default:
                     // Default to accepting the result
                     fieldVerified = true;

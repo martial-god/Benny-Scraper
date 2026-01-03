@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using System.Text;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using OpenQA.Selenium;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 
@@ -33,7 +33,6 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
                 ? novelDataBuffer.ChapterUrls.First()
                 : string.Empty;
         }
-            
     }
 }
 
@@ -86,17 +85,37 @@ public class WuxiaWorldStrategy : ScraperStrategy
                 NovelDataInitializer.Attr.ThumbnailUrl,
                 NovelDataInitializer.Attr.ChapterUrls,
             };
+
             await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetchUsingHttp);
-            
-            var htmlDocumentUsingSeleniumAsync = await GetHtmlDocumentUsingSeleniumAsync(
-                ScraperData.SiteTableOfContents.ToString(),
-                ScraperData.SiteConfig!.Selectors.ChapterLinks,
-                novelDataBuffer.Title,
-                "Chapter Links", 
-                false,
-                30);
-            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocumentUsingSeleniumAsync, ScraperData, this, attributesToFetchUsingSelenium);
-            
+
+            var chapterLinksXPath = ScraperData.SiteConfig!.Selectors.ChapterLinks;
+
+            var (htmlDocumentUsingSeleniumAsync, _) = await GetHtmlDocumentUsingSeleniumAsync(
+                url: ScraperData.SiteTableOfContents.ToString(),
+                requiredXPath: chapterLinksXPath,
+                steps: null,
+                objectToLookFor: "Chapter Links",
+                isAllowedToFail: false,
+                timeoutSeconds: 30,
+                isHeadless: true,
+                preWaitAction: async (driver, wait) => 
+                {
+                    const string chaptersTabXPath = "//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters']]";
+                    wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
+                        .ElementToBeClickable(OpenQA.Selenium.By.XPath(chaptersTabXPath))).Click();
+
+                    const string collapsedSummariesXPath = "//*[@id='full-width-tabpanel-1']//div[@role='button' and @aria-expanded='false']";
+                    var collapsedSummaries = driver.FindElements(OpenQA.Selenium.By.XPath(collapsedSummariesXPath));
+
+                    foreach (var collapsedSummary in collapsedSummaries)
+                    {
+                        wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementToBeClickable(collapsedSummary)).Click();
+                        await Task.Delay(150);
+                    }
+                });
+
+            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocumentUsingSeleniumAsync!, ScraperData, this, attributesToFetchUsingSelenium);
+
             return novelDataBuffer;
         }
         catch (Exception e)

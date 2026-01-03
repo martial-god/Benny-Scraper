@@ -13,6 +13,7 @@ using SeleniumExtras.WaitHelpers;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Web;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Cookie = System.Net.Cookie;
@@ -184,20 +185,18 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.ChapterLinks);
                         var chapterUrls = new List<string>();
 
-                        // Extract chapter URLs if nodes found
                         if (chapterLinkNodes != null)
                         {
                             chapterUrls = chapterLinkNodes.Select(chapterLink => chapterLink.Attributes["href"].Value).ToList();
 
                             // Convert relative URLs to absolute URLs
-                            if (chapterUrls.Any() && !IsValidHttpUrl(chapterUrls.First()))
+                            if (chapterUrls.Count != 0 && !IsValidHttpUrl(chapterUrls.First()))
                             {
                                 chapterUrls = chapterUrls.Select(chapterUrl => new Uri(scraperData.BaseUri, chapterUrl).ToString()).ToList();
                             }
                         }
 
-                        // Guard: Warn if no chapter URLs found
-                        if (!chapterUrls.Any())
+                        if (chapterUrls.Count == 0)
                         {
                             Console.ForegroundColor = ConsoleColor.Red;
                             Console.WriteLine($"Failed to get chapter urls for novel {novelDataBuffer.Title} at url {scraperData.BaseUri}");
@@ -217,7 +216,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     case Attr.CurrentChapter:
                         var latestChapterNode = htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.LatestChapterLink);
 
-                        // Guard: No latest chapter node found
                         if (latestChapterNode == null)
                             return;
 
@@ -300,6 +298,49 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private const int DefaultMinimumParagraphThreshold = 5;
         protected const int TotalPossiblePaginationTabs = 6;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+
+        protected enum SeleniumPageStepType
+        {
+            Click,
+            WaitForPresence,
+            WaitForClickable,
+            Custom
+        }
+
+        protected sealed class SeleniumPageStep
+        {
+            public SeleniumPageStepType Type { get; }
+            public string XPath { get; }
+            public string? Description { get; }
+            public int? TimeoutSeconds { get; }
+            public Func<IWebDriver, WebDriverWait, Task>? CustomAction { get; }
+
+            private SeleniumPageStep(
+                SeleniumPageStepType type,
+                string xPath,
+                string? description,
+                int? timeoutSeconds,
+                Func<IWebDriver, WebDriverWait, Task>? customAction)
+            {
+                Type = type;
+                XPath = xPath;
+                Description = description;
+                TimeoutSeconds = timeoutSeconds;
+                CustomAction = customAction;
+            }
+
+            public static SeleniumPageStep Click(string xPath, string? description = null, int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.Click, xPath, description, timeoutSeconds, null);
+
+            public static SeleniumPageStep WaitForPresence(string xPath, string? description = null, int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.WaitForPresence, xPath, description, timeoutSeconds, null);
+
+            public static SeleniumPageStep WaitForClickable(string xPath, string? description = null, int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.WaitForClickable, xPath, description, timeoutSeconds, null);
+
+            public static SeleniumPageStep Custom(Func<IWebDriver, WebDriverWait, Task> customAction, string? description = null, int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.Custom, "(custom)", description, timeoutSeconds, customAction);
+        }
 
         protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
         private readonly IHttpClientFactory _httpClientFactory;
@@ -871,15 +912,17 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
         
-        protected async Task<HtmlDocument?> GetHtmlDocumentUsingSeleniumAsync(
+        protected async Task<(HtmlDocument? Document, string? PageSource)> GetHtmlDocumentUsingSeleniumAsync(
             string url,
-            string xpath,
-            string novelTitle,
-            string objectToLookFor = "Chapter Urls",
+            string requiredXPath,
+            IEnumerable<SeleniumPageStep>? steps = null,
+            string objectToLookFor = "Content",
             bool isAllowedToFail = true,
-            int timeoutSeconds = 60)
+            int timeoutSeconds = 60,
+            bool isHeadless = true,
+            Func<IWebDriver, WebDriverWait, Task>? preWaitAction = null)
         {
-            using var driver = await _driverFactory.CreateDriverAsync(url, isHeadless: true);
+            using var driver = await _driverFactory.CreateDriverAsync(url, isHeadless: isHeadless);
 
             var stopwatch = Stopwatch.StartNew();
             var uriLastSegment = new Uri(url).Segments.LastOrDefault() ?? url;
@@ -890,59 +933,84 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             try
             {
                 Logger.Debug($"Waiting for {objectToLookFor} on page {url} to load.");
+
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
 
-                var chaptersTab = wait.Until(ExpectedConditions.ElementToBeClickable(
-                    By.XPath("//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters']]")));
-                chaptersTab.Click();
-                
-                const int maxAccordionAttempts = 10;
-                for (var attempt = 0; attempt < maxAccordionAttempts; attempt++)
+                if (preWaitAction != null)
                 {
-                    // If chapter links are already present, we're done.
-                    if (driver.FindElements(By.XPath(xpath)).Count > 0)
-                        break;
+                    Logger.Debug("[Selenium] Running pre-wait action");
+                    await preWaitAction(driver, wait);
+                }
 
-                    var collapsedSummaries = driver.FindElements(By.XPath(
-                        "//*[@id='full-width-tabpanel-1']//div[@role='button' and @aria-expanded='false']"));
-
-                    if (collapsedSummaries.Count == 0)
-                        break;
-
-                    var indexToClick = Math.Min(attempt, collapsedSummaries.Count - 1);
-                    var summaryToClick = wait.Until(ExpectedConditions.ElementToBeClickable(collapsedSummaries[indexToClick]));
-                    summaryToClick.Click();
-
-                    try
+                if (steps != null)
+                {
+                    foreach (var step in steps)
                     {
-                        wait.Until(_ => driver.FindElements(By.XPath(xpath)).Count > 0);
-                        break;
-                    }
-                    catch (WebDriverTimeoutException)
-                    {
-                        // Try the next accordion
+                        var stepTimeout = TimeSpan.FromSeconds(step.TimeoutSeconds ?? timeoutSeconds);
+                        var stepWait = new WebDriverWait(driver, stepTimeout);
+
+                        switch (step.Type)
+                        {
+                            case SeleniumPageStepType.Click:
+                            {
+                                var msg = "[Selenium] Click: " + (step.Description ?? step.XPath);
+                                Logger.Debug(msg);
+                                stepWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(step.XPath))).Click();
+                                break;
+                            }
+
+                            case SeleniumPageStepType.WaitForPresence:
+                            {
+                                var msg = "[Selenium] WaitForPresence: " + (step.Description ?? step.XPath);
+                                Logger.Debug(msg);
+                                stepWait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(step.XPath)));
+                                break;
+                            }
+
+                            case SeleniumPageStepType.WaitForClickable:
+                            {
+                                var msg = "[Selenium] WaitForClickable: " + (step.Description ?? step.XPath);
+                                Logger.Debug(msg);
+                                stepWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(step.XPath)));
+                                break;
+                            }
+
+                            case SeleniumPageStepType.Custom:
+                            {
+                                if (step.CustomAction == null)
+                                    throw new InvalidOperationException("Custom step requires CustomAction");
+
+                                var msg = "[Selenium] Custom: " + (step.Description ?? "(custom action)");
+                                Logger.Debug(msg);
+                                await step.CustomAction(driver, stepWait);
+                                break;
+                            }
+
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
                     }
                 }
 
-                wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(xpath)));
-
+                wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(requiredXPath)));
                 Logger.Info($"{objectToLookFor} loaded for {url}. Time: {stopwatch.ElapsedMilliseconds} ms");
 
                 var htmlDocument = new HtmlDocument();
-                htmlDocument.LoadHtml(driver.PageSource);
-                return htmlDocument;
+                var pageSource = driver.PageSource;
+                htmlDocument.LoadHtml(pageSource);
+                return (htmlDocument, pageSource);
             }
             catch (WebDriverTimeoutException ex)
             {
                 var message =
                     $"Unable to get {objectToLookFor} from {uriLastSegment} after waiting for {timeoutSeconds} seconds.\n" +
-                    $"XPath: {xpath}\n" +
+                    $"Required XPath: {requiredXPath}\n" +
                     $"URL: {url}";
 
                 if (isAllowedToFail)
                 {
                     Logger.Error($"{message}\nException: {ex}");
-                    return null;
+                    return (null, null);
                 }
 
                 Logger.Fatal($"{message}\nException: {ex}");
@@ -950,95 +1018,25 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        /// <summary>
-        /// Extracts both chapter URLs and titles from an HTML document in a specified range.
-        /// This is used for paginated sites where chapters span multiple pages.
-        /// </summary>
-        protected virtual (List<string> Urls, List<string> Titles) GetChapterUrlsAndTitlesInRange(HtmlDocument htmlDocument, Uri baseSiteUri, int? startChapter = null, int? endChapter = null)
+        // Backwards-compatible wrapper (keeps existing callers stable)
+        protected async Task<HtmlDocument?> GetHtmlDocumentUsingSeleniumAsync(
+            string url,
+            string xpath,
+            string novelTitle,
+            string objectToLookFor = "Chapter Urls",
+            bool isAllowedToFail = true,
+            int timeoutSeconds = 60)
         {
-            Logger.Info($"Getting chapter URLs and titles from table of contents");
-            try
-            {
-                HtmlNodeCollection chapterLinks = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterLinks);
+            var (htmlDocument, _) = await GetHtmlDocumentUsingSeleniumAsync(
+                url: url,
+                requiredXPath: xpath,
+                steps: null,
+                objectToLookFor: objectToLookFor,
+                isAllowedToFail: isAllowedToFail,
+                timeoutSeconds: timeoutSeconds,
+                isHeadless: true);
 
-                if (chapterLinks == null)
-                {
-                    Logger.Info("Chapter links Node Collection on table of contents page was null.");
-                    return (new List<string>(), new List<string>());
-                }
-
-                List<string> chapterUrls = new List<string>();
-                List<string> chapterTitles = new List<string>();
-                int chapterIndex = 0;
-
-                foreach (var link in chapterLinks)
-                {
-                    chapterIndex++;
-                    string chapterUrl = link.Attributes["href"]?.Value ?? string.Empty;
-
-                    if (!string.IsNullOrEmpty(chapterUrl) &&
-                        (startChapter == null || chapterIndex >= startChapter) &&
-                        (endChapter == null || chapterIndex <= endChapter))
-                    {
-                        string fullUrl = new Uri(baseSiteUri, chapterUrl.TrimStart('/')).ToString();
-                        chapterUrls.Add(fullUrl);
-
-                        // Extract title
-                        var title = HtmlEntity.DeEntitize(link.InnerText?.Trim());
-                        if (string.IsNullOrWhiteSpace(title))
-                        {
-                            title = $"Chapter {chapterUrls.Count}";
-                        }
-                        chapterTitles.Add(title);
-                    }
-                }
-
-                return (chapterUrls, chapterTitles);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error getting chapter urls and titles from table of contents. {ex}");
-                return (new List<string>(), new List<string>());
-            }
-        }
-
-        protected virtual List<string> GetChapterUrlsInRange(HtmlDocument htmlDocument, Uri baseSiteUri, int? startChapter = null, int? endChapter = null)
-        {
-            Logger.Info($"Getting chapter urls from table of contents");
-            try
-            {
-                HtmlNodeCollection chapterLinks = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterLinks);
-
-                if (chapterLinks == null)
-                {
-                    Logger.Info("Chapter links Node Collection on table of contents page was null.");
-                    return new List<string>();
-                }
-
-                List<string> chapterUrls = new List<string>();
-                int chapterIndex = 0;
-
-                foreach (var link in chapterLinks)
-                {
-                    chapterIndex++;
-                    string chapterUrl = link.Attributes["href"]?.Value ?? string.Empty;
-
-                    if (!string.IsNullOrEmpty(chapterUrl) &&
-                        (startChapter == null || chapterIndex >= startChapter) &&
-                        (endChapter == null || chapterIndex <= endChapter))
-                    {
-                        string fullUrl = new Uri(baseSiteUri, chapterUrl.TrimStart('/')).ToString();
-                        chapterUrls.Add(fullUrl);
-                    }
-                }
-
-                return chapterUrls;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error getting chapter urls from table of contents. {ex}");
-                throw;
-            }
+            return htmlDocument;
         }
 
         /// <summary>
@@ -1308,8 +1306,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             HtmlNodeCollection? paragraphNodes,
             string url)
         {
+            var isWuxiaWorld = string.Equals(ScraperData.SiteConfig?.Name, "Wuxiaworld", StringComparison.OrdinalIgnoreCase)
+                              || string.Equals(ScraperData.SiteConfig?.UrlPattern, "wuxiaworld.com", StringComparison.OrdinalIgnoreCase);
+
             var paragraphs = paragraphNodes != null
-                ? paragraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList()
+                ? (isWuxiaWorld
+                    ? paragraphNodes.Select(p => ExtractWuxiaWorldParagraphText(p)).ToList()
+                    : paragraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList())
                 : new List<string>();
 
             var minParagraphThreshold = ScraperData.SiteConfig?.MinimumChapterParagraphThreshold ?? DefaultMinimumParagraphThreshold;
@@ -1324,7 +1327,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     var alternateParagraphNodes = htmlDocument.DocumentNode.SelectNodes(altSelector);
                     var alternateParagraphs = alternateParagraphNodes != null
-                        ? alternateParagraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList()
+                        ? (isWuxiaWorld
+                            ? alternateParagraphNodes.Select(p => ExtractWuxiaWorldParagraphText(p)).ToList()
+                            : alternateParagraphNodes.Select(paragraph => HtmlEntity.DeEntitize(paragraph.InnerText.Trim())).ToList())
                         : new List<string>();
 
                     Logger.Debug($"AlternativeChapterContent node count: {alternateParagraphs.Count}");
@@ -1350,6 +1355,114 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             return chapterDataBuffer;
+        }
+
+        private static string ExtractWuxiaWorldParagraphText(HtmlNode? pNode)
+        {
+            if (pNode == null) return string.Empty;
+            var clone = pNode.CloneNode(true);
+
+            // Remove the inline comment-count chip (and any other aria-hidden UI fragments).
+            var ariaHiddenNodes = clone.SelectNodes(".//*[@aria-hidden='true']");
+            if (ariaHiddenNodes != null)
+            {
+                foreach (var node in ariaHiddenNodes)
+                {
+                    node.Remove();
+                }
+            }
+
+            // Walk text nodes in DOM order. This naturally merges punctuation-only spans correctly.
+            var textNodes = clone.SelectNodes(".//text()");
+            if (textNodes == null) return string.Empty;
+
+            var sb = new StringBuilder();
+            foreach (var textNode in textNodes)
+            {
+                var chunk = HtmlEntity.DeEntitize(textNode.InnerText);
+                if (string.IsNullOrWhiteSpace(chunk))
+                    continue;
+
+                // Normalize internal whitespace.
+                chunk = Regex.Replace(chunk, @"\s+", " ").Trim();
+                if (chunk.Length == 0) continue;
+
+                // Avoid inserting spaces before punctuation.
+                var startsWithPunct = chunk.Length > 0 && ".,;:!?)]}".IndexOf(chunk[0]) >= 0;
+
+                if (sb.Length > 0 && !startsWithPunct && sb[^1] != ' ')
+                    sb.Append(' ');
+
+                sb.Append(chunk);
+            }
+
+            return sb.ToString().Trim();
+        }
+
+        /// <summary>
+        /// Extracts both chapter URLs and titles from an HTML document in a specified range.
+        /// This is typically used for paginated sites where chapters span multiple pages.
+        /// </summary>
+        protected virtual (List<string> Urls, List<string> Titles) GetChapterUrlsAndTitlesInRange(
+            HtmlDocument htmlDocument,
+            Uri? baseSiteUri,
+            int? startChapter = null,
+            int? endChapter = null)
+        {
+            Logger.Info("Getting chapter URLs and titles from table of contents");
+
+            if (baseSiteUri == null)
+            {
+                Logger.Error("Base site URI is null; cannot build absolute chapter URLs.");
+                return (new List<string>(), new List<string>());
+            }
+
+            try
+            {
+                var chapterLinks = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterLinks);
+                if (chapterLinks == null || chapterLinks.Count == 0)
+                {
+                    Logger.Info("Chapter links Node Collection on table of contents page was null/empty.");
+                    return (new List<string>(), new List<string>());
+                }
+
+                var chapterUrls = new List<string>();
+                var chapterTitles = new List<string>();
+
+                var index = 0;
+                foreach (var link in chapterLinks)
+                {
+                    index++;
+
+                    if (index < startChapter)
+                        continue;
+                    if (index > endChapter)
+                        break;
+
+                    var href = link.Attributes["href"]?.Value;
+                    if (string.IsNullOrWhiteSpace(href))
+                        continue;
+
+                    var absoluteUrl = IsValidHttpUrl(href)
+                        ? href
+                        : new Uri(baseSiteUri, href.TrimStart('/')).ToString();
+
+                    chapterUrls.Add(absoluteUrl);
+
+                    var title = HtmlEntity.DeEntitize(link.InnerText ?? string.Empty).Trim();
+                    if (string.IsNullOrWhiteSpace(title))
+                        title = $"Chapter {chapterUrls.Count}";
+
+                    chapterTitles.Add(title);
+                }
+
+                return (chapterUrls, chapterTitles);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error getting chapter urls and titles from table of contents. {ex}");
+                return (new List<string>(), new List<string>());
+            }
         }
         #endregion
     }
