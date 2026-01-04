@@ -200,20 +200,23 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             {
                                 var isPremium = chapterLinkNode.SelectSingleNode(
                                     scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumIndicator) != null;
-                                var premiumCostNode = chapterLinkNode.SelectSingleNode(
-                                    scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumCost);
+                                var premiumCost = chapterLinkNode.SelectSingleNode(
+                                    scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumCost)?.InnerText;
                                 var chapterUrl = chapterLinkNode.Attributes["href"].Value;
+                                var chapterTitle = chapterLinkNode.SelectSingleNode(
+                                    scraperData.SiteConfig.Selectors.TableOfContents.chapterTitleInToc)?.InnerText;
                                 chapterUrl = chapterUrl != null && !IsValidHttpUrl(chapterUrl) && scraperData.BaseUri != null
                                     ? new Uri(scraperData.BaseUri, chapterUrl).ToString()
                                     : chapterUrl;
                                 var chapterLink = new ChapterLink()
                                 {
                                     Url = chapterUrl!,
+                                    Title = chapterTitle,
                                     PremiumInfo = isPremium
                                         ? new PremiumChapterInfo()
                                         {
                                             IsPremium = isPremium,
-                                            Cost = premiumCostNode != null ? int.Parse(premiumCostNode.InnerText) : 0,
+                                            Cost = premiumCost != null ? int.Parse(premiumCost) : 0,
                                             CurrencyName = scraperData.SiteConfig.PremiumInfo?.CurrencyName ?? "Credits"
                                         }
                                         : new PremiumChapterInfo()

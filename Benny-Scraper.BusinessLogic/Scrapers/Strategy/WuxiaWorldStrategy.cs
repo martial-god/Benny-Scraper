@@ -26,7 +26,6 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
 
         if (attributesToFetch.Contains(Attr.ChapterUrls))
         {
-            scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
             scraperStrategy.SortChapters(novelDataBuffer);
             novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.Count != 0
                 ? novelDataBuffer.ChapterLinks.First().Url

@@ -131,6 +131,12 @@
         public string? ChapterLinks { get; set; }
 
         /// <summary>
+        /// Optional XPath (relative to each chapter link node) to extract the chapter title text on the TOC.
+        /// If null, the link's InnerText is used.
+        /// </summary>
+        public string? chapterTitleInToc { get; set; }
+
+        /// <summary>
         /// Selectors related to premium/paid chapters.
         /// </summary>
         public PremiumChapterSelectorsRelativeToChapterLinks? PremiumChapterSelectors { get; set; }

@@ -91,12 +91,11 @@ public class NovelProcessor(
         if (novelDataBuffer.ChapterLinks.Any())
         {
             Logger.Info("Using cached chapter titles for range selection");
-            var chapterTitles = novelDataBuffer.ChapterTitles;
-
-            while (chapterTitles.Count < novelDataBuffer.ChapterLinks.Count)
-            {
-                chapterTitles.Add($"Chapter {chapterTitles.Count + 1}");
-            }
+            var chapterTitles = novelDataBuffer.ChapterLinks.Select(l => l.Title).ToList();
+            // while (chapterTitles.Count < novelDataBuffer.ChapterLinks.Count)
+            // {
+            //     chapterTitles.Add($"Chapter {chapterTitles.Count + 1}");
+            // }
 
             if (beginChapter.HasValue || endChapter.HasValue)
             {
