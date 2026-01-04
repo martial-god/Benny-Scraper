@@ -1,4 +1,4 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Globalization;
@@ -73,10 +73,9 @@ public class NovelDramaStrategy : ScraperStrategy
         var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
 
         int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
-        var (chapterUrls, chapterTitles, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
+        var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
 
-        novelDataBuffer.ChapterUrls = chapterUrls;
-        novelDataBuffer.ChapterTitles = chapterTitles;
+        novelDataBuffer.ChapterLinks = chapterLinks;
         novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl; // this needs to be updated as it is not the same as what was set in FetchNovelDataFromTableOfContentsAsync
 
         // Sort chapters based on site configuration

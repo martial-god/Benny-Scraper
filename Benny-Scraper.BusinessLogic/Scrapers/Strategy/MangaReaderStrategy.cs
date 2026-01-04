@@ -41,9 +41,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             // Sort chapters based on site configuration
             scraperStrategy.SortChapters(novelDataBuffer);
 
-            if (novelDataBuffer.ChapterUrls.Any())
+            if (novelDataBuffer.ChapterLinks.Any())
             {
-                novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
+                novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.First().Url;
             }
             if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
             {

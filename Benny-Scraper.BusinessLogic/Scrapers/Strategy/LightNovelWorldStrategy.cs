@@ -64,10 +64,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             int pageToStopAt = GetLastTableOfContentsPageNumber(decodedHtmlDocument);
             SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
 
-            var (chapterUrls, chapterTitles, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(_chaptersUri, true, pageToStopAt);
-            novelDataBuffer.ChapterUrls = chapterUrls;
-            novelDataBuffer.ChapterTitles = chapterTitles;
+            var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(_chaptersUri, true, pageToStopAt);
+            novelDataBuffer.ChapterLinks = chapterLinks;
+            novelDataBuffer.ChapterTitles = chapterLinks.Select(cl => cl.Title ?? string.Empty).ToList();
             novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+
 
             // Sort chapters based on site configuration
             SortChapters(novelDataBuffer);
@@ -111,7 +112,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private int GetLastTableOfContentsPageNumber(HtmlDocument htmlDocument)
         {
-            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig.Selectors.TableOfContentsPaginationListItems);
+            HtmlNodeCollection paginationNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig.Selectors.TableOfContents.TableOfContentsPaginationListItems);
             int paginationCount = paginationNodes.Count;
 
             // Guard: Single page or no pagination
@@ -122,7 +123,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             HtmlNode lastPageNode;
             if (paginationCount == TotalPossiblePaginationTabs)
             {
-                lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(ScraperData.SiteConfig.Selectors.LastTableOfContentsPage);
+                lastPageNode = htmlDocument.DocumentNode.SelectSingleNode(ScraperData.SiteConfig.Selectors.TableOfContents.LastTableOfContentsPage);
             }
             else
             {

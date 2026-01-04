@@ -73,13 +73,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
-            var novelDataBuffer = FetchNovelDataFromTableOfContents(htmlDocument);
+            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
             var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
 
-            var (chapterUrls, chapterTitles, lastTableOfContentsUrl) = await GetPaginatedChapterUrlsAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
+            var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
 
-            novelDataBuffer.ChapterUrls = chapterUrls;
-            novelDataBuffer.ChapterTitles = chapterTitles;
+            novelDataBuffer.ChapterLinks = chapterLinks;
+            novelDataBuffer.ChapterTitles = chapterLinks.Select(cl => cl.Title ?? string.Empty).ToList();
             novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
 
             // Sort chapters based on site configuration

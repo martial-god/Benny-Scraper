@@ -88,12 +88,12 @@ public class NovelProcessor(
         string? detectedVolumeName = null;
         var chapterRangeSelector = new ChapterRangeSelector();
 
-        if (novelDataBuffer.ChapterUrls.Any())
+        if (novelDataBuffer.ChapterLinks.Any())
         {
             Logger.Info("Using cached chapter titles for range selection");
             var chapterTitles = novelDataBuffer.ChapterTitles;
 
-            while (chapterTitles.Count < novelDataBuffer.ChapterUrls.Count)
+            while (chapterTitles.Count < novelDataBuffer.ChapterLinks.Count)
             {
                 chapterTitles.Add($"Chapter {chapterTitles.Count + 1}");
             }
@@ -101,12 +101,12 @@ public class NovelProcessor(
             if (beginChapter.HasValue || endChapter.HasValue)
             {
                 Logger.Info("Using chapter range from command line options");
-                selectedRange = chapterRangeSelector.GetRangeFromOptions(novelDataBuffer.ChapterUrls.Count, beginChapter, endChapter);
+                selectedRange = chapterRangeSelector.GetRangeFromOptions(novelDataBuffer.ChapterLinks.Count, beginChapter, endChapter);
                 chapterRangeSelector.DisplayRangeInfo(selectedRange, chapterTitles);
             }
             else
             {
-                selectedRange = chapterRangeSelector.PromptUserForRange(novelDataBuffer.ChapterUrls, chapterTitles);
+                selectedRange = chapterRangeSelector.PromptUserForRange(novelDataBuffer.ChapterLinks);
             }
 
             if (selectedRange != null)
@@ -133,8 +133,8 @@ public class NovelProcessor(
 
         // Filter chapter URLs based on range if selected
         var chaptersToDownload = selectedRange != null
-            ? novelDataBuffer.ChapterUrls.Skip(selectedRange.Begin - 1).Take(selectedRange.Count).ToList()
-            : novelDataBuffer.ChapterUrls;
+            ? novelDataBuffer.ChapterLinks.Skip(selectedRange.Begin - 1).Take(selectedRange.Count).ToList()
+            : novelDataBuffer.ChapterLinks;
 
         IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chaptersToDownload);
         newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
@@ -207,9 +207,10 @@ public class NovelProcessor(
         }
 
         var sortedSavedChapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
-        var newChapterUrls = DetermineNewChaptersToScrape(novel.CurrentChapterUrl, sortedSavedChapters, novel.Id, novelDataBuffer.ChapterUrls);
+        var chapterUrls = novelDataBuffer.ChapterLinks.Select(chapterLink => chapterLink.Url).ToList();
+        var newChapterLinks = DetermineNewChaptersToScrape(novel.CurrentChapterUrl, sortedSavedChapters, novel.Id, novelDataBuffer.ChapterLinks);
 
-        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterUrls);
+        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterLinks);
         var newChapters = CreateChapters(chapterDataBuffers, novel.Id);
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
         UpdateNovel(novel, novelDataBuffer, newChapters);
@@ -308,13 +309,13 @@ public class NovelProcessor(
         return true;
     }
 
-    private static List<string> DetermineNewChaptersToScrape(string currentChapterUrl, ICollection<Chapter> savedChapters, Guid novelId, List<string> bufferChapterUrls)
+    private static List<ChapterLink> DetermineNewChaptersToScrape(string currentChapterUrl, ICollection<Chapter> savedChapters, Guid novelId, List<ChapterLink> bufferChapterLinks)
     {
-        var indexOfLastChapter = bufferChapterUrls.IndexOf(currentChapterUrl);
-        if (indexOfLastChapter == -1)
-            indexOfLastChapter = bufferChapterUrls.IndexOf(savedChapters.Last().Url);
+        var indexOfLastChapter = bufferChapterLinks.FindIndex(cl => cl.Url == currentChapterUrl);
+        if (indexOfLastChapter == -1 && savedChapters.Any())
+            indexOfLastChapter = bufferChapterLinks.FindIndex(cl => cl.Url == savedChapters.Last().Url);
         if (indexOfLastChapter != -1)
-            return bufferChapterUrls.Skip(indexOfLastChapter + 1).ToList();
+            return bufferChapterLinks.Skip(indexOfLastChapter + 1).ToList();
 
         Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novelId}");
         var getDllLocation = Assembly.GetExecutingAssembly().Location;
@@ -325,7 +326,7 @@ public class NovelProcessor(
             ? $"Please delete the novel from the database using\n\t\t{mainDll} delete_novel_by_id {novelId} and try again."
             : $"Please delete the novel from the database using\n\t\t{ProjectName} delete_novel_by_id {novelId} and try again.");
         Console.ResetColor();
-        return bufferChapterUrls.Skip(indexOfLastChapter + 1).ToList();
+        return bufferChapterLinks.Skip(indexOfLastChapter + 1).ToList();
     }
 
     private static Novel CreateNovel(NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri, ChapterRange? chapterRange = null)

@@ -1,8 +1,7 @@
-using System.Diagnostics;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using OpenQA.Selenium;
+using System.Diagnostics;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 
@@ -29,8 +28,8 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
         {
             scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
             scraperStrategy.SortChapters(novelDataBuffer);
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.Count != 0
-                ? novelDataBuffer.ChapterUrls.First()
+            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.Count != 0
+                ? novelDataBuffer.ChapterLinks.First().Url
                 : string.Empty;
         }
     }
@@ -48,7 +47,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
         Logger.Info($"Getting novel data for {GetType().Name}");
         if (ScraperData.SiteTableOfContents == null)
             throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
-        
+
         SetBaseUri(ScraperData.SiteTableOfContents);
         var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 
@@ -78,7 +77,8 @@ public class WuxiaWorldStrategy : ScraperStrategy
                 NovelDataInitializer.Attr.Author,
                 NovelDataInitializer.Attr.NovelStatus,
                 NovelDataInitializer.Attr.Description,
-                NovelDataInitializer.Attr.CurrentChapter
+                NovelDataInitializer.Attr.CurrentChapter,
+                NovelDataInitializer.Attr.Genres
             };
             var attributesToFetchUsingSelenium = new List<NovelDataInitializer.Attr>()
             {
@@ -88,7 +88,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
 
             await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetchUsingHttp);
 
-            var chapterLinksXPath = ScraperData.SiteConfig!.Selectors.ChapterLinks;
+            var chapterLinksXPath = ScraperData.SiteConfig!.Selectors.TableOfContents.ChapterLinks;
 
             var (htmlDocumentUsingSeleniumAsync, _) = await GetHtmlDocumentUsingSeleniumAsync(
                 url: ScraperData.SiteTableOfContents.ToString(),
@@ -97,8 +97,8 @@ public class WuxiaWorldStrategy : ScraperStrategy
                 objectToLookFor: "Chapter Links",
                 isAllowedToFail: false,
                 timeoutSeconds: 30,
-                isHeadless: true,
-                preWaitAction: async (driver, wait) => 
+                isHeadless: false,
+                preWaitAction: async (driver, wait) =>
                 {
                     const string chaptersTabXPath = "//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters']]";
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions

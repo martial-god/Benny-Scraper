@@ -1,3 +1,4 @@
+using Benny_Scraper.Models;
 using NLog;
 using System.Text.RegularExpressions;
 
@@ -11,15 +12,19 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         /// <summary>
         /// Prompts user interactively for chapter range selection
         /// </summary>
-        public ChapterRange? PromptUserForRange(List<string> chapterUrls, List<string> chapterTitles)
+        public ChapterRange? PromptUserForRange(List<ChapterLink> chapterLinks)
         {
-            if (chapterUrls.Count == 0)
+            if (chapterLinks.Count == 0)
             {
                 Console.WriteLine("No chapters available.");
                 return null;
             }
 
-            Console.WriteLine("\nDownload specific chapter range? (y/N): ");
+            var chapterTitles = chapterLinks
+                .Select((cl, i) => string.IsNullOrWhiteSpace(cl.Title) ? $"Chapter {i + 1}" : cl.Title!)
+                .ToList();
+
+            Console.WriteLine("\nDownload specific chapter range? (y/N): Hit Enter for all chapters");
             var response = Console.ReadLine()?.Trim().ToLower();
 
             if (response != "y" && response != "yes")
@@ -27,12 +32,11 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 Logger.Debug("User declined chapter range selection, proceeding with all chapters");
                 return null;
             }
-
             Console.WriteLine("\nFetching chapter list... (this may take a moment)");
 
-            var totalChapters = chapterUrls.Count;
+            var totalChapters = chapterLinks.Count;
 
-            DisplayChapterList(chapterTitles, totalChapters);
+            DisplayChapterList(chapterLinks, totalChapters);
 
             // var volumeRanges = DetectVolumes(chapterTitles);
             // if (volumeRanges.Count > 0)
@@ -87,6 +91,27 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 Logger.Info("User cancelled range selection");
                 Console.WriteLine("Range selection cancelled. Downloading all chapters.");
                 return null;
+            }
+
+            var selectedLinks = chapterLinks.Skip(range.Begin - 1).Take(range.Count).ToList();
+            var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
+            if (selectedPremium.Any())
+            {
+                var premiumSummary = BuildPremiumSummary(selectedPremium);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"\nPremium chapters in selection: {selectedPremium.Count} ({premiumSummary})");
+                Console.WriteLine("Current premium currency balance: (not tracked yet)");
+                Console.Write("Type 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
+                Console.ResetColor();
+                var premiumChoice = Console.ReadLine()?.Trim();
+                if (string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
+                }
+                else
+                {
+                    Logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
+                }
             }
 
             Logger.Info($"Chapter range confirmed: {range}");
@@ -181,36 +206,55 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         /// <summary>
         /// Displays chapter list with smart pagination
         /// </summary>
-        private static void DisplayChapterList(List<string> chapterTitles, int totalChapters, int maxDisplay = DefaultMaxDisplay)
+        private static void DisplayChapterList(List<ChapterLink> chapterLinks, int totalChapters, int maxDisplay = DefaultMaxDisplay)
         {
             Logger.Debug($"Displaying chapter list. Total: {totalChapters}, MaxDisplay: {maxDisplay}");
             Console.WriteLine($"\nAvailable Chapters (1-{totalChapters}):\n");
 
+            string FormatLine(int index, ChapterLink link)
+            {
+                var currency = link.PremiumInfo?.CurrencyName ?? "Credits";
+                var premiumTag = link.PremiumInfo.IsPremium
+                    ? $"[Premium {link.PremiumInfo.Cost} {currency}]"
+                    : "[Free]";
+                var title = string.IsNullOrWhiteSpace(link.Title) ? $"Chapter {index + 1}" : link.Title;
+                return $"[{index + 1,4}] {premiumTag} {title}";
+            }
+
+            void PrintPremiumTotals()
+            {
+                var summary = BuildPremiumSummary(chapterLinks);
+                if (string.IsNullOrWhiteSpace(summary)) return;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"\nPremium summary (all chapters): {summary}\n");
+                Console.ResetColor();
+            }
+
             if (totalChapters <= maxDisplay)
             {
-                for (var i = 0; i < chapterTitles.Count; i++)
+                for (var i = 0; i < chapterLinks.Count; i++)
                 {
-                    Console.WriteLine($"[{i + 1,4}] {chapterTitles[i]}");
+                    Console.WriteLine(FormatLine(i, chapterLinks[i]));
                 }
+                PrintPremiumTotals();
                 return;
             }
 
-            // Show truncated list with first and last chapters
             var showCount = maxDisplay / 2;
 
             Console.WriteLine($"Showing first {showCount}:");
-            for (var i = 0; i < showCount && i < chapterTitles.Count; i++)
+            for (var i = 0; i < showCount && i < chapterLinks.Count; i++)
             {
-                Console.WriteLine($"  [{i + 1,4}] {chapterTitles[i]}");
+                Console.WriteLine($"  {FormatLine(i, chapterLinks[i])}");
             }
 
             Console.WriteLine("  ...");
 
             Console.WriteLine($"\nShowing last {showCount}:");
             var startIndex = Math.Max(0, totalChapters - showCount);
-            for (var i = startIndex; i < chapterTitles.Count; i++)
+            for (var i = startIndex; i < chapterLinks.Count; i++)
             {
-                Console.WriteLine($"  [{i + 1,4}] {chapterTitles[i]}");
+                Console.WriteLine($"  {FormatLine(i, chapterLinks[i])}");
             }
 
             Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -220,15 +264,31 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             var listChoice = Console.ReadLine()?.Trim().ToLower();
             if (listChoice != "list")
             {
+                PrintPremiumTotals();
                 return;
             }
 
             Logger.Info("User requested full chapter list");
             Console.WriteLine("\nAll Chapters:\n");
-            for (var i = 0; i < chapterTitles.Count; i++)
+            for (var i = 0; i < chapterLinks.Count; i++)
             {
-                Console.WriteLine($"  [{i + 1,4}] {chapterTitles[i]}");
+                Console.WriteLine($"  {FormatLine(i, chapterLinks[i])}");
             }
+
+            PrintPremiumTotals();
+        }
+
+        private static string BuildPremiumSummary(IEnumerable<ChapterLink> links)
+        {
+            var premiumGroups = links
+                .Where(cl => cl.PremiumInfo.IsPremium)
+                .GroupBy(cl => cl.PremiumInfo.CurrencyName ?? "Credits")
+                .ToList();
+
+            if (!premiumGroups.Any()) return string.Empty;
+
+            return string.Join(", ", premiumGroups.Select(g =>
+                $"{g.Count()} premium, total {g.Sum(cl => cl.PremiumInfo.Cost)} {g.Key}"));
         }
 
         /// <summary>
@@ -240,13 +300,13 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             var volumes = new List<VolumeRange>();
             var volumePatterns = new[]
             {
-                @"volume\s*(\d+)",
-                @"vol\.?\s*(\d+)",
-                @"book\s*(\d+)",
-                @"part\s*(\d+)",
-                @"v(\d+)",
-                @"\(v(\d+)\)"
-            };
+                 @"volume\s*(\d+)",
+                 @"vol\.?\s*(\d+)",
+                 @"book\s*(\d+)",
+                 @"part\s*(\d+)",
+                 @"v(\d+)",
+                 @"\(v(\d+)\)"
+             };
 
             int? currentVolumeStart = null;
             int? currentVolumeNumber = null;

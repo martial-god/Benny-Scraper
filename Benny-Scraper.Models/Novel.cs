@@ -58,7 +58,7 @@ namespace Benny_Scraper.Models
     {
         public NovelDataBuffer()
         {
-            ChapterUrls = new List<string>();
+            ChapterLinks = new List<ChapterLink>();
             ChapterTitles = new List<string>();
             Description = new List<string>();
             Genres = new List<string>();
@@ -67,7 +67,7 @@ namespace Benny_Scraper.Models
         }
 
         public string Title { get; set; }
-        public List<string> ChapterUrls { get; set; }
+        public List<ChapterLink> ChapterLinks { get; set; }
         public List<string> ChapterTitles { get; set; }
         public string NovelStatus { get; set; }
         public string LastTableOfContentsPageUrl { get; set; }
@@ -87,12 +87,26 @@ namespace Benny_Scraper.Models
 
         public void Dispose()
         {
-            ChapterUrls.Clear();
+            ChapterLinks.Clear();
             ChapterTitles.Clear();
             Description?.Clear();
             Genres.Clear();
             AlternativeNames.Clear();
             ThumbnailImage = null;
         }
+    }
+
+    public sealed class ChapterLink
+    {
+        public string Url { get; init; } = string.Empty;
+        public string? Title { get; init; }
+        public PremiumChapterInfo PremiumInfo { get; init; } = new PremiumChapterInfo();
+    }
+
+    public sealed class PremiumChapterInfo
+    {
+        public bool IsPremium { get; init; }
+        public int Cost { get; init; }
+        public string? CurrencyName { get; init; }
     }
 }

@@ -333,8 +333,7 @@ namespace Benny_Scraper
             var updatedNovels = new List<(int, string novelName)>();
             var failedToUpdate = new List<(int, string novelName)>();
             var novels = await novelService.GetAllAsync();
-            var nonCompletedNovels = novels.Where(novel => !novel.LastChapter &&
-                    novel.SiteName != "mangareader.to").ToList(); // issue with mangareader.to
+            var nonCompletedNovels = novels.Where(novel => !novel.LastChapter).ToList(); // issue with mangareader.to
             // change default log level to error
             SetupLogger(LogLevel.Error);
             var count = 0;

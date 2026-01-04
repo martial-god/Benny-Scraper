@@ -289,16 +289,16 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         Console.WriteLine("Field Testing - Press Enter to skip optional fields");
         Console.WriteLine($"{new string('-', 70)}\n");
 
-        await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.NovelTitle = xpath, true);
-        await TestFieldAsync("Author", "//a[@class='author']/text()", NovelDataInitializer.Attr.Author, xpath => _config.Selectors.NovelAuthor = xpath, false);
-        await TestFieldAsync("Description", "//div[@class='description']/p/text()", NovelDataInitializer.Attr.Description, xpath => _config.Selectors.NovelDescription = xpath, false);
-        await TestFieldAsync("Current Chapter Link", "//*[@id='en-chapters']/li[1]/a", NovelDataInitializer.Attr.CurrentChapter, xpath => _config.Selectors.LatestChapterLink = xpath, false);
-        await TestFieldAsync("Genres", "//div[@class='genres']/a/text()", NovelDataInitializer.Attr.Genres, xpath => _config.Selectors.NovelGenres = xpath, false);
+        await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.TableOfContents.NovelTitle = xpath, true);
+        await TestFieldAsync("Author", "//a[@class='author']/text()", NovelDataInitializer.Attr.Author, xpath => _config.Selectors.TableOfContents.NovelAuthor = xpath, false);
+        await TestFieldAsync("Description", "//div[@class='description']/p/text()", NovelDataInitializer.Attr.Description, xpath => _config.Selectors.TableOfContents.NovelDescription = xpath, false);
+        await TestFieldAsync("Current Chapter Link", "//*[@id='en-chapters']/li[1]/a", NovelDataInitializer.Attr.CurrentChapter, xpath => _config.Selectors.TableOfContents.LatestChapterLink = xpath, false);
+        await TestFieldAsync("Genres", "//div[@class='genres']/a/text()", NovelDataInitializer.Attr.Genres, xpath => _config.Selectors.TableOfContents.NovelGenres = xpath, false);
 
         TestCompletedStatusSetting();
 
-        await TestFieldAsync("Status", "//span[@class='status']/text()", NovelDataInitializer.Attr.NovelStatus, xpath => _config.Selectors.NovelStatus = xpath, false);
-        await TestFieldAsync("Alternative Names", "//div[@class='alt-names']/text()", NovelDataInitializer.Attr.AlternativeNames, xpath => _config.Selectors.NovelAlternativeNames = xpath, false);
+        await TestFieldAsync("Status", "//span[@class='status']/text()", NovelDataInitializer.Attr.NovelStatus, xpath => _config.Selectors.TableOfContents.NovelStatus = xpath, false);
+        await TestFieldAsync("Alternative Names", "//div[@class='alt-names']/text()", NovelDataInitializer.Attr.AlternativeNames, xpath => _config.Selectors.TableOfContents.NovelAlternativeNames = xpath, false);
 
         await TestThumbnailFieldAsync();
         TestChapterLinksField();
@@ -316,7 +316,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         if (_titleFailed)
         {
             _titleFailed = false;
-            await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.NovelTitle = xpath, true);
+            await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.TableOfContents.NovelTitle = xpath, true);
         }
 
         if (_chapterLinksFailed)
@@ -355,28 +355,28 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         {
             case 1:
                 _titleFailed = false;
-                await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.NovelTitle = xpath, true);
+                await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.TableOfContents.NovelTitle = xpath, true);
                 _requiredFieldsFailed = _titleFailed || _chapterLinksFailed;
                 await ModifyFieldsInteractivelyAsync(); // Allow modifying more
                 break;
             case 2:
-                await TestFieldAsync("Author", "//a[@class='author']/text()", NovelDataInitializer.Attr.Author, xpath => _config.Selectors.NovelAuthor = xpath, false);
+                await TestFieldAsync("Author", "//a[@class='author']/text()", NovelDataInitializer.Attr.Author, xpath => _config.Selectors.TableOfContents.NovelAuthor = xpath, false);
                 await ModifyFieldsInteractivelyAsync();
                 break;
             case 3:
-                await TestFieldAsync("Description", "//div[@class='description']/p/text()", NovelDataInitializer.Attr.Description, xpath => _config.Selectors.NovelDescription = xpath, false);
+                await TestFieldAsync("Description", "//div[@class='description']/p/text()", NovelDataInitializer.Attr.Description, xpath => _config.Selectors.TableOfContents.NovelDescription = xpath, false);
                 await ModifyFieldsInteractivelyAsync();
                 break;
             case 4:
-                await TestFieldAsync("Genres", "//div[@class='genres']/a/text()", NovelDataInitializer.Attr.Genres, xpath => _config.Selectors.NovelGenres = xpath, false);
+                await TestFieldAsync("Genres", "//div[@class='genres']/a/text()", NovelDataInitializer.Attr.Genres, xpath => _config.Selectors.TableOfContents.NovelGenres = xpath, false);
                 await ModifyFieldsInteractivelyAsync();
                 break;
             case 5:
-                await TestFieldAsync("Status", "//span[@class='status']/text()", NovelDataInitializer.Attr.NovelStatus, xpath => _config.Selectors.NovelStatus = xpath, false);
+                await TestFieldAsync("Status", "//span[@class='status']/text()", NovelDataInitializer.Attr.NovelStatus, xpath => _config.Selectors.TableOfContents.NovelStatus = xpath, false);
                 await ModifyFieldsInteractivelyAsync();
                 break;
             case 6:
-                await TestFieldAsync("Alternative Names", "//div[@class='alt-names']/text()", NovelDataInitializer.Attr.AlternativeNames, xpath => _config.Selectors.NovelAlternativeNames = xpath, false);
+                await TestFieldAsync("Alternative Names", "//div[@class='alt-names']/text()", NovelDataInitializer.Attr.AlternativeNames, xpath => _config.Selectors.TableOfContents.NovelAlternativeNames = xpath, false);
                 await ModifyFieldsInteractivelyAsync();
                 break;
             case 7:
@@ -594,7 +594,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 return;
             }
 
-            _config.Selectors.NovelThumbnailUrl = xpath;
+            _config.Selectors.TableOfContents.NovelThumbnailUrl = xpath;
 
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine("Common attributes: src, data-src, data-lazy");
@@ -607,7 +607,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 attribute = "src";
             }
 
-            _config.Selectors.ThumbnailUrlAttribute = attribute;
+            _config.Selectors.TableOfContents.ThumbnailUrlAttribute = attribute;
             var success = await ValidateFieldAsync(NovelDataInitializer.Attr.ThumbnailUrl);
 
             Console.Write("\nAre you happy with this result? (y/n/retry): ");
@@ -631,8 +631,8 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                         }
 
                         // Clear the selectors to retry
-                        _config.Selectors.NovelThumbnailUrl = string.Empty;
-                        _config.Selectors.ThumbnailUrlAttribute = string.Empty;
+                        _config.Selectors.TableOfContents.NovelThumbnailUrl = string.Empty;
+                        _config.Selectors.TableOfContents.ThumbnailUrlAttribute = string.Empty;
                         continue;
                     }
                 default:
@@ -685,7 +685,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
                 return;
             }
 
-            _config.Selectors.ChapterLinks = xpath;
+            _config.Selectors.TableOfContents.ChapterLinks = xpath;
 
             try
             {
@@ -1307,13 +1307,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         var fieldUpper = fieldName.ToUpperInvariant();
         var success = fieldUpper switch
         {
-            "TITLE" => await TestSpecificField(NovelDataInitializer.Attr.Title, xpath, htmlDocument, scraperData, config, s => config.Selectors.NovelTitle = s),
-            "AUTHOR" => await TestSpecificField(NovelDataInitializer.Attr.Author, xpath, htmlDocument, scraperData, config, s => config.Selectors.NovelAuthor = s),
-            "DESCRIPTION" => await TestSpecificField(NovelDataInitializer.Attr.Description, xpath, htmlDocument, scraperData, config, s => config.Selectors.NovelDescription = s),
-            "GENRES" => await TestSpecificField(NovelDataInitializer.Attr.Genres, xpath, htmlDocument, scraperData, config, s => config.Selectors.NovelGenres = s),
-            "STATUS" => await TestSpecificField(NovelDataInitializer.Attr.NovelStatus, xpath, htmlDocument, scraperData, config, s => config.Selectors.NovelStatus = s),
-            "ALTERNATIVENAMES" => await TestSpecificField(NovelDataInitializer.Attr.AlternativeNames, xpath, htmlDocument, scraperData, config, s => config.Selectors.NovelAlternativeNames = s),
-            "THUMBNAIL" => await TestSpecificField(NovelDataInitializer.Attr.ThumbnailUrl, xpath, htmlDocument, scraperData, config, s => config.Selectors.NovelThumbnailUrl = s),
+            "TITLE" => await TestSpecificField(NovelDataInitializer.Attr.Title, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelTitle = s),
+            "AUTHOR" => await TestSpecificField(NovelDataInitializer.Attr.Author, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAuthor = s),
+            "DESCRIPTION" => await TestSpecificField(NovelDataInitializer.Attr.Description, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelDescription = s),
+            "GENRES" => await TestSpecificField(NovelDataInitializer.Attr.Genres, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelGenres = s),
+            "STATUS" => await TestSpecificField(NovelDataInitializer.Attr.NovelStatus, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelStatus = s),
+            "ALTERNATIVENAMES" => await TestSpecificField(NovelDataInitializer.Attr.AlternativeNames, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAlternativeNames = s),
+            "THUMBNAIL" => await TestSpecificField(NovelDataInitializer.Attr.ThumbnailUrl, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelThumbnailUrl = s),
             "CHAPTERLINKS" => TestChapterLinksField(xpath, htmlDocument),
             "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
             "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
@@ -1693,15 +1693,15 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             HttpClientFactory = _httpClientFactory
         };
 
-        Console.WriteLine("Validating selectors...\n");
+        Console.WriteLine("Validating Selectors.TableOfContents...\n");
 
         var validationResults = new List<(string fieldName, bool success)>();
 
         Console.WriteLine($"Title:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelTitle))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.NovelTitle}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelTitle}");
             Console.ResetColor();
         }
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
@@ -1709,13 +1709,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             NovelDataInitializer.Attr.Title,
             htmlDocument,
             scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.NovelTitle)));
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle)));
 
         Console.WriteLine($"Author:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelAuthor))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.NovelAuthor}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAuthor}");
             Console.ResetColor();
         }
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
@@ -1723,13 +1723,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             NovelDataInitializer.Attr.Author,
             htmlDocument,
             scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.NovelAuthor)));
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor)));
 
         Console.WriteLine($"Description:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelDescription))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.NovelDescription}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelDescription}");
             Console.ResetColor();
         }
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
@@ -1737,13 +1737,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             NovelDataInitializer.Attr.Description,
             htmlDocument,
             scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.NovelDescription)));
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription)));
 
         Console.WriteLine($"Genres:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelGenres))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.NovelGenres}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelGenres}");
             Console.ResetColor();
         }
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
@@ -1751,13 +1751,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             NovelDataInitializer.Attr.Genres,
             htmlDocument,
             scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.NovelGenres)));
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres)));
 
         Console.WriteLine($"Status:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelStatus))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.NovelStatus}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelStatus}");
             Console.ResetColor();
         }
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
@@ -1765,13 +1765,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             NovelDataInitializer.Attr.NovelStatus,
             htmlDocument,
             scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.NovelStatus)));
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus)));
 
         Console.WriteLine($"Alternative Names:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelAlternativeNames))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.NovelAlternativeNames}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAlternativeNames}");
             Console.ResetColor();
         }
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
@@ -1779,13 +1779,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             NovelDataInitializer.Attr.AlternativeNames,
             htmlDocument,
             scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.NovelAlternativeNames)));
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames)));
 
         Console.WriteLine($"Thumbnail:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.NovelThumbnailUrl))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.NovelThumbnailUrl}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelThumbnailUrl}");
             Console.ResetColor();
         }
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
@@ -1793,17 +1793,17 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
             NovelDataInitializer.Attr.ThumbnailUrl,
             htmlDocument,
             scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.NovelThumbnailUrl)));
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl)));
 
         // Validate Chapter Links (REQUIRED)
         Console.WriteLine($"Chapter Links:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.ChapterLinks))
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.ChapterLinks))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.ChapterLinks}");
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.ChapterLinks}");
             Console.ResetColor();
         }
-        validationResults.Add(ValidateChapterLinks("Chapter Links", htmlDocument, siteConfig.Selectors.ChapterLinks));
+        validationResults.Add(ValidateChapterLinks("Chapter Links", htmlDocument, siteConfig.Selectors.TableOfContents.ChapterLinks));
 
         Console.WriteLine($"\n{new string('=', 70)}");
         Console.WriteLine("Validation Summary:");

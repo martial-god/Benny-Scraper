@@ -47,9 +47,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocumentForChapterUrls, novelDataBuffer, scraperData);
             scraperStrategy.SortChapters(novelDataBuffer);
 
-            if (novelDataBuffer.ChapterUrls.Count != 0)
+            if (novelDataBuffer.ChapterLinks.Count != 0)
             {
-                novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
+                novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.First().Url;
             }
         }
 
