@@ -306,12 +306,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public IHttpClientFactory? HttpClientFactory { get; set; }
         public ChapterRange? ChapterRange { get; set; }
         public string? DetectedVolumeName { get; set; }
+        public List<OpenQA.Selenium.Cookie>? LoginCookies { get; set; }
     }
 
     public abstract class ScraperStrategy
     {
         protected readonly ScraperData ScraperData = new ScraperData();
         private int ConcurrentRequestsLimit { get; set; } = 2;
+        protected bool RequiresLogin { get; private set; }
 
         private const int MaxRetries = 6;
         private const int DefaultMinimumParagraphThreshold = 5;
@@ -429,6 +431,28 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Info($"Chapter range set: {chapterRange}{(volumeName != null ? $" ({volumeName})" : "")}");
             }
+        }
+
+        public void SetLoginPreference(bool withLogin)
+        {
+            RequiresLogin = withLogin;
+
+            // Show informative message for sites with premium chapters
+            if (!withLogin || ScraperData.SiteConfig?.HasPremiumChapters != true) return;
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"\n╔══════════════════════════════════════════════════════╗");
+            Console.WriteLine($"║  Login Enabled for {ScraperData.SiteConfig.Name,-33} ║");
+            Console.WriteLine($"╚══════════════════════════════════════════════════════╝");
+            Console.ResetColor();
+            Console.WriteLine("A browser window will open for manual login.\n");
+            Console.WriteLine("Benefits:");
+            Console.WriteLine($"  • Access premium chapters you own");
+            Console.WriteLine($"  • Premium content included in your download\n");
+            Console.WriteLine("Privacy:");
+            Console.WriteLine($"  • Your credentials are NEVER stored");
+            Console.WriteLine($"  • Login session ends after scraping completes\n");
+
+            Logger.Info($"Login enabled for {ScraperData.SiteConfig.Name}");
         }
 
         public ChapterRange? GetChapterRange()
@@ -977,101 +1001,122 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             bool isAllowedToFail = true,
             int timeoutSeconds = 60,
             bool isHeadless = false,
-            Func<IWebDriver, WebDriverWait, Task>? preWaitAction = null)
+            Func<IWebDriver, WebDriverWait, Task>? preWaitAction = null,
+            bool reuseExistingDriver = false)
         {
-            using var driver = await _driverFactory.CreateDriverAsync(url, isHeadless: isHeadless);
-
-            var stopwatch = Stopwatch.StartNew();
-            var uriLastSegment = new Uri(url).Segments.LastOrDefault() ?? url;
-
-            Logger.Debug($"Navigating to {url}");
-            driver.Navigate().GoToUrl(url);
+            IWebDriver? driver = null;
+            var driverOwnedByCaller = false;
 
             try
             {
-                Logger.Debug($"Waiting for {objectToLookFor} on page {url} to load.");
-
-                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
-
-                if (preWaitAction != null)
+                if (reuseExistingDriver && _driverFactory.GetAllDrivers().Any())
                 {
-                    Logger.Debug("[Selenium] Running pre-wait action");
-                    await preWaitAction(driver, wait);
+                    driver = _driverFactory.GetAllDrivers().Values.First();
+                    driverOwnedByCaller = true;
+                    driver.Navigate().GoToUrl(url);
+                }
+                else
+                {
+                    driver = await _driverFactory.CreateDriverAsync(url, isHeadless: isHeadless);
                 }
 
-                if (steps != null)
+                var stopwatch = Stopwatch.StartNew();
+                var uriLastSegment = new Uri(url).Segments.LastOrDefault() ?? url;
+
+                try
                 {
-                    foreach (var step in steps)
+                    Logger.Debug($"Waiting for {objectToLookFor} on page {url} to load.");
+
+                    var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
+
+                    if (preWaitAction != null)
                     {
-                        var stepTimeout = TimeSpan.FromSeconds(step.TimeoutSeconds ?? timeoutSeconds);
-                        var stepWait = new WebDriverWait(driver, stepTimeout);
+                        Logger.Debug("[Selenium] Running pre-wait action");
+                        await preWaitAction(driver, wait);
+                    }
 
-                        switch (step.Type)
+                    if (steps != null)
+                    {
+                        foreach (var step in steps)
                         {
-                            case SeleniumPageStepType.Click:
-                                {
-                                    var msg = "[Selenium] Click: " + (step.Description ?? step.XPath);
-                                    Logger.Debug(msg);
-                                    stepWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(step.XPath))).Click();
-                                    break;
-                                }
+                            var stepTimeout = TimeSpan.FromSeconds(step.TimeoutSeconds ?? timeoutSeconds);
+                            var stepWait = new WebDriverWait(driver, stepTimeout);
 
-                            case SeleniumPageStepType.WaitForPresence:
-                                {
-                                    var msg = "[Selenium] WaitForPresence: " + (step.Description ?? step.XPath);
-                                    Logger.Debug(msg);
-                                    stepWait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(step.XPath)));
-                                    break;
-                                }
+                            switch (step.Type)
+                            {
+                                case SeleniumPageStepType.Click:
+                                    {
+                                        var msg = "[Selenium] Click: " + (step.Description ?? step.XPath);
+                                        Logger.Debug(msg);
+                                        stepWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(step.XPath))).Click();
+                                        break;
+                                    }
 
-                            case SeleniumPageStepType.WaitForClickable:
-                                {
-                                    var msg = "[Selenium] WaitForClickable: " + (step.Description ?? step.XPath);
-                                    Logger.Debug(msg);
-                                    stepWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(step.XPath)));
-                                    break;
-                                }
+                                case SeleniumPageStepType.WaitForPresence:
+                                    {
+                                        var msg = "[Selenium] WaitForPresence: " + (step.Description ?? step.XPath);
+                                        Logger.Debug(msg);
+                                        stepWait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(step.XPath)));
+                                        break;
+                                    }
 
-                            case SeleniumPageStepType.Custom:
-                                {
-                                    if (step.CustomAction == null)
-                                        throw new InvalidOperationException("Custom step requires CustomAction");
+                                case SeleniumPageStepType.WaitForClickable:
+                                    {
+                                        var msg = "[Selenium] WaitForClickable: " + (step.Description ?? step.XPath);
+                                        Logger.Debug(msg);
+                                        stepWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(step.XPath)));
+                                        break;
+                                    }
 
-                                    var msg = "[Selenium] Custom: " + (step.Description ?? "(custom action)");
-                                    Logger.Debug(msg);
-                                    await step.CustomAction(driver, stepWait);
-                                    break;
-                                }
+                                case SeleniumPageStepType.Custom:
+                                    {
+                                        if (step.CustomAction == null)
+                                            throw new InvalidOperationException("Custom step requires CustomAction");
 
-                            default:
-                                throw new ArgumentOutOfRangeException();
+                                        var msg = "[Selenium] Custom: " + (step.Description ?? "(custom action)");
+                                        Logger.Debug(msg);
+                                        await step.CustomAction(driver, stepWait);
+                                        break;
+                                    }
+
+                                default:
+                                    throw new ArgumentOutOfRangeException();
+                            }
                         }
                     }
+
+                    wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(requiredXPath)));
+                    Logger.Info($"{objectToLookFor} loaded for {url}. Time: {stopwatch.ElapsedMilliseconds} ms");
+
+                    var htmlDocument = new HtmlDocument();
+                    var pageSource = driver.PageSource;
+                    htmlDocument.LoadHtml(pageSource);
+                    return (htmlDocument, pageSource);
                 }
-
-                wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(requiredXPath)));
-                Logger.Info($"{objectToLookFor} loaded for {url}. Time: {stopwatch.ElapsedMilliseconds} ms");
-
-                var htmlDocument = new HtmlDocument();
-                var pageSource = driver.PageSource;
-                htmlDocument.LoadHtml(pageSource);
-                return (htmlDocument, pageSource);
-            }
-            catch (WebDriverTimeoutException ex)
-            {
-                var message =
-                    $"Unable to get {objectToLookFor} from {uriLastSegment} after waiting for {timeoutSeconds} seconds.\n" +
-                    $"Required XPath: {requiredXPath}\n" +
-                    $"URL: {url}";
-
-                if (isAllowedToFail)
+                catch (WebDriverTimeoutException ex)
                 {
-                    Logger.Error($"{message}\nException: {ex}");
-                    return (null, null);
-                }
+                    var message =
+                        $"Unable to get {objectToLookFor} from {uriLastSegment} after waiting for {timeoutSeconds} seconds.\n" +
+                        $"Required XPath: {requiredXPath}\n" +
+                        $"URL: {url}";
 
-                Logger.Fatal($"{message}\nException: {ex}");
-                throw;
+                    if (isAllowedToFail)
+                    {
+                        Logger.Error($"{message}\nException: {ex}");
+                        return (null, null);
+                    }
+
+                    Logger.Fatal($"{message}\nException: {ex}");
+                    throw;
+                }
+            }
+            finally
+            {
+                if (!driverOwnedByCaller && driver != null)
+                {
+                    driver.Dispose();
+                    driver.Quit();
+                }
             }
         }
 
@@ -1091,7 +1136,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 objectToLookFor: objectToLookFor,
                 isAllowedToFail: isAllowedToFail,
                 timeoutSeconds: timeoutSeconds,
-                isHeadless: true);
+                isHeadless: true,
+                reuseExistingDriver: true);
 
             return htmlDocument;
         }

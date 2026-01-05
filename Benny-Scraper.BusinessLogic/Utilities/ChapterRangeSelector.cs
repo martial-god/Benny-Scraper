@@ -12,7 +12,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         /// <summary>
         /// Prompts user interactively for chapter range selection
         /// </summary>
-        public ChapterRange? PromptUserForRange(List<ChapterLink> chapterLinks)
+        public ChapterRange? PromptUserForRange(List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
         {
             if (chapterLinks.Count == 0)
             {
@@ -97,21 +97,18 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
             if (selectedPremium.Any())
             {
+                
                 var premiumSummary = BuildPremiumSummary(selectedPremium);
-                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"\nPremium chapters in selection: {selectedPremium.Count} ({premiumSummary})");
-                Console.WriteLine("Current premium currency balance: (not tracked yet)");
+                Console.WriteLine($"Current premium currency balance: " +
+                                  $"{userCurrencies?.Where(uc => uc.CurrencyName == "Karma")?.FirstOrDefault()?.Balance:N0} Karma");
                 Console.Write("Type 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
                 Console.ResetColor();
                 var premiumChoice = Console.ReadLine()?.Trim();
-                if (string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase))
-                {
-                    Logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
-                }
-                else
-                {
-                    Logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
-                }
+                Logger.Info(string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase)
+                    ? "User confirmed proceeding with premium chapters (unlock flow not implemented)"
+                    : "User did not confirm premium unlock; proceeding without unlocking premium chapters");
             }
 
             Logger.Info($"Chapter range confirmed: {range}");
@@ -288,7 +285,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             if (!premiumGroups.Any()) return string.Empty;
 
             return string.Join(", ", premiumGroups.Select(g =>
-                $"{g.Count()} premium, total {g.Sum(cl => cl.PremiumInfo.Cost)} {g.Key}"));
+                $"{g.Count():N0} premium, total {g.Sum(cl => cl.PremiumInfo.Cost):N0} {g.Key}"));
         }
 
         /// <summary>
@@ -449,6 +446,61 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             }
 
             Console.ResetColor();
+        }
+
+        /// <summary>
+        /// Prompts user to confirm premium chapter unlock for selected range.
+        /// Returns true if user wants to unlock premium chapters, false if they want teasers only.
+        /// </summary>
+        public bool ConfirmPremiumChapters(ChapterRange range, List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
+        {
+            var selectedLinks = chapterLinks.Skip(range.Begin - 1).Take(range.Count).ToList();
+            var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
+
+            if (!selectedPremium.Any())
+            {
+                Logger.Debug("No premium chapters in selected range");
+                return false;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"\n╔═══════════════════════════════════════════════════╗");
+            Console.WriteLine($"║           Premium Chapters Detected               ║");
+            Console.WriteLine($"╚═══════════════════════════════════════════════════╝");
+            Console.ResetColor();
+
+            Console.WriteLine($"\nThe following premium chapters were found in your selection:\n");
+
+            foreach (var premiumChapter in selectedPremium)
+            {
+                var chapterIndex = chapterLinks.IndexOf(premiumChapter) + 1;
+                var currency = premiumChapter.PremiumInfo?.CurrencyName ?? "Credits";
+                var title = string.IsNullOrWhiteSpace(premiumChapter.Title)
+                    ? $"Chapter {chapterIndex}"
+                    : premiumChapter.Title;
+
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"  [{chapterIndex,4}] [Premium {premiumChapter.PremiumInfo.Cost} {currency}] {title}");
+                Console.ResetColor();
+            }
+
+            var premiumSummary = BuildPremiumSummary(selectedPremium);
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"\nTotal: {selectedPremium.Count} premium chapters ({premiumSummary})");
+            Console.WriteLine($"Current premium currency balance: " +
+                              $"{userCurrencies?.Where(uc => uc.CurrencyName == "Karma")?.FirstOrDefault()?.Balance:N0} Karma");
+            Console.Write("\nType 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
+            Console.ResetColor();
+
+            var premiumChoice = Console.ReadLine()?.Trim();
+            if (string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase))
+            {
+                Logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
+                return true;
+            }
+
+            Logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
+            return false;
         }
 
         private class VolumeRange

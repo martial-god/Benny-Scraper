@@ -227,6 +227,22 @@
         public TableOfContentsSelectors TableOfContents { get; init; }
 
         /// <summary>
+        /// Dictionary mapping currency names to XPath selectors for user balance in the global navigation bar.
+        /// Key: Currency name (e.g., "Karma", "SpiritStones")
+        /// Value: XPath selector to extract the user's current balance for that currency
+        ///
+        /// These selectors typically target elements in the user menu/profile dropdown (global nav).
+        /// Can be accessed from any page (TOC, chapter pages) to check/verify balance.
+        ///
+        /// Example for WuxiaWorld:
+        /// {
+        ///   "Karma": "//svg[@data-testid='YinYangIcon']/following-sibling::p/text()",
+        ///   "SpiritStones": "//svg[@width='21' and @height='20']/following-sibling::p/text()"
+        /// }
+        /// </summary>
+        public Dictionary<string, string>? UserCurrencyBalances { get; set; }
+
+        /// <summary>
         /// XPath for the chapter title node on a chapter page.
         /// </summary>
         public string? ChapterTitle { get; set; }
@@ -259,6 +275,10 @@
 
     public sealed class PremiumInfo
     {
+        /// <summary>
+        /// Primary currency name displayed on table of contents for premium chapters.
+        /// Default: "Credits"
+        /// </summary>
         public string CurrencyName { get; set; } = "Credits";
     }
 }

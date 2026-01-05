@@ -66,7 +66,7 @@ namespace Benny_Scraper.BusinessLogic.Factory
         /// <param name="isHeadless"></param>
         /// <param name="url"></param>
         /// <returns></returns>
-        public async Task<IWebDriver> CreateDriverAsync(string url, int browser, bool isHeadless)
+        public async Task<IWebDriver> CreateDriverAsync(string url, int browser = 0, bool isHeadless = false)
         {
             switch (browser)
             {
@@ -80,12 +80,11 @@ namespace Benny_Scraper.BusinessLogic.Factory
                     if (isHeadless)
                         chromeOptions.AddArgument("headless");
 
-                    // waits for driver to be created to prevent creating multiple on the same instance
                     IWebDriver driver = await Task.Run(() => new ChromeDriver(chromeDriverService, chromeOptions));
                     driver.Url = url;
 
-                    int id = Interlocked.Increment(ref _counter); // increment the counter in a thread-safe way atomatically
-                    _drivers.TryAdd(id, driver); // thread safe way off adding to ConcurrentDictionary
+                    int id = Interlocked.Increment(ref _counter);
+                    _drivers.TryAdd(id, driver);
 
                     return driver;
 

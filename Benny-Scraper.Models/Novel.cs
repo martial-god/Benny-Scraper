@@ -68,6 +68,7 @@ namespace Benny_Scraper.Models
 
         public string Title { get; set; }
         public List<ChapterLink> ChapterLinks { get; set; }
+        public List<UserPremiumCurrency>? UserPremiumCurrencies { get; set; }
         public List<string> ChapterTitles { get; set; }
         public string NovelStatus { get; set; }
         public string LastTableOfContentsPageUrl { get; set; }
@@ -108,5 +109,11 @@ namespace Benny_Scraper.Models
         public bool IsPremium { get; init; }
         public int Cost { get; init; }
         public string? CurrencyName { get; init; }
+    }
+    
+    public sealed class UserPremiumCurrency
+    {
+        public int Balance { get; set; }
+        public string CurrencyName { get; set; } = string.Empty;
     }
 }

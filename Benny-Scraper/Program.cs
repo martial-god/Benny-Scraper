@@ -304,7 +304,7 @@ namespace Benny_Scraper
                     var novelProcessor = scope.Resolve<INovelProcessor>();
                     try
                     {
-                        await novelProcessor.ProcessNovelAsync(novelUri, options.BeginChapter, options.EndChapter);
+                        await novelProcessor.ProcessNovelAsync(novelUri, options.BeginChapter, options.EndChapter, options.WithLogin);
                     }
                     catch (Exception ex)
                     {
@@ -1494,7 +1494,7 @@ namespace Benny_Scraper
         private static void ConfigureServices(ContainerBuilder builder)
         {
             // Register IConfiguration
-            builder.RegisterInstance(Configuration).As<IConfiguration>();
+            builder.RegisterInstance(Configuration)?.As<IConfiguration>();
 
             builder.Register(c => new Database(new DbContextOptionsBuilder<Database>()
                 .UseSqlite(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();

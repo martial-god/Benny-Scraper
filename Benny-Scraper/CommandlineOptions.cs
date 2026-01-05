@@ -84,6 +84,9 @@ namespace Benny_Scraper
         [Option('E', "end-chapter", Required = false, HelpText = "Ending chapter number for range selection [INT]. If not specified, downloads to the last chapter.")]
         public int? EndChapter { get; set; }
 
+        [Option("with-login", Required = false, HelpText = "Show browser for manual login to access premium chapters (e.g., WuxiaWorld). Your credentials are NEVER stored - you login manually in the browser window, then scraping continues. Useful for accessing premium/locked chapters you own.")]
+        public bool WithLogin { get; set; }
+
         [Value(0, MetaName = "url", Required = false, HelpText = "Novel table of contents URL to download. Can be combined with -B and -E options for chapter range selection.")]
         public string Url { get; set; }
     }

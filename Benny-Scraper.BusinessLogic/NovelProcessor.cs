@@ -36,7 +36,7 @@ public class NovelProcessor(
     private const string DllProjectName = "Benny-Scraper.dll";
     private const int DefaultConfigId = 1;
 
-    public async Task ProcessNovelAsync(Uri novelTableOfContentsUri, int? beginChapter = null, int? endChapter = null)
+    public async Task ProcessNovelAsync(Uri novelTableOfContentsUri, int? beginChapter = null, int? endChapter = null, bool withLogin = false)
     {
 
         if (!IsThereConfigurationForSite(novelTableOfContentsUri))
@@ -57,6 +57,7 @@ public class NovelProcessor(
             return;
         }
         scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
+        scraperStrategy.SetLoginPreference(withLogin);
 
         if (novel == null) // Novel is not in database so add it
         {
@@ -102,10 +103,11 @@ public class NovelProcessor(
                 Logger.Info("Using chapter range from command line options");
                 selectedRange = chapterRangeSelector.GetRangeFromOptions(novelDataBuffer.ChapterLinks.Count, beginChapter, endChapter);
                 chapterRangeSelector.DisplayRangeInfo(selectedRange, chapterTitles);
+                chapterRangeSelector.ConfirmPremiumChapters(selectedRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies);
             }
             else
             {
-                selectedRange = chapterRangeSelector.PromptUserForRange(novelDataBuffer.ChapterLinks);
+                selectedRange = chapterRangeSelector.PromptUserForRange(novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies);
             }
 
             if (selectedRange != null)
