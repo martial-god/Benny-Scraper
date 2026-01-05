@@ -4,23 +4,6 @@ Webscraper that sets out make listening to webnovels easier for myself. Turned i
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)
 
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
-## IN PROGRESS - ON DEV BRANCH
-- [ ] Addition of webnovle.com from https://github.com/martial-god/Benny-Scraper/issues/41 - Expected Release by 04/14/2024
-- [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites - *COMING SOON* https://feahnthor.github.io/
-## COMPLETED - or Things to Do
-- [x] Add Cbz filetype as an option for Mangas
-- [x] Figure out how to properly construct an Epub. https://validator.w3.org/#validate-by-upload for chapter validations
-- [x] Code rewrite so process from Scraper to Epub works
-- [x] Update code to accommodate more novel sites
-- [x] Switch from SQL to MySql to embedd database
-- [x] Test on computers without sql installed
-- [x] Test on Linux machine and Mac - in this Case Ubuntu 20.04-x64, Mac Sonoma 14.1
-- [x] Add Calibre integration - completed novels will be added to the Calibredb if it is installed on host computer
-- [x] Verify the update novel works - INFO can be found https://github.com/martial-god/Benny-Scraper/pull/24#issue-1885102090
-- [x] Try Manga sites
-- [x] Add a Configuration table to have user have more control of settings. *STILL NEED TO ADD COMMANDLINE OPTIONS TO RETRIEVE VALUES*
-- [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
-- [ ] Add UI
 
 ## Getting Started
 https://lightnovelworld.com
