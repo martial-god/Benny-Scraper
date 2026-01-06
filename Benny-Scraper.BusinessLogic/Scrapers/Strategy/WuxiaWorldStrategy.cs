@@ -188,7 +188,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                             Console.WriteLine("⚠ Time's up - continuing without login (premium chapters not accessible)");
                             Console.ResetColor();
                         }
-                        driver.Navigate().GoToUrl(ScraperData.SiteTableOfContents.ToString());
+                        await driver.Navigate().GoToUrlAsync(ScraperData.SiteTableOfContents.ToString());
                     }
 
                     const string chaptersTabXPath = "//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters'] ]";
@@ -196,17 +196,23 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         .ElementToBeClickable(By.XPath(chaptersTabXPath))).Click();
 
                     const string collapsedSummariesXPath = "//*[@id='full-width-tabpanel-1']//div[@role='button' and @aria-expanded='false']";
+                    wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(collapsedSummariesXPath)));
+                    
                     var collapsedSummaries = driver.FindElements(By.XPath(collapsedSummariesXPath));
+                    var jsExecutor = (IJavaScriptExecutor)driver;
 
+                    var count = 0;
                     foreach (var collapsedSummary in collapsedSummaries)
                     {
+                        // I guess I need to scroll to the element at least for the headless mode to work consistently.
+                        jsExecutor.ExecuteScript("arguments[0].scrollIntoView({behavior: 'auto', block: 'center'});", collapsedSummary);
                         wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementToBeClickable(collapsedSummary)).Click();
 
                         var summary = collapsedSummary;
                         wait.Until(_ =>
                             summary.GetAttribute("aria-expanded") == "true"
                             || summary.FindElements(By.XPath(".//a")).Count > 0);
-                        Console.WriteLine("Chapter urls expanded ");
+                        Console.Write($"\rChapter urls expanded {++count}/{collapsedSummaries.Count}");
                     }
 
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(chapterLinksXPath)));
@@ -224,8 +230,6 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                             .ElementExists(By.XPath("//ul[@role='menu']")));
 
-
-                        // DEBUG: Get and log the menu HTML to see what's actually there
                         var menuElement = driver.FindElement(By.XPath("//ul[@role='menu']"));
                         // var menuHtml = menuElement.GetAttribute("innerHTML");
                         // var allPTags = menuElement.FindElements(By.XPath(".//p"));
