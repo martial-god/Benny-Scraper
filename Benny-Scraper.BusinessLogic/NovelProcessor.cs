@@ -57,7 +57,10 @@ public class NovelProcessor(
             return;
         }
         scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
-        scraperStrategy.SetLoginPreference(withLogin);
+        if (siteConfig.HasPremiumChapters)
+            scraperStrategy.SetLoginPreference(withLogin);
+        else
+            Console.WriteLine("This site does not have premium chapters, login option will be ignored.");
 
         if (novel == null) // Novel is not in database so add it
         {

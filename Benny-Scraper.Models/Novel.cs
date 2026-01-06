@@ -66,23 +66,28 @@ namespace Benny_Scraper.Models
             NovelUrl = string.Empty;
         }
 
-        public string Title { get; set; }
+        public string Title
+        {
+            get;
+            set => field = value?.Trim() ?? string.Empty;
+        }
+
         public List<ChapterLink> ChapterLinks { get; set; }
         public List<UserPremiumCurrency>? UserPremiumCurrencies { get; set; }
         public List<string> ChapterTitles { get; set; }
-        public string NovelStatus { get; set; }
+        public string NovelStatus { get; set => field = value?.Trim() ?? string.Empty; }
         public string LastTableOfContentsPageUrl { get; set; }
         public bool IsNovelCompleted { get; set; }
         public string ThumbnailUrl { get; set; }
         public double Rating { get; set; }
         public int TotalRatings { get; set; }
         public List<string>? Description { get; set; }
-        public string Author { get; set; }
+        public string Author { get; set => field = value?.Trim() ?? string.Empty; }
         public List<string> Genres { get; set; }
         public List<string> AlternativeNames { get; set; }
-        public string MostRecentChapterTitle { get; set; }
+        public string MostRecentChapterTitle { get; set => field = value?.Trim() ?? string.Empty; }
         public string CurrentChapterUrl { get; set; }
-        public string FirstChapter { get; set; }
+        public string FirstChapter { get; set => field = value?.Trim() ?? string.Empty; }
         public byte[]? ThumbnailImage { get; set; }
         public string NovelUrl { get; set; }
 
@@ -100,7 +105,7 @@ namespace Benny_Scraper.Models
     public sealed class ChapterLink
     {
         public string Url { get; init; } = string.Empty;
-        public string? Title { get; init; }
+        public string? Title { get; init => field = value?.Trim(); }
         public PremiumChapterInfo PremiumInfo { get; init; } = new PremiumChapterInfo();
     }
 
@@ -113,7 +118,7 @@ namespace Benny_Scraper.Models
 
     public sealed class UserPremiumCurrency
     {
-        public int Balance { get; set; }
-        public string CurrencyName { get; set; } = string.Empty;
+        public int Balance { get; init; }
+        public string CurrencyName { get; init; } = string.Empty;
     }
 }

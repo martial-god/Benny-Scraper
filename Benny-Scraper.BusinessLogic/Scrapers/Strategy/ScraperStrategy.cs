@@ -1189,10 +1189,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
+                var totalChapters = chapterLinks.Count;
+                var currentChapter = 0;
                 foreach (var chapterLink in chapterLinks)
                 {
-                    chapterDataBuffers.Add(await GetChapterDataAsync(driver, chapterLink, tempImageDirectory));
+                    currentChapter++;
+                    chapterDataBuffers.Add(await GetChapterDataAsync(driver, chapterLink, tempImageDirectory, currentChapter, totalChapters));
                 }
+                Console.Write("\r" + new string(' ', 80) + "\r"); // Clear the progress line
                 Logger.Info($"Finished getting chapters data. Total chapters: {chapterDataBuffers.Count}");
                 Logger.Debug("Disposing all drivers");
                 Console.WriteLine($"Total drivers: {_driverFactory.GetAllDrivers().Count}");
@@ -1281,7 +1285,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             _semaphoreSlim = new SemaphoreSlim(concurrentRequestLimit);
         }
 
-        private async Task<ChapterDataBuffer> GetChapterDataAsync(IWebDriver driver, ChapterLink chapterLink, string tempImageDirectory)
+        private async Task<ChapterDataBuffer> GetChapterDataAsync(IWebDriver driver, ChapterLink chapterLink, string tempImageDirectory, int currentChapter = 0, int totalChapters = 0)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -1294,14 +1298,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Url = chapterLink.Url
             };
 
-            Logger.Debug($"Navigating to {chapterLink.Url}");
-            driver.Navigate().GoToUrl(chapterLink.Url);
+            if (totalChapters > 0)
+                Console.Write($"\rLoading chapter {currentChapter}/{totalChapters}, waiting for {waitTarget}... ");
+
+            await driver.Navigate().GoToUrlAsync(chapterLink.Url);
             try
             {
-                Logger.Debug($"Waiting for {waitTarget} on page {chapterLink.Url} to load.");
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
-                wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(ScraperData.SiteConfig?.Selectors.ChapterContent)));
-                Logger.Warn($"{waitTarget} have been loaded.");
+                wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(ScraperData.SiteConfig.Selectors.ChapterContent!)));
             }
             catch (WebDriverTimeoutException ex)
             {
@@ -1310,7 +1314,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 return chapterDataBuffer;
             }
 
-            Logger.Info($"Finished navigating to {chapterLink.Url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
+            if (totalChapters > 0)
+                Console.Write($"({stopwatch.ElapsedMilliseconds} ms)");
+
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
 

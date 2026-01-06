@@ -87,6 +87,9 @@ namespace Benny_Scraper
         [Option("with-login", Required = false, HelpText = "Show browser for manual login to access premium chapters (e.g., WuxiaWorld). Your credentials are NEVER stored - you login manually in the browser window, then scraping continues. Useful for accessing premium/locked chapters you own.")]
         public bool WithLogin { get; set; }
 
+        [Option("sites", Required = false, HelpText = "Display all supported websites for scraping with clickable URLs.")]
+        public bool SupportedSites { get; set; }
+
         [Value(0, MetaName = "url", Required = false, HelpText = "Novel table of contents URL to download. Can be combined with -B and -E options for chapter range selection.")]
         public string Url { get; set; }
     }

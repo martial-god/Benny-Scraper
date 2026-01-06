@@ -36,6 +36,9 @@ dotnet Benny-Scraper.dll [COMMAND] [OPTIONS] [--] [VALUES]
 
 ### Quick Start - Download a Novel (yt-dlp style)
 ```bash
+# View all supported websites
+Benny-Scraper --sites
+
 # Download entire novel (interactive mode)
 Benny-Scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon"
 
@@ -64,6 +67,9 @@ Download Options:
   --with-login                 Show browser for manual login to access premium chapters (e.g., WuxiaWorld). Your credentials
                                are NEVER stored - you login manually in the browser window, then scraping continues. Useful
                                for accessing premium/locked chapters you own. Without this flag, browser runs headless (hidden).
+
+General:
+  --sites                      Display all supported websites for scraping with clickable URLs and ASCII art header.
 
 Database Management:
   -l, --list                   List all novels in database. Options include:

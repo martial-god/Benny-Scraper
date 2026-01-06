@@ -37,22 +37,6 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             var totalChapters = chapterLinks.Count;
 
             DisplayChapterList(chapterLinks, totalChapters);
-
-            // var volumeRanges = DetectVolumes(chapterTitles);
-            // if (volumeRanges.Count > 0)
-            // {
-            //     Logger.Info($"Detected {volumeRanges.Count} volume boundaries");
-            //     Console.WriteLine("\nDetected Volume Boundaries:");
-            //     foreach (var vol in volumeRanges)
-            //     {
-            //         Console.ForegroundColor = ConsoleColor.Cyan;
-            //         Console.WriteLine($"  [{vol.Begin,4}-{vol.End,4}] {vol.Name}");
-            //         Console.ResetColor();
-            //     }
-            //     Console.WriteLine();
-            // }
-
-            // Prompt for flexible input
             Console.WriteLine("\nEnter chapter selection:");
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine("  Examples: '1-50', '1,5,10-20', '25-100', 'all'");
@@ -69,7 +53,6 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             }
 
             var selectedChapters = ParseFlexibleInput(input, totalChapters);
-
             if (selectedChapters.Count == 0)
             {
                 Logger.Warn("No valid chapters selected");
@@ -79,7 +62,6 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 return null;
             }
 
-            // Convert selected chapters to a range (min to max)
             var begin = selectedChapters.Min();
             var end = selectedChapters.Max();
             var range = new ChapterRange(begin, end);
@@ -95,9 +77,8 @@ namespace Benny_Scraper.BusinessLogic.Utilities
 
             var selectedLinks = chapterLinks.Skip(range.Begin - 1).Take(range.Count).ToList();
             var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
-            if (selectedPremium.Any())
+            if (selectedPremium.Count != 0)
             {
-
                 var premiumSummary = BuildPremiumSummary(selectedPremium);
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"\nPremium chapters in selection: {selectedPremium.Count} ({premiumSummary})");
@@ -127,8 +108,25 @@ namespace Benny_Scraper.BusinessLogic.Utilities
 
             if (!ValidateRange(startChapter, endChapter, totalChapters))
             {
-                Logger.Error($"Invalid chapter range: {startChapter}-{endChapter}. Total chapters: {totalChapters}");
-                throw new ArgumentException($"Invalid chapter range: {startChapter}-{endChapter}. Total chapters: {totalChapters}");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"\n╔═══════════════════════════════════════════════════╗");
+                Console.WriteLine($"║              Invalid Chapter Range                ║");
+                Console.WriteLine($"╚═══════════════════════════════════════════════════╝");
+                Console.ResetColor();
+                Console.WriteLine($"\nYour chapter range selection is out of bounds:");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"  Requested: Chapters {startChapter}-{endChapter}");
+                Console.WriteLine($"  Available: Chapters 1-{totalChapters} ({totalChapters} total chapters)");
+                Console.ResetColor();
+                Console.WriteLine($"\nPlease adjust your chapter range using:");
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"  -B {Math.Min(startChapter, totalChapters)} -E {totalChapters}  # Download from chapter {Math.Min(startChapter, totalChapters)} to end");
+                Console.WriteLine($"  -E {totalChapters}                    # Download first {totalChapters} chapters");
+                Console.WriteLine($"  (no options)              # Download all chapters interactively");
+                Console.ResetColor();
+
+                Logger.Error($"Invalid chapter range: {startChapter}-{endChapter}. Total chapters: {totalChapters}. Exiting.");
+                Environment.Exit(1);
             }
 
             var range = new ChapterRange(startChapter, endChapter);

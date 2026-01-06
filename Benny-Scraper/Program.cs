@@ -77,14 +77,39 @@ namespace Benny_Scraper
             await using var scope = Container.BeginLifetimeScope();
             var logger = NLog.LogManager.GetCurrentClassLogger();
 
-            var instructions = GetInstructions();
+            // Display supported sites with ASCII art
+            DisplaySupportedSites();
 
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine(instructions);
+            // Display instructions
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                          HOW TO USE                                      ║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
             Console.ResetColor();
+            Console.WriteLine();
+            Console.WriteLine("  1. Visit a supported website above");
+            Console.WriteLine("  2. Choose a novel and navigate to its table of contents page");
+            Console.WriteLine("  3. Copy the URL from your browser's address bar");
+            Console.WriteLine("  4. Paste the URL below when prompted");
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                       SPECIAL COMMANDS                                   ║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.WriteLine("  • test <url>     - Test if a site is reachable before scraping");
+            Console.WriteLine("  • test-all       - Test connectivity to all supported sites");
+            Console.WriteLine("  • exit           - Quit the application");
+            Console.WriteLine();
+            Console.WriteLine(new string('─', 78));
+            Console.WriteLine();
 
             // Test all sites on startup to give users immediate feedback
-            Console.WriteLine("\nTesting connectivity to all supported sites...\n");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("Testing connectivity to all supported sites...");
+            Console.ResetColor();
+            Console.WriteLine();
             await TestAllSitesAsync();
 
             var novelProcessor = scope.Resolve<INovelProcessor>();
@@ -152,33 +177,6 @@ namespace Benny_Scraper
                 var elapsedTime = stopwatch.Elapsed;
                 Logger.Info($"Elapsed time: {elapsedTime}");
             }
-        }
-
-        private static string GetInstructions()
-        {
-            HttpNovelScraper httpNovelScraper = new(); //used specifically for getting all supported urls.
-            var supportedSites = httpNovelScraper.GetSupportedSites();
-
-            var instructions = "\n" + $@"Welcome to our novel scraper application!
-                Currently, we support the following websites:
-                {string.Join("\n", supportedSites)}
-
-                To use our application, please follow these steps:
-                1. Visit a supported website.
-                2. Choose a novel and navigate to its table of contents page.
-                3. Copy the URL of this page.
-                4. Paste the URL into our application when prompted.
-
-                Special Commands:
-                - Type 'test <url>' to test if you can reach a site before implementing it
-                - Type 'test-all' to test connectivity to all supported sites
-                - Type 'exit' to quit
-
-                Please ensure the URL is from the table of contents page of a novel.
-                Our application will then download the novel and convert it into an EPUB file.
-                Thank you for using our application! Enjoy your reading.";
-
-            return instructions;
         }
 
         #region CommandLine Methods
@@ -271,6 +269,10 @@ namespace Benny_Scraper
             else if (options.TestAll)
             {
                 await TestAllSitesAsync();
+            }
+            else if (options.SupportedSites)
+            {
+                DisplaySupportedSites();
             }
             else if (!string.IsNullOrEmpty(options.TestInteractive))
             {
@@ -1058,6 +1060,48 @@ namespace Benny_Scraper
                     Console.ResetColor();
                     break;
             }
+        }
+
+        /// <summary>
+        /// Displays all supported websites for scraping with ASCII art header.
+        /// </summary>
+        private static void DisplaySupportedSites()
+        {
+            HttpNovelScraper httpNovelScraper = new();
+            var supportedSites = httpNovelScraper.GetSupportedSites();
+
+            // ASCII Art header
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine();
+            Console.WriteLine(@"  ____  _____ _   _ _   ___   __     ____   ____ ____      _    ____  _____ ____  ");
+            Console.WriteLine(@" | __ )| ____| \ | | \ | \ \ / /    / ___| / ___|  _ \    / \  |  _ \| ____|  _ \ ");
+            Console.WriteLine(@" |  _ \|  _| |  \| |  \| |\ V /_____\___ \| |   | |_) |  / _ \ | |_) |  _| | |_) |");
+            Console.WriteLine(@" | |_) | |___| |\  | |\  | | |_______|__) | |___|  _ <  / ___ \|  __/| |___|  _ < ");
+            Console.WriteLine(@" |____/|_____|_| \_|_| \_| |_|      |____/ \____|_| \_\/_/   \_\_|   |_____|_| \_\");
+            Console.ResetColor();
+            Console.WriteLine();
+
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"║                        SUPPORTED WEBSITES ({supportedSites.Count})                         ║");
+            Console.ResetColor();
+            Console.WriteLine("╠══════════════════════════════════════════════════════════════════════════╣");
+
+            foreach (var site in supportedSites)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("║  ✓  ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"{site,-66}");
+                Console.WriteLine("║");
+            }
+
+            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("Tip: Use --test-all to verify connectivity to all sites");
+            Console.ResetColor();
+            Console.WriteLine();
         }
 
         /// <summary>
