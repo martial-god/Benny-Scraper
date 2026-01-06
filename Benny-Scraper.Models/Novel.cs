@@ -6,16 +6,16 @@ namespace Benny_Scraper.Models
     public class Novel
     {
         [Key]
-        public Guid Id { get; set; }
+        public Guid Id { get; init; }
         [Column("novel_id")]
         public ICollection<Chapter> Chapters { get; set; } = null!;
 
         [Required]
         public required string Title { get; init; }
 
-        public string? Author { get; set; }
+        public string? Author { get; init; }
 
-        [StringLength(50)] public string SiteName { get; set; } = string.Empty;
+        [StringLength(50)] public string SiteName { get; init; } = string.Empty;
         public string Url { get; set; } = string.Empty;
         public string? Genre { get; set; }
         public string? Description { get; set; }
@@ -24,10 +24,10 @@ namespace Benny_Scraper.Models
         public string CurrentChapter { get; set; } = string.Empty;
         public string CurrentChapterUrl { get; set; } = string.Empty;
         public int? TotalChapters { get; set; }
-        public int? ChapterRangeBegin { get; set; }
-        public int? ChapterRangeEnd { get; set; }
-        public bool IsPartialDownload { get; set; }
-        public DateTime DateCreated { get; set; }
+        public int? ChapterRangeBegin { get; init; }
+        public int? ChapterRangeEnd { get; init; }
+        public bool IsPartialDownload { get; init; }
+        public DateTime DateCreated { get; init; }
         public DateTime DateLastModified { get; set; }
 
         //[DatabaseGenerated(DatabaseGeneratedOption.Computed)] // will need to create a constraint to default the value to 0
