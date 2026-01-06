@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
+﻿using Benny_Scraper.Models;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using Benny_Scraper.Models;
 
 namespace Benny_Scraper.BusinessLogic.Helper
 {

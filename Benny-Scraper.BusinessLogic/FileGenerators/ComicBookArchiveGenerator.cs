@@ -1,7 +1,7 @@
-﻿using System.IO.Compression;
-using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
+﻿using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
 using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
+using System.IO.Compression;
 
 namespace Benny_Scraper.BusinessLogic.FileGenerators
 {

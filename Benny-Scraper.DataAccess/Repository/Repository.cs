@@ -2,7 +2,6 @@
 using Benny_Scraper.DataAccess.Data;
 using Benny_Scraper.DataAccess.Repository.IRepository;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 
 namespace Benny_Scraper.DataAccess.Repository
@@ -103,7 +102,7 @@ namespace Benny_Scraper.DataAccess.Repository
             if (includedProperties != null)
             {
                 // Will not break if there are commas seperating properties, including ,,,
-                foreach (var includedProp in includedProperties.Split(new char[] {','}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                foreach (var includedProp in includedProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     query = query.Include(includedProp);
                 }
@@ -198,7 +197,7 @@ namespace Benny_Scraper.DataAccess.Repository
         public void Remove(GenericDbObject entity)
         {
             _dbSet.Remove(entity);
-        }        
+        }
 
         public void RemoveRange(IEnumerable<GenericDbObject> entity)
         {
@@ -213,6 +212,6 @@ namespace Benny_Scraper.DataAccess.Repository
         public Task RemoveByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
-        }        
+        }
     }
 }

@@ -97,7 +97,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
             if (selectedPremium.Any())
             {
-                
+
                 var premiumSummary = BuildPremiumSummary(selectedPremium);
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"\nPremium chapters in selection: {selectedPremium.Count} ({premiumSummary})");

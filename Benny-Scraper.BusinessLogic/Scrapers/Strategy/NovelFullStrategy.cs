@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using System.Diagnostics;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {

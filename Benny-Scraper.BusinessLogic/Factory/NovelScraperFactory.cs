@@ -1,10 +1,8 @@
-﻿using Benny_Scraper.BusinessLogic.Factory.Interfaces;
+﻿using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Benny_Scraper.BusinessLogic.Config;
 using NLog;
-using Autofac;
 
 namespace Benny_Scraper.BusinessLogic.Factory
 {

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq.Expressions;
 
 namespace Benny_Scraper.DataAccess.Repository.IRepository
 {
@@ -50,7 +45,7 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
             string? includeProperties = null,
             CancellationToken cancellationToken = default
         );
-        
+
         /// <summary>
         /// Add to the database
         /// </summary>

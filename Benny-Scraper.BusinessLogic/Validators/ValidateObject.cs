@@ -24,7 +24,7 @@ namespace Benny_Scraper.BusinessLogic.Validators
                     validationErrors.Add(error);
                 }
             }
-            
+
             return validationErrors;
         }
     }

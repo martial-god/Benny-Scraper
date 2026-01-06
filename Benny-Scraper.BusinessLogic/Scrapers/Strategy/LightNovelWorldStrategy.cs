@@ -96,8 +96,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             return novelDataBuffer;
         }
-        
-        
+
+
 
         private void SetCurrentChapterUrl(HtmlDocument htmlDocument, NovelDataBuffer novelDataBuffer)
         {

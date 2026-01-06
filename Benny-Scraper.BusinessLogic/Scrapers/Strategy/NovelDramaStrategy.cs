@@ -1,4 +1,4 @@
-﻿﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
+﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
 using System.Globalization;

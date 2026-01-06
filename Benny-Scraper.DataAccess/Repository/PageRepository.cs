@@ -25,6 +25,6 @@ namespace Benny_Scraper.DataAccess.Repository
         public void AddRange(ICollection<Page> pages)
         {
             _db.Pages.AddRange(pages);
-        }        
+        }
     }
 }

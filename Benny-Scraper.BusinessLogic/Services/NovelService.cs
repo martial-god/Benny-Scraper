@@ -21,7 +21,7 @@ namespace Benny_Scraper.BusinessLogic.Services
             novel.DateLastModified = DateTime.Now;
             novel.TotalChapters = novel.Chapters.Count;
             await _unitOfWork.Novel.AddAsync(novel);
-            
+
             //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
             await _unitOfWork.SaveAsync();
             return novel.Id;
@@ -34,7 +34,7 @@ namespace Benny_Scraper.BusinessLogic.Services
         /// <param name="newChapters"></param>
         /// <returns></returns>
         public async Task UpdateAndAddChaptersAsync(Novel? novel, IEnumerable<Chapter> newChapters)
-        {            
+        {
             _unitOfWork.Novel.Update(novel); //update existing
 
             await _unitOfWork.SaveAsync();

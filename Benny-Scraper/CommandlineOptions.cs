@@ -1,5 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
-using CommandLine;
+﻿using CommandLine;
+using System.ComponentModel.DataAnnotations;
 
 namespace Benny_Scraper
 {
@@ -13,7 +13,7 @@ namespace Benny_Scraper
 
         [Option("clear-database", Required = false, HelpText = "Clear all novels and chapters from database.")]
         public bool ClearDatabase { get; set; }
-        
+
         [Option('d', "delete-novel-by-id", Required = false, HelpText = "Deletes a novel by its ID")]
         public Guid DeleteNovelById { get; set; }
 
@@ -40,10 +40,10 @@ namespace Benny_Scraper
         public int MangaExtension { get; set; }
 
         [Option("get-extension", Required = false, HelpText = "Gets the saved default extensions for mangas.")]
-        public bool ExtensionType { get; set; }        
+        public bool ExtensionType { get; set; }
 
         [Option('f', "single-file", Required = false, HelpText = "Choose how to save Mangas: as a single file containing all chapters (Y), or as individual files for each chapter (N).")]
-        public  string SingleFile { get; set; }
+        public string SingleFile { get; set; }
 
         [Option('L', "update-novel-saved-location-by-id", Required = false, HelpText = "Updates the saved location of a novel by its [ID]. Useful when a file has been moved, or never added due to previous bug.")]
         public Guid UpdateNovelSavedLocationById { get; set; }

@@ -1,10 +1,9 @@
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using OpenQA.Selenium;
 using System.Diagnostics;
 using System.Globalization;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 
@@ -191,7 +190,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         }
                         driver.Navigate().GoToUrl(ScraperData.SiteTableOfContents.ToString());
                     }
-                    
+
                     const string chaptersTabXPath = "//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters'] ]";
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                         .ElementToBeClickable(By.XPath(chaptersTabXPath))).Click();
@@ -211,7 +210,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                     }
 
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(chapterLinksXPath)));
-                    
+
                     if (isLoggedIn)
                     {
                         var buttonToOpenBalancesXpath =
@@ -224,7 +223,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         await Task.Delay(500);
                         wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                             .ElementExists(By.XPath("//ul[@role='menu']")));
-                        
+
 
                         // DEBUG: Get and log the menu HTML to see what's actually there
                         var menuElement = driver.FindElement(By.XPath("//ul[@role='menu']"));
@@ -244,7 +243,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         var karmaValue = menuElement.FindElement(By.XPath(karmaBalanceXpath)).Text;
                         var spiritStoneValue = menuElement.FindElement(By.XPath(spiritStoneBalanceXpath)).Text;
                         int.TryParse(
-                            karmaValue, 
+                            karmaValue,
                             NumberStyles.Integer | NumberStyles.AllowThousands,
                             CultureInfo.InvariantCulture, out var karma);
                         int.TryParse(

@@ -110,7 +110,7 @@ namespace Benny_Scraper.Models
         public int Cost { get; init; }
         public string? CurrencyName { get; init; }
     }
-    
+
     public sealed class UserPremiumCurrency
     {
         public int Balance { get; set; }
