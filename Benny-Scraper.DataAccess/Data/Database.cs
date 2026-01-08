@@ -26,6 +26,7 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Chapter>().ToTable("chapter");
             modelBuilder.Entity<Page>().ToTable("page");
             modelBuilder.Entity<Configuration>().ToTable("configuration");
+            modelBuilder.Entity<ChapterRange>().ToTable("chapter_range");
 
             // Rename column            
             modelBuilder.Entity<Chapter>().Property(x => x.Id).HasColumnName("id").HasColumnOrder(0);
@@ -60,11 +61,14 @@ namespace Benny_Scraper.DataAccess.Data
             modelBuilder.Entity<Novel>().Property(x => x.CurrentChapterUrl).HasColumnName("current_chapter_url");
             modelBuilder.Entity<Novel>().Property(x => x.FileType).HasColumnName("file_type");
             modelBuilder.Entity<Novel>().Property(x => x.SavedFileIsSplit).HasColumnName("saved_file_is_split");
-            modelBuilder.Entity<Novel>().Property(x => x.ChapterRangeBegin).HasColumnName("chapter_range_begin");
-            modelBuilder.Entity<Novel>().Property(x => x.ChapterRangeEnd).HasColumnName("chapter_range_end");
-            modelBuilder.Entity<Novel>().Property(x => x.IsPartialDownload).HasColumnName("is_partial_download");
+            modelBuilder.Entity<Novel>().Ignore(x => x.IsPartialDownload); // Computed property, not stored in DB
             modelBuilder.Entity<Novel>()
                 .HasMany(x => x.Chapters)
+                .WithOne(x => x.Novel)
+                .HasForeignKey(x => x.NovelId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Novel>()
+                .HasMany(x => x.ChapterRanges)
                 .WithOne(x => x.Novel)
                 .HasForeignKey(x => x.NovelId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -77,6 +81,17 @@ namespace Benny_Scraper.DataAccess.Data
                 .HasOne(x => x.Chapter)
                 .WithMany(x => x.Pages)
                 .HasForeignKey(x => x.ChapterId);
+
+            modelBuilder.Entity<ChapterRange>().Property(x => x.Id).HasColumnName("id");
+            modelBuilder.Entity<ChapterRange>().Property(x => x.NovelId).HasColumnName("novel_id");
+            modelBuilder.Entity<ChapterRange>().Property(x => x.Begin).HasColumnName("begin");
+            modelBuilder.Entity<ChapterRange>().Property(x => x.End).HasColumnName("end");
+            modelBuilder.Entity<ChapterRange>().Property(x => x.DateCreated).HasColumnName("date_created");
+            modelBuilder.Entity<ChapterRange>().Property(x => x.VolumeName).HasColumnName("volume_name");
+            modelBuilder.Entity<ChapterRange>()
+                .HasOne(x => x.Novel)
+                .WithMany(x => x.ChapterRanges)
+                .HasForeignKey(x => x.NovelId);
 
             modelBuilder.Entity<Configuration>().Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Configuration>().Property(x => x.Name).HasColumnName("name");
@@ -100,5 +115,6 @@ namespace Benny_Scraper.DataAccess.Data
         public DbSet<Chapter> Chapters { get; set; }
         public DbSet<Page> Pages { get; set; }
         public DbSet<Configuration> Configurations { get; set; }
+        public DbSet<ChapterRange> ChapterRanges { get; set; }
     }
 }

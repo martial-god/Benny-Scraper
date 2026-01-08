@@ -55,11 +55,13 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 var oebpsDirectory = Path.Combine(tempDirectory, "OEBPS");
                 var textDirectory = Path.Combine(oebpsDirectory, "Text");
                 var cssDirectory = Path.Combine(oebpsDirectory, "css");
-                Logger.Info("Creating directories: {0}, {1}, {2}, {3}", metaInfDirectory, oebpsDirectory, textDirectory, cssDirectory);
+                var imagesDirectory = Path.Combine(oebpsDirectory, "Images");
+                Logger.Info("Creating directories: {0}, {1}, {2}, {3}, {4}", metaInfDirectory, oebpsDirectory, textDirectory, cssDirectory, imagesDirectory);
                 Directory.CreateDirectory(metaInfDirectory);
                 Directory.CreateDirectory(oebpsDirectory);
                 Directory.CreateDirectory(textDirectory);
                 Directory.CreateDirectory(cssDirectory);
+                Directory.CreateDirectory(imagesDirectory);
                 Logger.Info("Directories created");
 
                 var containerXml = new XmlDocument();
@@ -79,7 +81,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
                 // save cover image
                 var coverImageFileName = "cover.png";
-                var coverImageFilePath = Path.Combine(oebpsDirectory, coverImageFileName);
+                var coverImageFilePath = Path.Combine(imagesDirectory, coverImageFileName);
 
                 if (coverImage != null)
                 {
@@ -91,7 +93,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 // create intro page
                 int chapterIndex = 0;
                 var introTitle = "Information";
-                var introImage = "../" + coverImageFileName;
+                var introImage = "../Images/" + coverImageFileName;
                 var introDescription = novel.Description;
 
                 var introFileName = $"000{chapterIndex}_intro.xhtml";
@@ -127,7 +129,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 if (coverImage != null)
                 {
                     coverMeta = "<meta name=\"cover\" content=\"cover\"/>";
-                    coverManifest = "<item id=\"cover\" href=\"cover.png\" media-type=\"image/png\"/>";
+                    coverManifest = "<item id=\"cover\" href=\"Images/cover.png\" media-type=\"image/png\"/>";
                 }
 
                 manifestItems += "<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>";
@@ -213,21 +215,53 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 Directory.Delete(tempDirectory, true);
                 Logger.Info($"Deleted temporary directory: {tempDirectory}\n");
 
-                Logger.Info(new string('=', 50));
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.Write($"Total chapters: {chapters.Count()}\nEpub file created at: {outputFilePath}\n");
+                // Display completion summary in a formatted box
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
+                Console.WriteLine("║                    EPUB GENERATION COMPLETE!                             ║");
+                Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
+                Console.ResetColor();
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"  Novel:          {novel.Title}");
+                Console.WriteLine($"  Novel ID:       {novel.Id}");
+                if (novel.ChapterRanges.Any())
+                {
+                    var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
+                    var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
+                    Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
+                }
+                Console.WriteLine($"  Total Chapters: {chapters.Count()}");
+                Console.WriteLine($"  Saved to:       {outputFilePath}");
+                Console.ResetColor();
+
+                Console.WriteLine();
+                Console.WriteLine(new string('─', 78));
+                Console.WriteLine();
+
+                // Try to add to Calibre
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("Adding to Calibre database...");
+                Console.ResetColor();
                 try
                 {
-                    Logger.Info($"Adding Epub to Calibredb");
                     var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
-                    Logger.Info($"Command executed with code: {result}");
+                    Logger.Debug($"Calibre command executed with code: {result}");
+
+                    if (result == "0")
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("✓ Successfully added to Calibre");
+                        Console.ResetColor();
+                    }
                 }
                 catch
                 {
                 }
 
-                Console.ResetColor();
-                Logger.Info(new string('=', 50));
+                Console.WriteLine();
+                Logger.Debug($"EPUB generation complete - Novel: {novel.Title}, Chapters: {chapters.Count()}, Location: {outputFilePath}");
             }
         }
 

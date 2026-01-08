@@ -197,7 +197,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
 
                     const string collapsedSummariesXPath = "//*[@id='full-width-tabpanel-1']//div[@role='button' and @aria-expanded='false']";
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(collapsedSummariesXPath)));
-                    
+
                     var collapsedSummaries = driver.FindElements(By.XPath(collapsedSummariesXPath));
                     var jsExecutor = (IJavaScriptExecutor)driver;
 

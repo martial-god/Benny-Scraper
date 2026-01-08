@@ -27,21 +27,58 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Logger.Info(new string('=', 50));
             comicbookArchiveSaveLocation = CreateSigleComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration.DefaultMangaFileExtension, filenameSuffix);
 
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.Write($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
+            // Display completion summary in a formatted box
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Green;
+            var fileTypeName = Enum.GetName(configuration.DefaultMangaFileExtension)?.ToUpper() ?? "COMIC BOOK ARCHIVE";
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine($"║                 {fileTypeName} GENERATION COMPLETE!{new string(' ', 78 - fileTypeName.Length - 37)}║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"  Novel:          {novel.Title}");
+            Console.WriteLine($"  Novel ID:       {novel.Id}");
+            if (novel.ChapterRanges.Any())
+            {
+                var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
+                var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
+                Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
+            }
+            Console.WriteLine($"  Total Chapters: {novel.Chapters.Count}");
+            Console.WriteLine($"  Total Pages:    {totalPages}");
+            Console.WriteLine($"  Saved to:       {outputDirectory}");
+            Console.ResetColor();
+
             if (totalMissingChapters > 0)
             {
+                Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Theere were {totalMissingChapters} chapters with no pages");
-                Console.WriteLine($"Missing chapter urls: {string.Join("\n", missingChapterUrls)}");
+                Console.WriteLine($"  ⚠ Warning: {totalMissingChapters} chapters had no pages");
+                Console.WriteLine($"  Missing URLs: {string.Join(", ", missingChapterUrls)}");
+                Console.ResetColor();
             }
-            Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine($"Adding {Enum.GetName(configuration.DefaultMangaFileExtension)} to Calibre database");
-            var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
-            Logger.Info($"Command executed with code: {result}");
+
+            Console.WriteLine();
+            Console.WriteLine(new string('─', 78));
+            Console.WriteLine();
+
+            // Try to add to Calibre
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("Adding to Calibre database...");
             Console.ResetColor();
-            Logger.Info(new string('=', 50));
-            Logger.Info($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\n files created at: {outputDirectory}\n");
+            var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
+            Logger.Debug($"Calibre command executed with code: {result}");
+
+            if (result == "0")
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ Successfully added to Calibre");
+                Console.ResetColor();
+            }
+
+            Console.WriteLine();
+            Logger.Debug($"{fileTypeName} generation complete - Novel: {novel.Title}, Chapters: {novel.Chapters.Count}, Pages: {totalPages}, Location: {outputDirectory}");
             return comicbookArchiveSaveLocation;
         }
 

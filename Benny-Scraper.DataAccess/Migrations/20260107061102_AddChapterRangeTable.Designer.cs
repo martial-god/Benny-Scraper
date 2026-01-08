@@ -3,6 +3,7 @@ using System;
 using Benny_Scraper.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BennyScraper.DataAccess.Migrations
 {
     [DbContext(typeof(Database))]
-    partial class DatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260107061102_AddChapterRangeTable")]
+    partial class AddChapterRangeTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.1");
@@ -180,6 +183,14 @@ namespace BennyScraper.DataAccess.Migrations
                     b.Property<string>("Author")
                         .HasColumnType("TEXT")
                         .HasColumnName("author");
+
+                    b.Property<int?>("ChapterRangeBegin")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("chapter_range_begin");
+
+                    b.Property<int?>("ChapterRangeEnd")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("chapter_range_end");
 
                     b.Property<string>("CurrentChapter")
                         .IsRequired()

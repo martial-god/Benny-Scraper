@@ -1,6 +1,5 @@
 using Benny_Scraper.Models;
 using NLog;
-using System.Text.RegularExpressions;
 
 namespace Benny_Scraper.BusinessLogic.Utilities
 {
@@ -9,10 +8,9 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private const int DefaultMaxDisplay = 20;
 
-        /// <summary>
         /// Prompts user interactively for chapter range selection
         /// </summary>
-        public ChapterRange? PromptUserForRange(List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
+        public SelectedChapterRange? PromptUserForRange(List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
         {
             if (chapterLinks.Count == 0)
             {
@@ -32,7 +30,6 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 Logger.Debug("User declined chapter range selection, proceeding with all chapters");
                 return null;
             }
-            Console.WriteLine("\nFetching chapter list... (this may take a moment)");
 
             var totalChapters = chapterLinks.Count;
 
@@ -48,7 +45,8 @@ namespace Benny_Scraper.BusinessLogic.Utilities
 
             if (string.IsNullOrWhiteSpace(input))
             {
-                Logger.Info("User pressed Enter, downloading all chapters");
+                Console.WriteLine("User pressed Enter, downloading all chapters");
+                Logger.Debug("User pressed Enter, downloading all chapters");
                 return null;
             }
 
@@ -64,7 +62,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
 
             var begin = selectedChapters.Min();
             var end = selectedChapters.Max();
-            var range = new ChapterRange(begin, end);
+            var range = new SelectedChapterRange(begin, end);
 
             Logger.Info($"User selected {selectedChapters.Count} chapters, range: {range}");
 
@@ -92,19 +90,22 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                     : "User did not confirm premium unlock; proceeding without unlocking premium chapters");
             }
 
-            Logger.Info($"Chapter range confirmed: {range}");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"\nChapter range {range} confirmed.");
+            Console.ResetColor();
+            Logger.Debug($"Chapter range confirmed: {range}");
             return range;
         }
 
         /// <summary>
         /// Gets range from command line options
         /// </summary>
-        public ChapterRange GetRangeFromOptions(int totalChapters, int? begin, int? end)
+        public SelectedChapterRange GetRangeFromOptions(int totalChapters, int? begin, int? end)
         {
             var startChapter = begin ?? 1;
             var endChapter = end ?? totalChapters;
 
-            Logger.Info($"Creating chapter range from CLI options: Begin={startChapter}, End={endChapter}, Total={totalChapters}");
+            Logger.Debug($"Creating chapter range from CLI options: Begin={startChapter}, End={endChapter}, Total={totalChapters}");
 
             if (!ValidateRange(startChapter, endChapter, totalChapters))
             {
@@ -129,15 +130,15 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 Environment.Exit(1);
             }
 
-            var range = new ChapterRange(startChapter, endChapter);
-            Logger.Info($"Chapter range created: {range}");
+            var range = new SelectedChapterRange(startChapter, endChapter);
+            Logger.Debug($"Chapter range created: {range}");
             return range;
         }
 
         /// <summary>
         /// Parses flexible input formats like "1-50", "1,5,10-20", "all"
         /// </summary>
-        public List<int> ParseFlexibleInput(string input, int totalChapters)
+        private static List<int> ParseFlexibleInput(string input, int totalChapters)
         {
             Logger.Debug($"Parsing flexible input: '{input}', Total chapters: {totalChapters}");
 
@@ -178,10 +179,8 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                     continue;
                 }
 
-                if (!int.TryParse(trimmed, out int singleChapter))
-                {
+                if (!int.TryParse(trimmed, out var singleChapter))
                     continue;
-                }
 
                 if (singleChapter < 1 || singleChapter > totalChapters)
                 {
@@ -206,41 +205,21 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             Logger.Debug($"Displaying chapter list. Total: {totalChapters}, MaxDisplay: {maxDisplay}");
             Console.WriteLine($"\nAvailable Chapters (1-{totalChapters}):\n");
 
-            string FormatLine(int index, ChapterLink link)
-            {
-                var currency = link.PremiumInfo?.CurrencyName ?? "Credits";
-                var premiumTag = link.PremiumInfo.IsPremium
-                    ? $"[Premium {link.PremiumInfo.Cost} {currency}]"
-                    : "[Free]";
-                var title = string.IsNullOrWhiteSpace(link.Title) ? $"Chapter {index + 1}" : link.Title;
-                return $"[{index + 1,4}] {premiumTag} {title}";
-            }
-
-            void PrintPremiumTotals()
-            {
-                var summary = BuildPremiumSummary(chapterLinks);
-                if (string.IsNullOrWhiteSpace(summary)) return;
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"\nPremium summary (all chapters): {summary}\n");
-                Console.ResetColor();
-            }
-
             if (totalChapters <= maxDisplay)
             {
                 for (var i = 0; i < chapterLinks.Count; i++)
                 {
-                    Console.WriteLine(FormatLine(i, chapterLinks[i]));
+                    Console.WriteLine(FormatChapterLine(i, chapterLinks[i]));
                 }
-                PrintPremiumTotals();
+                PrintPremiumSummary(chapterLinks);
                 return;
             }
 
             var showCount = maxDisplay / 2;
-
             Console.WriteLine($"Showing first {showCount}:");
             for (var i = 0; i < showCount && i < chapterLinks.Count; i++)
             {
-                Console.WriteLine($"  {FormatLine(i, chapterLinks[i])}");
+                Console.WriteLine($"  {FormatChapterLine(i, chapterLinks[i])}");
             }
 
             Console.WriteLine("  ...");
@@ -249,7 +228,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             var startIndex = Math.Max(0, totalChapters - showCount);
             for (var i = startIndex; i < chapterLinks.Count; i++)
             {
-                Console.WriteLine($"  {FormatLine(i, chapterLinks[i])}");
+                Console.WriteLine($"  {FormatChapterLine(i, chapterLinks[i])}");
             }
 
             Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -259,7 +238,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             var listChoice = Console.ReadLine()?.Trim().ToLower();
             if (listChoice != "list")
             {
-                PrintPremiumTotals();
+                PrintPremiumSummary(chapterLinks);
                 return;
             }
 
@@ -267,10 +246,31 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             Console.WriteLine("\nAll Chapters:\n");
             for (var i = 0; i < chapterLinks.Count; i++)
             {
-                Console.WriteLine($"  {FormatLine(i, chapterLinks[i])}");
+                Console.WriteLine($"  {FormatChapterLine(i, chapterLinks[i])}");
             }
 
-            PrintPremiumTotals();
+            PrintPremiumSummary(chapterLinks);
+        }
+
+        private static string FormatChapterLine(int index, ChapterLink link)
+        {
+            var currency = link.PremiumInfo?.CurrencyName ?? "Credits";
+            var premiumTag = link.PremiumInfo.IsPremium
+                ? $"[Premium {link.PremiumInfo.Cost} {currency}]"
+                : "[Free]";
+            var title = string.IsNullOrWhiteSpace(link.Title) ? $"Chapter {index + 1}" : link.Title;
+            return $"[{index + 1,4}] {premiumTag} {title}";
+        }
+
+        private static void PrintPremiumSummary(List<ChapterLink> chapterLinks)
+        {
+            var summary = BuildPremiumSummary(chapterLinks);
+            if (string.IsNullOrWhiteSpace(summary))
+                return;
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"\nPremium summary (all chapters): {summary}\n");
+            Console.ResetColor();
         }
 
         private static string BuildPremiumSummary(IEnumerable<ChapterLink> links)
@@ -287,98 +287,9 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         }
 
         /// <summary>
-        /// Detects volume boundaries from chapter titles
-        /// </summary>
-        private List<VolumeRange> DetectVolumes(List<string> chapterTitles)
-        {
-            Logger.Debug("Detecting volume boundaries from chapter titles");
-            var volumes = new List<VolumeRange>();
-            var volumePatterns = new[]
-            {
-                 @"volume\s*(\d+)",
-                 @"vol\.?\s*(\d+)",
-                 @"book\s*(\d+)",
-                 @"part\s*(\d+)",
-                 @"v(\d+)",
-                 @"\(v(\d+)\)"
-             };
-
-            int? currentVolumeStart = null;
-            int? currentVolumeNumber = null;
-
-            for (int i = 0; i < chapterTitles.Count; i++)
-            {
-                var title = chapterTitles[i].ToLower();
-                int? detectedVolume = null;
-
-                foreach (var pattern in volumePatterns)
-                {
-                    var match = Regex.Match(title, pattern, RegexOptions.IgnoreCase);
-                    if (!match.Success || match.Groups.Count <= 1)
-                    {
-                        continue;
-                    }
-
-                    if (!int.TryParse(match.Groups[1].Value, out int volNum))
-                    {
-                        continue;
-                    }
-
-                    detectedVolume = volNum;
-                    break;
-                }
-
-                if (!detectedVolume.HasValue)
-                {
-                    continue;
-                }
-
-                if (currentVolumeStart.HasValue)
-                {
-                    currentVolumeStart = i + 1;
-                    currentVolumeNumber = detectedVolume.Value;
-                    continue;
-                }
-
-                if (detectedVolume.Value == currentVolumeNumber.Value)
-                {
-                    continue;
-                }
-
-                if (currentVolumeStart.HasValue)
-                {
-                    volumes.Add(new VolumeRange
-                    {
-                        Begin = currentVolumeStart.Value,
-                        End = i,
-                        Name = $"Volume {currentVolumeNumber.Value}"
-                    });
-                    Logger.Debug($"Detected volume {currentVolumeNumber.Value}: chapters {currentVolumeStart.Value}-{i}");
-                }
-
-                currentVolumeStart = i + 1;
-                currentVolumeNumber = detectedVolume.Value;
-            }
-
-            if (currentVolumeStart.HasValue && currentVolumeNumber.HasValue)
-            {
-                volumes.Add(new VolumeRange
-                {
-                    Begin = currentVolumeStart.Value,
-                    End = chapterTitles.Count,
-                    Name = $"Volume {currentVolumeNumber.Value}"
-                });
-                Logger.Debug($"Detected volume {currentVolumeNumber.Value}: chapters {currentVolumeStart.Value}-{chapterTitles.Count}");
-            }
-
-            Logger.Info($"Volume detection complete. Found {volumes.Count} volumes");
-            return volumes;
-        }
-
-        /// <summary>
         /// Shows confirmation of selected range
         /// </summary>
-        private bool ConfirmRange(ChapterRange range, List<string> chapterTitles, List<int>? selectedChapters = null)
+        private bool ConfirmRange(SelectedChapterRange range, List<string> chapterTitles, List<int>? selectedChapters = null)
         {
             Console.WriteLine("\nSelected Range:");
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -428,12 +339,10 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         /// <summary>
         /// Displays selected range for CLI mode
         /// </summary>
-        public void DisplayRangeInfo(ChapterRange range, List<string> chapterTitles)
+        public static void DisplayRangeInfo(SelectedChapterRange range, List<string> chapterTitles)
         {
-            Logger.Info($"Displaying range info for CLI mode: {range}");
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine($"\nSelected chapters: {range}");
-
             if (chapterTitles.Count >= range.End)
             {
                 var firstChapter = chapterTitles[range.Begin - 1];
@@ -442,7 +351,6 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 Console.WriteLine($"  Begin: {firstChapter}");
                 Console.WriteLine($"  End:   {lastChapter}");
             }
-
             Console.ResetColor();
         }
 
@@ -450,7 +358,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         /// Prompts user to confirm premium chapter unlock for selected range.
         /// Returns true if user wants to unlock premium chapters, false if they want teasers only.
         /// </summary>
-        public bool ConfirmPremiumChapters(ChapterRange range, List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
+        public static void ConfirmPremiumChapters(SelectedChapterRange range, List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
         {
             var selectedLinks = chapterLinks.Skip(range.Begin - 1).Take(range.Count).ToList();
             var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
@@ -458,7 +366,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             if (!selectedPremium.Any())
             {
                 Logger.Debug("No premium chapters in selected range");
-                return false;
+                return;
             }
 
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -494,18 +402,10 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             if (string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase))
             {
                 Logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
-                return true;
+                return;
             }
 
             Logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
-            return false;
-        }
-
-        private class VolumeRange
-        {
-            public int Begin { get; init; }
-            public int End { get; init; }
-            public string Name { get; init; } = string.Empty;
         }
     }
 }

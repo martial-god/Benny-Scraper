@@ -101,7 +101,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     case Attr.Genres:
                         var genreNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.TableOfContents.NovelGenres);
-                        if (genreNodes != null)
+                        if (genreNodes.Count != 0)
                         {
                             novelDataBuffer.Genres = genreNodes.Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())).ToList();
                             Console.WriteLine($"Total Genres: {novelDataBuffer.Genres.Count}");
@@ -111,7 +111,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     case Attr.AlternativeNames:
                         var alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.TableOfContents.NovelAlternativeNames);
-                        if (alternateNameNodes != null)
+                        if (alternateNameNodes.Count != 0)
                         {
                             List<string> alternateNames = alternateNameNodes.Select(alternateName => HtmlEntity.DeEntitize(alternateName.InnerText.Trim())).ToList();
                             if (alternateNames.Any())
@@ -196,8 +196,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                         if (scraperData.SiteConfig!.HasPremiumChapters && scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors != null)
                         {
-                            foreach (var chapterLinkNode in chapterLinkNodes)
+                            for (var i = 0; i < chapterLinkNodes.Count; i++)
                             {
+                                var chapterLinkNode = chapterLinkNodes[i];
                                 var isPremium = chapterLinkNode.SelectSingleNode(
                                     scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumIndicator) != null;
                                 var premiumCost = chapterLinkNode.SelectSingleNode(
@@ -304,7 +305,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public Uri? SiteTableOfContents { get; set; }
         public Uri? BaseUri { get; set; }
         public IHttpClientFactory? HttpClientFactory { get; set; }
-        public ChapterRange? ChapterRange { get; set; }
+        public SelectedChapterRange? ChapterRange { get; set; }
         public string? DetectedVolumeName { get; set; }
         public List<OpenQA.Selenium.Cookie>? LoginCookies { get; set; }
     }
@@ -423,7 +424,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return ScraperData.SiteConfig ?? throw new NullReferenceException("SiteConfiguration is null");
         }
 
-        public void SetChapterRange(ChapterRange? chapterRange, string? volumeName = null)
+        public void SetChapterRange(SelectedChapterRange? chapterRange, string? volumeName = null)
         {
             ScraperData.ChapterRange = chapterRange;
             ScraperData.DetectedVolumeName = volumeName;
@@ -455,7 +456,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             Logger.Info($"Login enabled for {ScraperData.SiteConfig.Name}");
         }
 
-        public ChapterRange? GetChapterRange()
+        public SelectedChapterRange? GetChapterRange()
         {
             return ScraperData.ChapterRange;
         }
@@ -579,24 +580,28 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         /// <summary>
         /// Sorts chapters based on the site configuration's ChapterSortOrder setting.
         /// Applies to both ChapterUrls and ChapterTitles in the NovelDataBuffer.
+        /// Also assigns proper ChapterNumber after sorting.
         /// </summary>
         public virtual void SortChapters(NovelDataBuffer novelDataBuffer)
         {
             if (ScraperData.SiteConfig?.ChapterSortOrder == null)
             {
                 Logger.Debug("No chapter sort order configured, keeping default order");
+                AssignChapterNumbers(novelDataBuffer);
+                
                 return;
             }
 
             var sortOrder = ScraperData.SiteConfig.ChapterSortOrder;
 
-            if (sortOrder == Config.ChapterSortOrder.None)
+            if (sortOrder == ChapterSortOrder.None)
             {
                 Logger.Debug("Chapter sort order set to None, keeping original order");
+                AssignChapterNumbers(novelDataBuffer);
                 return;
             }
 
-            if (sortOrder == Config.ChapterSortOrder.Descending)
+            if (sortOrder == ChapterSortOrder.Descending)
             {
                 Logger.Debug("Reversing chapter order (Descending -> Ascending)");
                 novelDataBuffer.ChapterLinks.Reverse();
@@ -605,6 +610,19 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             else
             {
                 Logger.Debug("Chapter sort order is Ascending (default), no reversal needed");
+            }
+
+            // Assign chapter numbers based on final sorted order
+            AssignChapterNumbers(novelDataBuffer);
+        }
+
+        private static void AssignChapterNumbers(NovelDataBuffer novelDataBuffer)
+        {
+            for (var i = 0; i < novelDataBuffer.ChapterLinks.Count; i++)
+            {
+                // Records support 'with' for non-destructive mutation - creates a new instance with modified properties
+                // instead of mutating the existing immutable ChapterLink. So we are swapping based on ChapterNumber 
+                novelDataBuffer.ChapterLinks[i] = novelDataBuffer.ChapterLinks[i] with { ChapterNumber = i + 1 };
             }
         }
 
@@ -963,7 +981,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         public async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<ChapterLink> chapterLinks)
         {
             var tempImageDirectory = string.Empty;
-            var sequenceNumber = 1;
             try
             {
                 Logger.Info("Getting chapters data");
@@ -980,7 +997,12 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     // I haven't run into a httpclient site that requires premium so no need to pass the entire chapterLink yet.
                     await ProcessChaptersWithHttpClient(chapterLinks.Select(c => c.Url).ToList(), tasks, chapterDataBuffers);
                 }
-                chapterDataBuffers.ForEach(chapterDataBuffer => chapterDataBuffer.SequenceNumber = sequenceNumber++);
+
+                for (var i = 0; i < chapterDataBuffers.Count && i < chapterLinks.Count; i++)
+                {
+                    chapterDataBuffers[i].SequenceNumber = chapterLinks[i].ChapterNumber;
+                }
+
                 return chapterDataBuffers;
             }
             catch (Exception ex)
@@ -1298,8 +1320,31 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Url = chapterLink.Url
             };
 
+            // Start animated spinner
+            var spinnerCts = new CancellationTokenSource();
+            Task? spinnerTask = null;
+
             if (totalChapters > 0)
-                Console.Write($"\rLoading chapter {currentChapter}/{totalChapters}, waiting for {waitTarget}... ");
+            {
+                spinnerTask = Task.Run(async () =>
+                {
+                    var spinner = new[] { '|', '/', '-', '\\' };
+                    var spinnerIndex = 0;
+                    while (!spinnerCts.Token.IsCancellationRequested)
+                    {
+                        Console.Write($"\rLoading chapter {currentChapter}/{totalChapters}, waiting for {waitTarget} {spinner[spinnerIndex]} ");
+                        spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+                        try
+                        {
+                            await Task.Delay(150, spinnerCts.Token);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            break;
+                        }
+                    }
+                }, spinnerCts.Token);
+            }
 
             await driver.Navigate().GoToUrlAsync(chapterLink.Url);
             try
@@ -1311,25 +1356,34 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Error($"Timeout while waiting for elements on page {chapterLink.Url}: {ex.Message}");
                 chapterDataBuffer.Title = uriLastSegment;
+                spinnerCts?.Cancel();
+                spinnerTask?.Wait();
                 return chapterDataBuffer;
+            }
+            finally
+            {
+                await spinnerCts?.CancelAsync()!;
+                if (spinnerTask != null)
+                {
+                    try { await spinnerTask; }
+                    catch
+                    {
+                        // ignored
+                    }
+                }
             }
 
             if (totalChapters > 0)
-                Console.Write($"({stopwatch.ElapsedMilliseconds} ms)");
+                Console.Write($"\r{new string(' ', 100)}\rLoading chapter {currentChapter}/{totalChapters}, waiting for {waitTarget} - ({stopwatch.ElapsedMilliseconds} ms)");
 
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
 
             var titleNode = htmlDocument.DocumentNode.SelectSingleNode(ScraperData.SiteConfig?.Selectors.ChapterTitle);
-            chapterDataBuffer.Title = titleNode != null ? titleNode.InnerText.Trim() : uriLastSegment;
+            chapterDataBuffer.Title = titleNode.InnerText.Trim();
             Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
 
             var contentNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterContent);
-            if (contentNodes == null)
-            {
-                Logger.Error("No page content nodes found");
-                return chapterDataBuffer;
-            }
 
             if (ScraperData.SiteConfig!.HasImagesForChapterContent)
                 chapterDataBuffer = await AddImagePagesContentToChapterDataBuffer(chapterDataBuffer, contentNodes, stopwatch, tempImageDirectory);

@@ -9,6 +9,7 @@ namespace Benny_Scraper.Models
         public Guid Id { get; init; }
         [Column("novel_id")]
         public ICollection<Chapter> Chapters { get; set; } = null!;
+        public ICollection<ChapterRange> ChapterRanges { get; set; } = new List<ChapterRange>();
 
         [Required]
         public required string Title { get; init; }
@@ -24,9 +25,12 @@ namespace Benny_Scraper.Models
         public string CurrentChapter { get; set; } = string.Empty;
         public string CurrentChapterUrl { get; set; } = string.Empty;
         public int? TotalChapters { get; set; }
-        public int? ChapterRangeBegin { get; init; }
-        public int? ChapterRangeEnd { get; init; }
-        public bool IsPartialDownload { get; init; }
+
+        /// <summary>
+        /// True if this novel has chapter ranges (partial download)
+        /// </summary>
+        public bool IsPartialDownload => ChapterRanges.Any();
+
         public DateTime DateCreated { get; init; }
         public DateTime DateLastModified { get; set; }
 
@@ -38,6 +42,31 @@ namespace Benny_Scraper.Models
         public string? SaveLocation { get; set; }
         public bool SavedFileIsSplit { get; set; }
         public NovelFileType FileType { get; set; }
+    }
+
+    public class ChapterRange
+    {
+        [Key]
+        public Guid Id { get; init; }
+
+        [Required]
+        public Guid NovelId { get; init; }
+
+        [ForeignKey("NovelId")]
+        public Novel Novel { get; init; } = null!;
+
+        [Required]
+        public int Begin { get; set; }
+
+        [Required]
+        public int End { get; set; }
+
+        public DateTime DateCreated { get; init; }
+
+        /// <summary>
+        /// Optional volume name if this range represents a volume
+        /// </summary>
+        public string? VolumeName { get; set; }
     }
 
     public enum NovelFileType
@@ -102,11 +131,12 @@ namespace Benny_Scraper.Models
         }
     }
 
-    public sealed class ChapterLink
+    public sealed record ChapterLink
     {
         public string Url { get; init; } = string.Empty;
         public string? Title { get; init => field = value?.Trim(); }
         public PremiumChapterInfo PremiumInfo { get; init; } = new PremiumChapterInfo();
+        public int ChapterNumber { get; init; }
     }
 
     public sealed class PremiumChapterInfo

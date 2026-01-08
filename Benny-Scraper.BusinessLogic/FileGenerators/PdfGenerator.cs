@@ -1,9 +1,9 @@
 ﻿using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
 using NLog;
-using PdfSharpCore.Drawing;
-using PdfSharpCore.Pdf;
-using PdfSharpCore.Pdf.IO;
+using PdfSharp.Drawing;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 using SixLabors.ImageSharp;
 using System.Diagnostics;
 
@@ -39,20 +39,57 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 isPdfSplit = true;
             }
 
-            Console.Write($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
+            // Display completion summary in a formatted box
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                     PDF GENERATION COMPLETE!                             ║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"  Novel:          {novel.Title}");
+            Console.WriteLine($"  Novel ID:       {novel.Id}");
+            if (novel.ChapterRanges.Any())
+            {
+                var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
+                var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
+                Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
+            }
+            Console.WriteLine($"  Total Chapters: {novel.Chapters.Count}");
+            Console.WriteLine($"  Total Pages:    {totalPages}");
+            Console.WriteLine($"  Saved to:       {outputDirectory}");
+            Console.ResetColor();
+
             if (totalMissingChapters > 0)
             {
+                Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"There were {totalMissingChapters} chapters with no pages");
-                Console.WriteLine($"Missing chapter urls: {string.Join("\n", missingChapterUrls)}");
+                Console.WriteLine($"  ⚠ Warning: {totalMissingChapters} chapters had no pages");
+                Console.WriteLine($"  Missing URLs: {string.Join(", ", missingChapterUrls)}");
+                Console.ResetColor();
             }
-            Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine($"Adding PDFs to Calibre database");
-            var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
-            Logger.Info($"Command executed with code: {result}");
+
+            Console.WriteLine();
+            Console.WriteLine(new string('─', 78));
+            Console.WriteLine();
+
+            // Try to add to Calibre
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("Adding to Calibre database...");
             Console.ResetColor();
-            Logger.Info(new string('=', 50));
-            Logger.Info($"Total chapters: {novel.Chapters.Count}\nTotal pages {totalPages}:\n\nPDF files created at: {outputDirectory}\n");
+            var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
+            Logger.Debug($"Calibre command executed with code: {result}");
+
+            if (result == "0")
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ Successfully added to Calibre");
+                Console.ResetColor();
+            }
+
+            Console.WriteLine();
+            Logger.Debug($"PDF generation complete - Novel: {novel.Title}, Chapters: {novel.Chapters.Count}, Pages: {totalPages}, Location: {outputDirectory}");
             return (pdfSaveLocation, isPdfSplit);
         }
 
@@ -85,8 +122,9 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
                     var gfx = XGraphics.FromPdfPage(pdfPage);
 
-                    using var xImage = XImage.FromStream(() => ConvertImageToStream(image)); // this expects a delegate that is only evaluated when needed by the fromstream
-                    gfx.DrawImage(xImage, 0, 0, pdfPage.Width, pdfPage.Height);
+                    using var imageStream = ConvertImageToStream(image);
+                    using var xImage = XImage.FromStream(imageStream);
+                    gfx.DrawImage(xImage, 0, 0, pdfPage.Width.Point, pdfPage.Height.Point);
                 }
 
                 var baseFilename = $"{novel.Title} - {chapter.Title}";
@@ -100,7 +138,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         }
 
 
-        public string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
+        private static string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
         {
             Directory.CreateDirectory(pdfDirectoryPath);
 
@@ -124,12 +162,13 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 foreach (var imagePath in imagePaths)
                 {
                     using var image = Image.Load(imagePath);
-                    var img = XImage.FromStream(() => ConvertImageToStream(image));
+                    using var imageStream = ConvertImageToStream(image);
+                    using var img = XImage.FromStream(imageStream);
                     var page = document.AddPage();
                     page.Width = XUnit.FromPoint(img.PixelWidth);
                     page.Height = XUnit.FromPoint(img.PixelHeight);
                     var gfx = XGraphics.FromPdfPage(page);
-                    gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                    gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
                     File.Delete(imagePath);
                 }
             }
@@ -138,11 +177,9 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             var baseFilename = novel.Title;
             var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{baseFilename} - {filenameSuffix}";
             var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
-            Logger.Info($"Saving Pdf to {pdfDirectoryPath}");
             var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
             document.Save(pdfFilePath);
-            Logger.Info($"Pdf saved to {pdfFilePath}");
-            Console.WriteLine($"Pdf saved to {pdfFilePath}");
+            Logger.Debug($"PDF saved to {pdfFilePath}");
             return pdfFilePath;
         }
 
@@ -187,13 +224,14 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                         foreach (var imagePath in imagePaths)
                         {
                             using var image = Image.Load(imagePath);
-                            var img = XImage.FromStream(() => ConvertImageToStream(image));
+                            using var imageStream = ConvertImageToStream(image);
+                            using var img = XImage.FromStream(imageStream);
                             var page = document.AddPage();
                             page.Width = XUnit.FromPoint(img.PixelWidth);
                             page.Height = XUnit.FromPoint(img.PixelHeight);
 
                             var gfx = XGraphics.FromPdfPage(page);
-                            gfx.DrawImage(img, 0, 0, page.Width, page.Height);
+                            gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
                             File.Delete(imagePath);
 
                             document.Save(tempPdfFilePath);
@@ -211,7 +249,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             Console.WriteLine($"Pdf file updated at {pdfFilePath}");
         }
 
-        private static MemoryStream ConvertImageToStream(SixLabors.ImageSharp.Image image)
+        private static MemoryStream ConvertImageToStream(Image image)
         {
             var memoryStream = new MemoryStream();
             image.Save(memoryStream, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder());
