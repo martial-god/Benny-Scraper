@@ -41,7 +41,10 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                     Logger.Warn($"Shutting down: disposing Selenium drivers. Reason: {reason}");
                     Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Console.WriteLine("Tip: If the application was interrupted, check Task Manager for orphaned Chrome processes.");
+                    Console.WriteLine("Tip: If the application was interrupted, check Task Manager for orphaned ChromeDriver processes.");
+                    Console.ResetColor();
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine("Or run 'taskkill /F /IM chromedriver.exe /T' on windows");
                     Console.ResetColor();
                     if (ex != null)
                         Logger.Error(ex, "Unhandled exception triggered shutdown.");

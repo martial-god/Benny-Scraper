@@ -201,18 +201,27 @@ public class WuxiaWorldStrategy : ScraperStrategy
                     var collapsedSummaries = driver.FindElements(By.XPath(collapsedSummariesXPath));
                     var jsExecutor = (IJavaScriptExecutor)driver;
 
-                    var count = 0;
                     foreach (var collapsedSummary in collapsedSummaries)
                     {
-                        // I guess I need to scroll to the element at least for the headless mode to work consistently.
-                        jsExecutor.ExecuteScript("arguments[0].scrollIntoView({behavior: 'auto', block: 'center'});", collapsedSummary);
+                        var summarySpans = collapsedSummary.FindElements(By.XPath(".//span"));
                         wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementToBeClickable(collapsedSummary)).Click();
+                        Console.Write($"\r\tSummary {summarySpans.First().Text} clicked. Waiting for links to load.\t");
 
                         var summary = collapsedSummary;
                         wait.Until(_ =>
-                            summary.GetAttribute("aria-expanded") == "true"
-                            || summary.FindElements(By.XPath(".//a")).Count > 0);
-                        Console.Write($"\rChapter urls expanded {++count}/{collapsedSummaries.Count}");
+                        {
+                            try
+                            {
+                                return summary.GetAttribute("aria-expanded") == "true"
+                                    && summary.FindElements(By.XPath("./following-sibling::*//a")).Count > 0;
+                            }
+                            catch (StaleElementReferenceException)
+                            {
+                                return false;
+                            }
+                        });
+
+                        Console.Write($"Chapter links found:{summary.FindElements(By.XPath("./following-sibling::*//a")).Count}. ");
                     }
 
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(chapterLinksXPath)));
@@ -225,27 +234,19 @@ public class WuxiaWorldStrategy : ScraperStrategy
                             .ElementToBeClickable(By.XPath(buttonToOpenBalancesXpath)));
                         premiumButton.Click();
 
-                        // Wait for the dropdown menu to fully appear
                         await Task.Delay(500);
                         wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                             .ElementExists(By.XPath("//ul[@role='menu']")));
 
                         var menuElement = driver.FindElement(By.XPath("//ul[@role='menu']"));
-                        // var menuHtml = menuElement.GetAttribute("innerHTML");
-                        // var allPTags = menuElement.FindElements(By.XPath(".//p"));
-                        // Logger.Info($"DEBUG - Found {allPTags.Count} <p> tags in menu");
-                        // foreach (var p in allPTags.Take(5))
-                        // {
-                        //     Logger.Info($"DEBUG - P tag text: '{p.Text}'");
-                        // }
 
                         var karmaBalanceXpath =
                             ScraperData.SiteConfig.Selectors.UserCurrencyBalances?[ScraperData.SiteConfig.PremiumInfo!.CurrencyName.ToLower()];
                         var spiritStoneBalanceXpath =
                             ScraperData.SiteConfig.Selectors.UserCurrencyBalances?["spiritStones"];
 
-                        var karmaValue = menuElement.FindElement(By.XPath(karmaBalanceXpath)).Text;
-                        var spiritStoneValue = menuElement.FindElement(By.XPath(spiritStoneBalanceXpath)).Text;
+                        var karmaValue = menuElement.FindElement(By.XPath(karmaBalanceXpath)).Text ?? "-1";
+                        var spiritStoneValue = menuElement.FindElement(By.XPath(spiritStoneBalanceXpath)).Text ?? "-1";
                         int.TryParse(
                             karmaValue,
                             NumberStyles.Integer | NumberStyles.AllowThousands,

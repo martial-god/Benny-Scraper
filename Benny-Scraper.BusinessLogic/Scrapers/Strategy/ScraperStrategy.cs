@@ -1108,7 +1108,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     }
 
                     wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(requiredXPath)));
-                    Logger.Info($"{objectToLookFor} loaded for {url}. Time: {stopwatch.ElapsedMilliseconds} ms");
+                    Logger.Debug($"\n{objectToLookFor} loaded for {url}. Time: {stopwatch.ElapsedMilliseconds} ms");
 
                     var htmlDocument = new HtmlDocument();
                     var pageSource = driver.PageSource;
