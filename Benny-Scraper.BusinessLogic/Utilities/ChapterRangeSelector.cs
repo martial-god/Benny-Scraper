@@ -1,3 +1,4 @@
+using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
 using NLog;
 
@@ -10,7 +11,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
 
         /// Prompts user interactively for chapter range selection
         /// </summary>
-        public SelectedChapterRange? PromptUserForRange(List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
+        public SelectedChapterRange? PromptUserForRange(List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies, bool isLoggedIn)
         {
             if (chapterLinks.Count == 0)
             {
@@ -78,16 +79,70 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             if (selectedPremium.Count != 0)
             {
                 var premiumSummary = BuildPremiumSummary(selectedPremium);
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"\nPremium chapters in selection: {selectedPremium.Count} ({premiumSummary})");
-                Console.WriteLine($"Current premium currency balance: " +
-                                  $"{userCurrencies?.Where(uc => uc.CurrencyName == "Karma")?.FirstOrDefault()?.Balance:N0} Karma");
-                Console.Write("Type 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
-                Console.ResetColor();
-                var premiumChoice = Console.ReadLine()?.Trim();
-                Logger.Info(string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase)
-                    ? "User confirmed proceeding with premium chapters (unlock flow not implemented)"
-                    : "User did not confirm premium unlock; proceeding without unlocking premium chapters");
+                
+                if (!isLoggedIn)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    var notLoggedInMessages = new[]
+                    {
+                        "⚠️  PREMIUM CHAPTERS DETECTED - NOT LOGGED IN  ⚠️",
+                        "",
+                        $"Your selection includes {selectedPremium.Count} premium chapter(s).",
+                        "",
+                        "Since you are NOT logged in, premium chapters will be downloaded as",
+                        "TEASERS ONLY (limited preview content).",
+                        "",
+                        "To download full premium chapters:",
+                        "  1. Stop the program now (Ctrl+C)",
+                        "  2. Re-run with the --with-login flag:",
+                        "     Benny-Scraper <url> --with-login",
+                        "",
+                        "Press Enter to continue with teasers, or Ctrl+C to stop."
+                    };
+                    CommonHelper.DrawBox(notLoggedInMessages, ConsoleColor.Yellow);
+                    Console.ResetColor();
+                    
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"\nPremium chapters in selection: {selectedPremium.Count} ({premiumSummary})");
+                    Console.WriteLine("These will be downloaded as TEASERS ONLY.");
+                    Console.ResetColor();
+                    Console.Write("\nPress Enter to continue with teasers: ");
+                    Console.ReadLine();
+                    Logger.Info("User acknowledged premium chapters will be teasers (not logged in)");
+                }
+                else
+                {
+                    // User is logged in, show credit consumption warning
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    var warningMessages = new[]
+                    {
+                        "⚠️  WARNING: UNLOCKING PREMIUM CHAPTERS WILL COST YOU CREDITS!  ⚠️",
+                        "",
+                        "If you have 'Enabled Auto Unlock' set to true, premium chapters will be",
+                        "automatically unlocked for you using your account credits/karma.",
+                        "",
+                        "If you DO NOT want your credits consumed, you should:",
+                        "  1. Stop the program now (Ctrl+C)",
+                        "  2. Change the chapter range to exclude premium chapters",
+                        "",
+                        "For instructions, visit:",
+                        "https://github.com/martial-god/Benny-Scraper#quick-start"
+                    };
+                    CommonHelper.DrawBox(warningMessages, ConsoleColor.Red);
+                    Console.ResetColor();
+                    
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"\nPremium chapters in selection: {selectedPremium.Count} ({premiumSummary})");
+                    Console.WriteLine($"Current premium currency balance: " +
+                                      $"{userCurrencies?.Where(uc => uc.CurrencyName == "Karma")?.FirstOrDefault()?.Balance:N0} Karma");
+                    Console.ResetColor();
+                    Console.Write("\nType 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
+                    
+                    var premiumChoice = Console.ReadLine()?.Trim();
+                    Logger.Info(string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase)
+                        ? "User confirmed proceeding with premium chapters (unlock flow not implemented)"
+                        : "User did not confirm premium unlock; proceeding without unlocking premium chapters");
+                }
             }
 
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -109,11 +164,9 @@ namespace Benny_Scraper.BusinessLogic.Utilities
 
             if (!ValidateRange(startChapter, endChapter, totalChapters))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"\n╔═══════════════════════════════════════════════════╗");
-                Console.WriteLine($"║              Invalid Chapter Range                ║");
-                Console.WriteLine($"╚═══════════════════════════════════════════════════╝");
-                Console.ResetColor();
+                var errorMessages = new[] { "Invalid Chapter Range" };
+                CommonHelper.DrawBox(errorMessages, ConsoleColor.Red);
+                
                 Console.WriteLine($"\nYour chapter range selection is out of bounds:");
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"  Requested: Chapters {startChapter}-{endChapter}");
@@ -286,6 +339,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 $"{g.Count():N0} premium, total {g.Sum(cl => cl.PremiumInfo.Cost):N0} {g.Key}"));
         }
 
+
         /// <summary>
         /// Shows confirmation of selected range
         /// </summary>
@@ -358,7 +412,7 @@ namespace Benny_Scraper.BusinessLogic.Utilities
         /// Prompts user to confirm premium chapter unlock for selected range.
         /// Returns true if user wants to unlock premium chapters, false if they want teasers only.
         /// </summary>
-        public static void ConfirmPremiumChapters(SelectedChapterRange range, List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies)
+        public static void ConfirmPremiumChapters(SelectedChapterRange range, List<ChapterLink> chapterLinks, List<UserPremiumCurrency>? userCurrencies, bool isLoggedIn)
         {
             var selectedLinks = chapterLinks.Skip(range.Begin - 1).Take(range.Count).ToList();
             var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
@@ -369,11 +423,8 @@ namespace Benny_Scraper.BusinessLogic.Utilities
                 return;
             }
 
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"\n╔═══════════════════════════════════════════════════╗");
-            Console.WriteLine($"║           Premium Chapters Detected               ║");
-            Console.WriteLine($"╚═══════════════════════════════════════════════════╝");
-            Console.ResetColor();
+            var headerMessages = new[] { "Premium Chapters Detected" };
+            CommonHelper.DrawBox(headerMessages, ConsoleColor.Yellow);
 
             Console.WriteLine($"\nThe following premium chapters were found in your selection:\n");
 
@@ -391,21 +442,74 @@ namespace Benny_Scraper.BusinessLogic.Utilities
             }
 
             var premiumSummary = BuildPremiumSummary(selectedPremium);
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"\nTotal: {selectedPremium.Count} premium chapters ({premiumSummary})");
-            Console.WriteLine($"Current premium currency balance: " +
-                              $"{userCurrencies?.Where(uc => uc.CurrencyName == "Karma")?.FirstOrDefault()?.Balance:N0} Karma");
-            Console.Write("\nType 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
-            Console.ResetColor();
-
-            var premiumChoice = Console.ReadLine()?.Trim();
-            if (string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase))
+            
+            if (!isLoggedIn)
             {
-                Logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
-                return;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                var notLoggedInMessages = new[]
+                {
+                    "⚠️  PREMIUM CHAPTERS DETECTED - NOT LOGGED IN  ⚠️",
+                    "",
+                    $"Your selection includes {selectedPremium.Count} premium chapter(s).",
+                    "",
+                    "Since you are NOT logged in, premium chapters will be downloaded as",
+                    "TEASERS ONLY (limited preview content).",
+                    "",
+                    "To download full premium chapters:",
+                    "  1. Stop the program now (Ctrl+C)",
+                    "  2. Re-run with the --with-login flag:",
+                    "     Benny-Scraper <url> --with-login",
+                    "",
+                    "Press Enter to continue with teasers, or Ctrl+C to stop."
+                };
+                CommonHelper.DrawBox(notLoggedInMessages, ConsoleColor.Yellow);
+                Console.ResetColor();
+                
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"\nTotal: {selectedPremium.Count} premium chapters ({premiumSummary})");
+                Console.WriteLine("These will be downloaded as TEASERS ONLY.");
+                Console.ResetColor();
+                Console.Write("\nPress Enter to continue with teasers: ");
+                Console.ReadLine();
+                Logger.Info("User acknowledged premium chapters will be teasers (not logged in)");
             }
+            else
+            {
+                // User is logged in, show credit consumption warning
+                Console.ForegroundColor = ConsoleColor.Red;
+                var warningMessages = new[]
+                {
+                    "⚠️  WARNING: UNLOCKING PREMIUM CHAPTERS WILL COST YOU CREDITS!  ⚠️",
+                    "",
+                    "If you have 'Enabled Auto Unlock' set to true, premium chapters will be",
+                    "automatically unlocked for you using your account credits/karma.",
+                    "",
+                    "If you DO NOT want your credits consumed, you should:",
+                    "  1. Stop the program now (Ctrl+C)",
+                    "  2. Change the chapter range to exclude premium chapters",
+                    "",
+                    "For instructions, visit:",
+                    "https://github.com/martial-god/Benny-Scraper#quick-start"
+                };
+                CommonHelper.DrawBox(warningMessages, ConsoleColor.Red);
+                Console.ResetColor();
+                
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"\nTotal: {selectedPremium.Count} premium chapters ({premiumSummary})");
+                Console.WriteLine($"Current premium currency balance: " +
+                                  $"{userCurrencies?.Where(uc => uc.CurrencyName == "Karma")?.FirstOrDefault()?.Balance:N0} Karma");
+                Console.Write("\nType 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
+                Console.ResetColor();
 
-            Logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
+                var premiumChoice = Console.ReadLine()?.Trim();
+                if (string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
+                    return;
+                }
+
+                Logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
+            }
         }
     }
 }

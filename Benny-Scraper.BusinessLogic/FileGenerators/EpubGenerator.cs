@@ -129,7 +129,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 if (coverImage != null)
                 {
                     coverMeta = "<meta name=\"cover\" content=\"cover\"/>";
-                    coverManifest = "<item id=\"cover\" href=\"Images/cover.png\" media-type=\"image/png\"/>";
+                    coverManifest = "<item id=\"cover\" href=\"Images/cover.png\" media-type=\"image/png\" properties=\"cover-image\"/>";
                 }
 
                 manifestItems += "<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>";
@@ -217,11 +217,8 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
                 // Display completion summary in a formatted box
                 Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
-                Console.WriteLine("║                    EPUB GENERATION COMPLETE!                             ║");
-                Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
-                Console.ResetColor();
+                var epubMessages = new[] { "EPUB GENERATION COMPLETE!" };
+                CommonHelper.DrawBox(epubMessages, ConsoleColor.Green);
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"  Novel:          {novel.Title}");

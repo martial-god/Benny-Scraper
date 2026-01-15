@@ -23,7 +23,6 @@
     <PackageReference Include="Selenium.WebDriver" Version="4.39.0" />
     <PackageReference Include="SeleniumExtras.WaitHelpers" Version="1.0.2" />
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.1" />
     <PackageReference Include="TextCopy" Version="6.2.1" />
     <PackageReference Include="WebDriverManager" Version="2.17.6" />
     <PackageReference Include="PdfSharp" Version="6.2.0" />

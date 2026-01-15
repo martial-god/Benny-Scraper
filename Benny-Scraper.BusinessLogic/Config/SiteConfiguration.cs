@@ -139,7 +139,7 @@
         /// <summary>
         /// Selectors related to premium/paid chapters.
         /// </summary>
-        public PremiumChapterSelectorsRelativeToChapterLinks? PremiumChapterSelectors { get; set; }
+        public PremiumChapterSelectorsRelativeToChapterLinks PremiumChapterSelectors { get; set; } = new PremiumChapterSelectorsRelativeToChapterLinks();
 
         /// <summary>
         /// XPath for the pagination list items on the table of contents page.

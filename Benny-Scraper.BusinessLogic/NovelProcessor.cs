@@ -86,11 +86,8 @@ public class NovelProcessor(
                 {
                     Logger.Info($"Novel {novel.Title} (ID: {novel.Id}) - Requested range overlaps with existing range {overlappingRange.Begin}-{overlappingRange.End}.");
                     Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
-                    Console.WriteLine("║                OVERLAPPING CHAPTER RANGE DETECTED                        ║");
-                    Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
-                    Console.ResetColor();
+                    var overlappingMessages = new[] { "OVERLAPPING CHAPTER RANGE DETECTED" };
+                    CommonHelper.DrawBox(overlappingMessages, ConsoleColor.Yellow);
                     Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine($"  Novel:           {novel.Title}");
@@ -188,11 +185,17 @@ public class NovelProcessor(
                 Logger.Info("Using chapter range from command line options");
                 selectedRange = chapterRangeSelector.GetRangeFromOptions(novelDataBuffer.ChapterLinks.Count, beginChapter, endChapter);
                 ChapterRangeSelector.DisplayRangeInfo(selectedRange, chapterTitles);
-                ChapterRangeSelector.ConfirmPremiumChapters(selectedRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies);
+                ChapterRangeSelector.ConfirmPremiumChapters(selectedRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies, novelDataBuffer?.IsLoggedIn ?? false);
             }
             else
             {
-                selectedRange = chapterRangeSelector.PromptUserForRange(novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies);
+                selectedRange = chapterRangeSelector.PromptUserForRange(novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies, novelDataBuffer?.IsLoggedIn ?? false);
+
+                if (selectedRange == null)
+                {
+                    var allChaptersRange = new SelectedChapterRange(1, novelDataBuffer!.ChapterLinks.Count);
+                    ChapterRangeSelector.ConfirmPremiumChapters(allChaptersRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies, novelDataBuffer?.IsLoggedIn ?? false);
+                }
             }
 
             if (selectedRange != null)
@@ -278,7 +281,8 @@ public class NovelProcessor(
 
         using var novelDataBuffer = await scraperStrategy.ScrapeAsync();
 
-        if (IsNovelUpToDate(novel, novelDataBuffer, novelTableOfContentsUri))
+        // Only skip when no explicit range is requested
+        if (!beginChapter.HasValue && !endChapter.HasValue && IsNovelUpToDate(novel, novelDataBuffer, novelTableOfContentsUri))
         {
             novel.DateLastModified = DateTime.Now;
             await novelService.UpdateAsync(novel);
@@ -295,13 +299,21 @@ public class NovelProcessor(
         {
             selectedRange = chapterRangeSelector.GetRangeFromOptions(novelDataBuffer.ChapterLinks.Count, beginChapter, endChapter);
             ChapterRangeSelector.DisplayRangeInfo(selectedRange, novelDataBuffer.ChapterLinks.Select(c => c.Title).ToList()!);
-            ChapterRangeSelector.ConfirmPremiumChapters(selectedRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies);
+            ChapterRangeSelector.ConfirmPremiumChapters(selectedRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies, novelDataBuffer?.IsLoggedIn ?? false);
 
             newChapterLinks = newChapterLinks.Where(link =>
             {
                 var chapterNumber = novelDataBuffer!.ChapterLinks.FindIndex(c => c.Url == link.Url) + 1;
                 return chapterNumber >= selectedRange.Begin && chapterNumber <= selectedRange.End;
             }).ToList();
+        }
+        else if (newChapterLinks.Any())
+        {
+            // When downloading all new chapters, still check for premium chapters
+            var firstNewChapterIndex = novelDataBuffer.ChapterLinks.FindIndex(c => c.Url == newChapterLinks.First().Url) + 1;
+            var lastNewChapterIndex = novelDataBuffer.ChapterLinks.FindIndex(c => c.Url == newChapterLinks.Last().Url) + 1;
+            var newChaptersRange = new SelectedChapterRange(firstNewChapterIndex, lastNewChapterIndex);
+            ChapterRangeSelector.ConfirmPremiumChapters(newChaptersRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies, novelDataBuffer?.IsLoggedIn ?? false);
         }
 
         var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterLinks);
@@ -317,14 +329,18 @@ public class NovelProcessor(
         else if (selectedRange != null && !novel.IsPartialDownload)
         {
             // First partial download for this novel
-            novel.ChapterRanges.Add(new ChapterRange
+            var exists = novel.ChapterRanges.Any(r => r.Begin == selectedRange.Begin && r.End == selectedRange.End);
+            if (!exists)
             {
-                NovelId = novel.Id,
-                Begin = selectedRange.Begin,
-                End = selectedRange.End,
-                DateCreated = DateTime.Now
-            });
-            Logger.Info($"Added first chapter range: {selectedRange.Begin}-{selectedRange.End}");
+                novel.ChapterRanges.Add(new ChapterRange
+                {
+                    NovelId = novel.Id,
+                    Begin = selectedRange.Begin,
+                    End = selectedRange.End,
+                    DateCreated = DateTime.Now
+                });
+                Logger.Info($"Added first chapter range: {selectedRange.Begin}-{selectedRange.End}");
+            }
         }
 
         var filenameSuffix = GenerateFilenameSuffix(selectedRange, null);
@@ -455,11 +471,8 @@ public class NovelProcessor(
 
         Logger.Info($"Skipping update for novel {novel.Title} (ID: {novel.Id}) - This is a partial download (volume/chapter range)");
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
-        Console.WriteLine("║                    PARTIAL DOWNLOAD DETECTED                             ║");
-        Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
-        Console.ResetColor();
+        var partialMessages = new[] { "PARTIAL DOWNLOAD DETECTED" };
+        CommonHelper.DrawBox(partialMessages, ConsoleColor.Yellow);
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine($"  Novel:           {novel.Title}");
@@ -555,7 +568,7 @@ public class NovelProcessor(
             CurrentChapter = novelDataBuffer.MostRecentChapterTitle ?? string.Empty,
             SiteName = novelTableOfContentsUri.Host ?? string.Empty,
             FirstChapter = novelDataBuffer.FirstChapter ?? string.Empty,
-            CurrentChapterUrl = novelDataBuffer.CurrentChapterUrl ?? string.Empty,
+            CurrentChapterUrl = novelDataBuffer.CurrentChapterUrl ?? string.Empty
         };
 
         // Add to ChapterRanges collection if this is a partial download

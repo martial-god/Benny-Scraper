@@ -60,22 +60,20 @@ namespace Benny_Scraper.BusinessLogic.Services
         public async Task<Novel?> GetByUrlAsync(Uri uri)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString);
-            if (context != null)
-            {
-                var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
-                context.Chapters = chapterContext.ToList();
-            }
+            if (context == null) return context;
+            
+            var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
+            context.Chapters = chapterContext.ToList();
             return context;
         }
 
-        public async Task<Novel> GetByIdAsync(Guid id)
+        public async Task<Novel?> GetByIdAsync(Guid id)
         {
-            var context = await _unitOfWork.Novel.GetByIdAsync(id);
-            if (context != null)
-            {
-                var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
-                context.Chapters = chapterContext.ToList();
-            }
+            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Id == id);
+            if (context == null) return context;
+            
+            var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
+            context.Chapters = chapterContext.ToList();
             return context;
         }
 
@@ -87,17 +85,13 @@ namespace Benny_Scraper.BusinessLogic.Services
         public async Task<bool> IsNovelInDatabaseAsync(string tableOfContentsUrl)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == tableOfContentsUrl);
-            if (context == null)
-                return false;
-            return true;
+            return context != null;
         }
 
         public async Task<bool> IsNovelInDatabaseAsync(Guid id)
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Id == id);
-            if (context == null)
-                return false;
-            return true;
+            return context != null;
         }
 
         public async Task RemoveAllAsync()

@@ -1,3 +1,4 @@
+using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
@@ -107,12 +108,8 @@ public class WuxiaWorldStrategy : ScraperStrategy
 
                     if (RequiresLogin)
                     {
-                        // Inform user they need to manually click login
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.WriteLine("\n╔═══════════════════════════════════════════════════╗");
-                        Console.WriteLine("║          WuxiaWorld Login Instructions           ║");
-                        Console.WriteLine("╚═══════════════════════════════════════════════════╝");
-                        Console.ResetColor();
+                        var loginMessages = new[] { $"WuxiaWorld Login Instructions" };
+                        CommonHelper.DrawBox(loginMessages, ConsoleColor.Cyan);
                         Console.WriteLine("\nA browser window is now open showing the novel page.\n");
                         Console.WriteLine("To access premium chapters:");
                         Console.WriteLine("  1. Click the 'Login' button in the browser");
@@ -191,7 +188,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         await driver.Navigate().GoToUrlAsync(ScraperData.SiteTableOfContents.ToString());
                     }
 
-                    const string chaptersTabXPath = "//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters'] ]";
+                    const string chaptersTabXPath = "//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters']]";
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                         .ElementToBeClickable(By.XPath(chaptersTabXPath))).Click();
 
@@ -271,6 +268,8 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         premiumButton.Click();// close button back.
                         Logger.Info($"User balance - Karma: {karma:N0}, Spirit Stones: {spiritStones:N0}");
                     }
+                    
+                    novelDataBuffer.IsLoggedIn = isLoggedIn;
                 },
                 reuseExistingDriver: true);
 

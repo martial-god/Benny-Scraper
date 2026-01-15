@@ -19,6 +19,7 @@ namespace Benny_Scraper.Models
         public float Number { get; set; } // number used to sort chapters
         public DateTime DateCreated { get; set; }
         public DateTime DateLastModified { get; set; }
+        public bool IsPartial { get; set; } // true if chapter contains teaser/preview content only
         public virtual ICollection<Page>? Pages { get; set; } // New property for manga pages
     }
 
@@ -39,6 +40,7 @@ namespace Benny_Scraper.Models
         }
         public int SequenceNumber { get; set; } // using the Table of Contents order as the definitive order of chapters, this avoids issues with sorting by chapter title where titles contain numbers
         public DateTime DateLastModified { get; set; }
+        public bool IsPartial { get; set; } // true if chapter contains teaser/preview content only
         public ICollection<PageData>? Pages { get; set; }
         public string TempDirectory { get; init; }
 

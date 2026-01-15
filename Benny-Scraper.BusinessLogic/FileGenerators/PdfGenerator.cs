@@ -41,11 +41,8 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
             // Display completion summary in a formatted box
             Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                     PDF GENERATION COMPLETE!                             ║");
-            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
+            var pdfMessages = new[] { "PDF GENERATION COMPLETE!" };
+            CommonHelper.DrawBox(pdfMessages, ConsoleColor.Green);
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine($"  Novel:          {novel.Title}");

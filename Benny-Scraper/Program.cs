@@ -81,22 +81,16 @@ namespace Benny_Scraper
             DisplaySupportedSites();
 
             // Display instructions
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                          HOW TO USE                                      ║");
-            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
+            var howToMessages = new[] { "HOW TO USE" };
+            CommonHelper.DrawBox(howToMessages, ConsoleColor.Cyan);
             Console.WriteLine();
             Console.WriteLine("  1. Visit a supported website above");
             Console.WriteLine("  2. Choose a novel and navigate to its table of contents page");
             Console.WriteLine("  3. Copy the URL from your browser's address bar");
             Console.WriteLine("  4. Paste the URL below when prompted");
             Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                       SPECIAL COMMANDS                                   ║");
-            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
+            var specialCommandsMessages = new[] { "SPECIAL COMMANDS" };
+            CommonHelper.DrawBox(specialCommandsMessages, ConsoleColor.Yellow);
             Console.WriteLine();
             Console.WriteLine("  • test <url>     - Test if a site is reachable before scraping");
             Console.WriteLine("  • test-all       - Test connectivity to all supported sites");

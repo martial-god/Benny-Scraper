@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Benny_Scraper.Models
@@ -119,6 +119,7 @@ namespace Benny_Scraper.Models
         public string FirstChapter { get; set => field = value?.Trim() ?? string.Empty; }
         public byte[]? ThumbnailImage { get; set; }
         public string NovelUrl { get; set; }
+        public bool IsLoggedIn { get; set; }
 
         public void Dispose()
         {

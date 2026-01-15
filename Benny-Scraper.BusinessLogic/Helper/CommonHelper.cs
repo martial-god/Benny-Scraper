@@ -82,6 +82,40 @@ namespace Benny_Scraper.BusinessLogic.Helper
 
         public static ICollection<Chapter> SortNovelChaptersByDateCreated(ICollection<Chapter> chapters) =>
             chapters.OrderBy(chapter => chapter.DateCreated).ToList();
+
+        /// <summary>
+        /// Draws a box around the provided messages with automatic width calculation.
+        /// Useful for highlighting important information or warnings in the console.
+        /// </summary>
+        /// <param name="messages">Array of messages to display inside the box. Each element is a separate line.</param>
+        /// <param name="color">The console color to use for the box and text.</param>
+        /// <example>
+        /// var messages = new[] { "Warning!", "", "This is important information." };
+        /// CommonHelper.DrawBox(messages, ConsoleColor.Red);
+        /// </example>
+        public static void DrawBox(string[] messages, ConsoleColor color)
+        {
+            var maxLength = messages.Max(m => m.Length);
+            var boxWidth = maxLength + 4; // 2 spaces padding on each side
+            
+            var originalColor = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+            
+            // Top border
+            Console.WriteLine("\n╔" + new string('═', boxWidth) + "╗");
+            
+            // Content lines
+            foreach (var message in messages)
+            {
+                var paddedMessage = message.PadRight(maxLength);
+                Console.WriteLine($"║  {paddedMessage}  ║");
+            }
+            
+            // Bottom border
+            Console.WriteLine("╚" + new string('═', boxWidth) + "╝\n");
+            
+            Console.ForegroundColor = originalColor;
+        }
     }
 
     public static class MyExtensions
@@ -106,9 +140,9 @@ namespace Benny_Scraper.BusinessLogic.Helper
 
     public static class CommandExecutor
     {
-        public static bool IsWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        public static bool IsMacOS() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
-        public static bool IsLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        private static bool IsWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        private static bool IsMacOS() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        private static bool IsLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
         public static string ExecuteCommand(string command)
         {
@@ -186,6 +220,7 @@ namespace Benny_Scraper.BusinessLogic.Helper
                 Console.WriteLine(outLine.Data);
             }
         }
+
 
     }
 

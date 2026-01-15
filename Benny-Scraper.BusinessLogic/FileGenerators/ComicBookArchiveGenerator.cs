@@ -1,4 +1,4 @@
-﻿using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
+﻿﻿using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
 using Benny_Scraper.BusinessLogic.Helper;
 using Benny_Scraper.Models;
 using System.IO.Compression;
@@ -29,12 +29,9 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
             // Display completion summary in a formatted box
             Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Green;
             var fileTypeName = Enum.GetName(configuration.DefaultMangaFileExtension)?.ToUpper() ?? "COMIC BOOK ARCHIVE";
-            Console.WriteLine("╔══════════════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine($"║                 {fileTypeName} GENERATION COMPLETE!{new string(' ', 78 - fileTypeName.Length - 37)}║");
-            Console.WriteLine("╚══════════════════════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
+            var messages = new[] { $"{fileTypeName} GENERATION COMPLETE!" };
+            CommonHelper.DrawBox(messages, ConsoleColor.Green);
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine($"  Novel:          {novel.Title}");

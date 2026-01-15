@@ -194,36 +194,36 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             break;
                         }
 
-                        if (scraperData.SiteConfig!.HasPremiumChapters && scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors != null)
+                        foreach (var chapterLinkNode in chapterLinkNodes)
                         {
-                            for (var i = 0; i < chapterLinkNodes.Count; i++)
+                            var isPremium =  !string.IsNullOrEmpty(scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumIndicator)
+                                ? chapterLinkNode.SelectSingleNode(
+                                scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumIndicator!) != null
+                                : false;
+                            var premiumCost = isPremium && !string.IsNullOrEmpty(scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumCost)
+                                ? chapterLinkNode.SelectSingleNode(scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumCost!)?.InnerText
+                                : "0";
+                            var chapterUrl = chapterLinkNode.Attributes["href"].Value;
+                            var chapterTitle = !string.IsNullOrEmpty(scraperData.SiteConfig.Selectors.TableOfContents.chapterTitleInToc)
+                                ? HtmlEntity.DeEntitize(chapterLinkNode.SelectSingleNode(scraperData.SiteConfig.Selectors.TableOfContents.chapterTitleInToc!)?.InnerText?.Trim())
+                                : HtmlEntity.DeEntitize(chapterLinkNode.InnerText?.Trim());
+                            chapterUrl = chapterUrl != null && !IsValidHttpUrl(chapterUrl) && scraperData.BaseUri != null
+                                ? new Uri(scraperData.BaseUri, chapterUrl).ToString()
+                                : chapterUrl;
+                            var chapterLink = new ChapterLink()
                             {
-                                var chapterLinkNode = chapterLinkNodes[i];
-                                var isPremium = chapterLinkNode.SelectSingleNode(
-                                    scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumIndicator) != null;
-                                var premiumCost = chapterLinkNode.SelectSingleNode(
-                                    scraperData.SiteConfig.Selectors.TableOfContents.PremiumChapterSelectors.PremiumCost)?.InnerText;
-                                var chapterUrl = chapterLinkNode.Attributes["href"].Value;
-                                var chapterTitle = chapterLinkNode.SelectSingleNode(
-                                    scraperData.SiteConfig.Selectors.TableOfContents.chapterTitleInToc)?.InnerText;
-                                chapterUrl = chapterUrl != null && !IsValidHttpUrl(chapterUrl) && scraperData.BaseUri != null
-                                    ? new Uri(scraperData.BaseUri, chapterUrl).ToString()
-                                    : chapterUrl;
-                                var chapterLink = new ChapterLink()
-                                {
-                                    Url = chapterUrl!,
-                                    Title = chapterTitle,
-                                    PremiumInfo = isPremium
-                                        ? new PremiumChapterInfo()
-                                        {
-                                            IsPremium = isPremium,
-                                            Cost = premiumCost != null ? int.Parse(premiumCost) : 0,
-                                            CurrencyName = scraperData.SiteConfig.PremiumInfo?.CurrencyName ?? "Credits"
-                                        }
-                                        : new PremiumChapterInfo()
-                                };
-                                novelDataBuffer.ChapterLinks.Add(chapterLink);
-                            }
+                                Url = chapterUrl!,
+                                Title = chapterTitle,
+                                PremiumInfo = isPremium
+                                    ? new PremiumChapterInfo()
+                                    {
+                                        IsPremium = isPremium,
+                                        Cost = premiumCost != null ? int.Parse(premiumCost) : 0,
+                                        CurrencyName = scraperData.SiteConfig.PremiumInfo?.CurrencyName ?? "Credits"
+                                    }
+                                    : new PremiumChapterInfo()
+                            };
+                            novelDataBuffer.ChapterLinks.Add(chapterLink);
                         }
 
                         Console.WriteLine($"Got chapter urls, total: {novelDataBuffer.ChapterLinks.Count}");
@@ -440,11 +440,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             // Show informative message for sites with premium chapters
             if (!withLogin || ScraperData.SiteConfig?.HasPremiumChapters != true) return;
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"\n╔══════════════════════════════════════════════════════╗");
-            Console.WriteLine($"║  Login Enabled for {ScraperData.SiteConfig.Name,-33} ║");
-            Console.WriteLine($"╚══════════════════════════════════════════════════════╝");
-            Console.ResetColor();
+            var loginMessages = new[] { $"Login Enabled for {ScraperData.SiteConfig.Name}" };
+            CommonHelper.DrawBox(loginMessages, ConsoleColor.Cyan);
             Console.WriteLine("A browser window will open for manual login.\n");
             Console.WriteLine("Benefits:");
             Console.WriteLine($"  • Access premium chapters you own");
@@ -1197,6 +1194,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 || ScraperData.SiteConfig.ChapterContentRequiresSelenium;
         }
 
+        protected virtual string NormalizeChapterTitle(string? rawTitle)
+        {
+            return rawTitle?.Trim() ?? string.Empty;
+        }
+
         #region Private Methods
         private async Task ProcessChaptersWithSelenium(
             List<ChapterLink> chapterLinks,
@@ -1380,7 +1382,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             htmlDocument.LoadHtml(driver.PageSource);
 
             var titleNode = htmlDocument.DocumentNode.SelectSingleNode(ScraperData.SiteConfig?.Selectors.ChapterTitle);
-            chapterDataBuffer.Title = titleNode.InnerText.Trim();
+            chapterDataBuffer.Title = NormalizeChapterTitle(titleNode?.InnerText);
             Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
 
             var contentNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterContent);
@@ -1441,7 +1443,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 stopwatch.Restart();
 
                 var titleNode = htmlDocument.DocumentNode.SelectSingleNode(ScraperData.SiteConfig?.Selectors.ChapterTitle);
-                chapterDataBuffer.Title = titleNode != null ? titleNode.InnerText.Trim() : "Unknown Title";
+                chapterDataBuffer.Title = titleNode != null ? NormalizeChapterTitle(titleNode.InnerText) : "Unknown Title";
                 Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
 
                 var paragraphNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterContent);
