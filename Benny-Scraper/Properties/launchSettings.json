@@ -6,6 +6,7 @@
     },
     "Benny-Scraper": {
       "commandName": "Project",
+      "commandLineArgs": "https://www.wuxiaworld.com/novel/tribulation-of-myriad-races --with-login",
       "nativeDebugging": true
     }
   }

@@ -2,7 +2,6 @@
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using System.Collections.Concurrent;
-using WebDriverManager.DriverConfigs.Impl;
 
 namespace Benny_Scraper.BusinessLogic.Factory
 {
@@ -40,13 +39,29 @@ namespace Benny_Scraper.BusinessLogic.Factory
                 case (int)Browser.Chrome:
                     var chromeDriverService = ChromeDriverService.CreateDefaultService(); // needs to be first in order to have the driver ready when called asycnhronously
                     chromeDriverService.HideCommandPromptWindow = true; // hides command prompt window https://stackoverflow.com/questions/53218843/stop-chromedriver-console-window-from-appearing-selenium-c-sharp
-                    new WebDriverManager.DriverManager().SetUpDriver(new ChromeConfig()); // should install a new chromedriver if there is an update
                     var chromeOptions = new ChromeOptions();
                     chromeOptions.AddArguments("--no-sandbox", "--disable-web-security", "--disable-gpu", "--hide-scrollbars", "window-size=1920,1080");
 
                     if (isHeadless)
                         chromeOptions.AddArgument("headless");
-                    IWebDriver driver = new ChromeDriver(chromeDriverService, chromeOptions);
+
+                    IWebDriver driver;
+                    try
+                    {
+                        driver = new ChromeDriver(chromeDriverService, chromeOptions);
+                    }
+                    catch (WebDriverException ex) when (ex.Message.Contains("ChromeDriver only supports Chrome version"))
+                    {
+                        throw new InvalidOperationException(
+                            "Chrome browser version mismatch detected.\n" +
+                            "Please update Google Chrome to the latest version:\n" +
+                            "  1. Open Chrome\n" +
+                            "  2. Click the menu (three dots) → Help → About Google Chrome\n" +
+                            "  3. Chrome will automatically update\n" +
+                            "  4. Restart Chrome, then run this application again.\n\n" +
+                            "The application will now exit.", ex);
+                    }
+
                     driver.Url = url;
                     _drivers[_counter] = driver;
                     _counter++;
@@ -73,14 +88,29 @@ namespace Benny_Scraper.BusinessLogic.Factory
                 case (int)Browser.Chrome:
                     var chromeDriverService = ChromeDriverService.CreateDefaultService();
                     chromeDriverService.HideCommandPromptWindow = true;
-                    new WebDriverManager.DriverManager().SetUpDriver(new ChromeConfig());
                     var chromeOptions = new ChromeOptions();
                     chromeOptions.AddArguments("--no-sandbox", "--disable-web-security", "--disable-gpu", "--hide-scrollbars", "window-size=1920,1080");
 
                     if (isHeadless)
                         chromeOptions.AddArgument("headless");
 
-                    IWebDriver driver = await Task.Run(() => new ChromeDriver(chromeDriverService, chromeOptions));
+                    IWebDriver driver;
+                    try
+                    {
+                        driver = await Task.Run(() => new ChromeDriver(chromeDriverService, chromeOptions));
+                    }
+                    catch (WebDriverException ex) when (ex.Message.Contains("ChromeDriver only supports Chrome version"))
+                    {
+                        throw new InvalidOperationException(
+                            "Chrome browser version mismatch detected.\n" +
+                            "Please update Google Chrome to the latest version:\n" +
+                            "  1. Open Chrome\n" +
+                            "  2. Click the menu (three dots) → Help → About Google Chrome\n" +
+                            "  3. Chrome will automatically update\n" +
+                            "  4. Restart Chrome, then run this application again.\n\n" +
+                            "The application will now exit.", ex);
+                    }
+
                     driver.Url = url;
 
                     int id = Interlocked.Increment(ref _counter);

@@ -72,6 +72,12 @@ namespace Benny_Scraper
         [Option("test-field", Required = false, HelpText = "Test a specific field with XPath [FIELD:XPATH]. TOC fields (test on table-of-contents page): Title, Author, Description, Genres, Status, AlternativeNames, Thumbnail, ChapterLinks. Chapter fields (test on chapter page): ChapterTitle, ChapterContent. TIP: When copying XPath from DevTools, change inner double quotes to single quotes to avoid shell quoting conflicts. Example: --test-field \"Title://*[@id='novel-title']\" <URL>")]
         public string TestField { get; set; }
 
+        [Option("use-selenium", Required = false, HelpText = "Use Selenium for test-field command to handle JavaScript-rendered content and Cloudflare protection. Automatically clicks chapter tabs for NovelBin/NovLove sites.")]
+        public bool UseSelenium { get; set; }
+
+        [Option("show-browser", Required = false, HelpText = "Show browser window when using Selenium (runs in visible mode instead of headless). Useful for debugging.")]
+        public bool ShowBrowser { get; set; }
+
         [Option("validate-config", Required = false, HelpText = "Validate an existing site configuration by name [STRING]. Tests all selectors against a live URL.")]
         public string ValidateConfig { get; set; }
 

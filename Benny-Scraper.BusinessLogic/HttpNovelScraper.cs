@@ -35,6 +35,9 @@ namespace Benny_Scraper.BusinessLogic
             AddSiteToMap("https://noveldrama.com", new NovelDramaStrategy());
             AddSiteToMap("https://www.wuxiaworld.com", new WuxiaWorldStrategy());
             AddSiteToMap("https://wanderinginn.com", new WanderingInnStrategy());
+            AddSiteToMap("https://novelbin.me", new NovelBinStrategy());
+            AddSiteToMap("https://novelbin.com", new NovelBinStrategy());
+            AddSiteToMap("https://novlove.com", new NovelBinStrategy());
         }
         #endregion
 

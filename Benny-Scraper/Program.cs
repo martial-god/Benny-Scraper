@@ -161,7 +161,30 @@ namespace Benny_Scraper
                 try
                 {
                     await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
-
+                }
+                catch (InvalidOperationException ex) when (ex.Message.Contains("Chrome browser version mismatch"))
+                {
+                    Logger.Error($"Chrome version mismatch: {ex.Message}");
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(new string('═', 78));
+                    Console.WriteLine("  CHROME VERSION MISMATCH DETECTED");
+                    Console.WriteLine(new string('═', 78));
+                    Console.ResetColor();
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("  Please update Google Chrome to the latest version:");
+                    Console.WriteLine();
+                    Console.WriteLine("    1. Open Chrome");
+                    Console.WriteLine("    2. Click the menu (three dots) → Help → About Google Chrome");
+                    Console.WriteLine("    3. Chrome will automatically update");
+                    Console.WriteLine("    4. Restart Chrome, then run this application again");
+                    Console.ResetColor();
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(new string('═', 78));
+                    Console.ResetColor();
+                    Console.WriteLine();
                 }
                 catch (Exception ex)
                 {
@@ -281,7 +304,7 @@ namespace Benny_Scraper
             }
             else if (!string.IsNullOrEmpty(options.TestField) && !string.IsNullOrEmpty(options.Url))
             {
-                await RunSingleFieldTestAsync(options.TestField, options.Url);
+                await RunSingleFieldTestAsync(options.TestField, options.Url, options.UseSelenium, !options.ShowBrowser);
             }
             else if (!string.IsNullOrEmpty(options.ValidateConfig))
             {
@@ -301,6 +324,30 @@ namespace Benny_Scraper
                     try
                     {
                         await novelProcessor.ProcessNovelAsync(novelUri, options.BeginChapter, options.EndChapter, options.WithLogin);
+                    }
+                    catch (InvalidOperationException ex) when (ex.Message.Contains("Chrome browser version mismatch"))
+                    {
+                        Logger.Error($"Chrome version mismatch: {ex.Message}");
+                        Console.WriteLine();
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(new string('═', 78));
+                        Console.WriteLine("  CHROME VERSION MISMATCH DETECTED");
+                        Console.WriteLine(new string('═', 78));
+                        Console.ResetColor();
+                        Console.WriteLine();
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("  Please update Google Chrome to the latest version:");
+                        Console.WriteLine();
+                        Console.WriteLine("    1. Open Chrome");
+                        Console.WriteLine("    2. Click the menu (three dots) → Help → About Google Chrome");
+                        Console.WriteLine("    3. Chrome will automatically update");
+                        Console.WriteLine("    4. Restart Chrome, then run this application again");
+                        Console.ResetColor();
+                        Console.WriteLine();
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(new string('═', 78));
+                        Console.ResetColor();
+                        Console.WriteLine();
                     }
                     catch (Exception ex)
                     {
@@ -777,7 +824,7 @@ namespace Benny_Scraper
             }
         }
 
-        private static async Task RunSingleFieldTestAsync(string testField, string url)
+        private static async Task RunSingleFieldTestAsync(string testField, string url, bool useSelenium, bool headless)
         {
             try
             {
@@ -804,8 +851,9 @@ namespace Benny_Scraper
                 }
 
                 var httpClientFactory = new HttpClientFactory();
-                var testStrategy = new TestStrategy(httpClientFactory);
-                await testStrategy.TestSingleFieldAsync(testUri, fieldName, xpath);
+                var driverFactory = new DriverFactory();
+                var testStrategy = new TestStrategy(httpClientFactory, driverFactory);
+                await testStrategy.TestSingleFieldAsync(testUri, fieldName, xpath, useSelenium, headless);
             }
             catch (Exception ex)
             {

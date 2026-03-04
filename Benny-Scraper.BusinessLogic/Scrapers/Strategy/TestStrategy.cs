@@ -1,8 +1,12 @@
 using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory;
+using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Support.UI;
+using SeleniumExtras.WaitHelpers;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -100,9 +104,10 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
 /// Simple test strategy for testing site connectivity without implementing a full scraper.
 /// Provides single-attempt testing without retry logic for faster testing.
 /// </summary>
-public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrategy(httpClientFactory)
+public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? driverFactory = null) : ScraperStrategy(httpClientFactory, driverFactory)
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly IDriverFactory _driverFactory = driverFactory ?? new DriverFactory();
     private HtmlDocument _htmlDocument;
     private Uri _testUri;
     private SiteConfiguration _config;
@@ -1263,7 +1268,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         }
     }
 
-    public async Task<bool> TestSingleFieldAsync(Uri testUri, string fieldName, string xpath)
+    public async Task<bool> TestSingleFieldAsync(Uri testUri, string fieldName, string xpath, bool useSelenium = false, bool headless = true)
     {
         Console.WriteLine($"\n{new string('=', 70)}");
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -1271,57 +1276,236 @@ public class TestStrategy(IHttpClientFactory httpClientFactory) : ScraperStrateg
         Console.ResetColor();
         Console.WriteLine($"{new string('=', 70)}");
         Console.WriteLine($"URL: {testUri}");
-        Console.WriteLine($"XPath: {xpath}\n");
-
-        var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(testUri);
-
-        if (htmlDocument == null)
+        Console.WriteLine($"XPath: {xpath}");
+        if (useSelenium)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
-            if (cloudflareDetected)
-            {
-                Console.WriteLine("✗ Cloudflare protection detected");
-            }
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"Mode: Selenium (Headless: {headless})");
             Console.ResetColor();
-            return false;
         }
+        Console.WriteLine();
 
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
-        Console.ResetColor();
+        HtmlDocument htmlDocument;
+        int statusCode = 200;
+        bool cloudflareDetected = false;
 
-        var config = new SiteConfiguration
+        try
         {
-            Selectors = new Selectors()
-        };
+            if (useSelenium)
+            {
+                // Use Selenium to load the page
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("🌐 Loading page with Selenium...");
+                Console.ResetColor();
 
-        var scraperData = new ScraperData
+                var (seleniumDoc, _) = await LoadHtmlWithSeleniumAsync(testUri, xpath, fieldName, headless);
+
+                if (seleniumDoc == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("✗ Failed to load page using Selenium");
+                    Console.ResetColor();
+                    return false;
+                }
+
+                htmlDocument = seleniumDoc;
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ Page loaded successfully using Selenium\n");
+                Console.ResetColor();
+            }
+            else
+            {
+                // Existing HTTP-based loading
+                var (httpDoc, updatedUri, status, cloudflare) = await TestLoadHtmlAsync(testUri);
+                htmlDocument = httpDoc;
+                statusCode = status;
+                cloudflareDetected = cloudflare;
+
+                if (htmlDocument == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
+                    if (cloudflareDetected)
+                    {
+                        Console.WriteLine("✗ Cloudflare protection detected - try using --use-selenium flag");
+                    }
+                    Console.ResetColor();
+                    return false;
+                }
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
+                Console.ResetColor();
+            }
+
+            var config = new SiteConfiguration
+            {
+                Selectors = new Selectors()
+            };
+
+            var scraperData = new ScraperData
+            {
+                SiteConfig = config,
+                SiteTableOfContents = testUri,
+                BaseUri = new Uri(testUri.GetLeftPart(UriPartial.Authority)),
+                HttpClientFactory = _httpClientFactory
+            };
+
+            var fieldUpper = fieldName.ToUpperInvariant();
+            var success = fieldUpper switch
+            {
+                "TITLE" => await TestSpecificField(NovelDataInitializer.Attr.Title, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelTitle = s),
+                "AUTHOR" => await TestSpecificField(NovelDataInitializer.Attr.Author, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAuthor = s),
+                "DESCRIPTION" => await TestSpecificField(NovelDataInitializer.Attr.Description, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelDescription = s),
+                "GENRES" => await TestSpecificField(NovelDataInitializer.Attr.Genres, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelGenres = s),
+                "STATUS" => await TestSpecificField(NovelDataInitializer.Attr.NovelStatus, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelStatus = s),
+                "ALTERNATIVENAMES" => await TestSpecificField(NovelDataInitializer.Attr.AlternativeNames, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAlternativeNames = s),
+                "THUMBNAIL" => await TestSpecificField(NovelDataInitializer.Attr.ThumbnailUrl, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelThumbnailUrl = s),
+                "CHAPTERLINKS" => TestChapterLinksField(xpath, htmlDocument),
+                "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
+                "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
+                _ => HandleUnknownField(fieldName)
+            };
+
+            Console.WriteLine($"\n{new string('=', 70)}\n");
+            return success;
+        }
+        finally
         {
-            SiteConfig = config,
-            SiteTableOfContents = testUri,
-            BaseUri = new Uri(testUri.GetLeftPart(UriPartial.Authority)),
-            HttpClientFactory = _httpClientFactory
-        };
+            // Clean up any Selenium drivers that were created
+            if (useSelenium)
+            {
+                _driverFactory.DisposeAllDrivers();
+            }
+        }
+    }
 
-        var fieldUpper = fieldName.ToUpperInvariant();
-        var success = fieldUpper switch
+    private async Task<(HtmlDocument? Document, string? PageSource)> LoadHtmlWithSeleniumAsync(
+        Uri testUri,
+        string xpath,
+        string fieldName,
+        bool headless)
+    {
+        IWebDriver? driver = null;
+
+        try
         {
-            "TITLE" => await TestSpecificField(NovelDataInitializer.Attr.Title, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelTitle = s),
-            "AUTHOR" => await TestSpecificField(NovelDataInitializer.Attr.Author, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAuthor = s),
-            "DESCRIPTION" => await TestSpecificField(NovelDataInitializer.Attr.Description, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelDescription = s),
-            "GENRES" => await TestSpecificField(NovelDataInitializer.Attr.Genres, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelGenres = s),
-            "STATUS" => await TestSpecificField(NovelDataInitializer.Attr.NovelStatus, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelStatus = s),
-            "ALTERNATIVENAMES" => await TestSpecificField(NovelDataInitializer.Attr.AlternativeNames, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAlternativeNames = s),
-            "THUMBNAIL" => await TestSpecificField(NovelDataInitializer.Attr.ThumbnailUrl, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelThumbnailUrl = s),
-            "CHAPTERLINKS" => TestChapterLinksField(xpath, htmlDocument),
-            "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
-            "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
-            _ => HandleUnknownField(fieldName)
-        };
+            Logger.Info($"Creating Selenium driver (headless: {headless})...");
+            driver = await _driverFactory.CreateDriverAsync(testUri.ToString(), isHeadless: headless);
 
-        Console.WriteLine($"\n{new string('=', 70)}\n");
-        return success;
+            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
+
+            // Special handling for NovelBin/NovLove sites - click chapter tab
+            if (testUri.Host.Contains("novelbin") || testUri.Host.Contains("novlove"))
+            {
+                try
+                {
+                    Logger.Info("NovelBin/NovLove site detected - attempting to click 'Chapter List' tab...");
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("🔍 Detected NovelBin/NovLove site - clicking 'Chapter List' tab...");
+                    Console.ResetColor();
+
+                    var chapterTab = wait.Until(ExpectedConditions.ElementToBeClickable(
+                        By.XPath("//a[@id='tab-chapters-title'][@role='tab']")
+                    ));
+                    chapterTab.Click();
+
+                    Logger.Info("Successfully clicked 'Chapter List' tab");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("✓ Chapter tab clicked");
+                    Console.ResetColor();
+
+                    // Wait for initial chapters to appear
+                    try
+                    {
+                        wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(
+                            By.XPath("//ul[@class='list-chapter']/li/a")
+                        ));
+                        Logger.Info("Initial chapter links are visible");
+                    }
+                    catch (WebDriverTimeoutException)
+                    {
+                        Logger.Warn("Explicit wait for chapters timed out");
+                    }
+
+                    // Wait for lazy-loaded chapters to finish loading
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("⏳ Waiting for all chapters to lazy load...");
+                    Console.ResetColor();
+                    Logger.Info("Waiting for all chapters to lazy load...");
+
+                    var previousCount = 0;
+                    var stableCount = 0;
+                    var maxWaitIterations = 30; // 30 seconds max wait
+
+                    for (int i = 0; i < maxWaitIterations; i++)
+                    {
+                        await Task.Delay(1000); // Wait 1 second between checks
+
+                        var currentChapters = driver.FindElements(By.XPath("//ul[@class='list-chapter']/li/a"));
+                        var currentCount = currentChapters.Count;
+
+                        if (currentCount == previousCount)
+                        {
+                            stableCount++;
+                            // If count hasn't changed for 3 consecutive checks, assume loading is complete
+                            if (stableCount >= 3)
+                            {
+                                Logger.Info($"Chapter count stabilized at {currentCount} chapters");
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine($"✓ All chapters loaded ({currentCount} total)");
+                                Console.ResetColor();
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            Logger.Info($"Chapters loading: {currentCount} found...");
+                            Console.WriteLine($"  Loading: {currentCount} chapters found...");
+                            stableCount = 0;
+                            previousCount = currentCount;
+                        }
+                    }
+
+                    Logger.Info("Chapter lazy loading complete");
+                }
+                catch (WebDriverTimeoutException)
+                {
+                    Logger.Warn("Could not find 'Chapter List' tab - it might already be active");
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("⚠ Chapter tab not found - may already be active");
+                    Console.ResetColor();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Unexpected error while clicking chapter tab: {ex.Message}");
+                }
+            }
+
+            // Wait for the requested XPath to be present
+            Logger.Info($"Waiting for XPath to be present: {xpath}");
+            wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(xpath)));
+
+            var htmlDocument = new HtmlDocument();
+            var pageSource = driver.PageSource;
+            htmlDocument.LoadHtml(pageSource);
+
+            return (htmlDocument, pageSource);
+        }
+        catch (WebDriverTimeoutException ex)
+        {
+            Logger.Error($"Selenium timeout: Unable to find element with XPath '{xpath}' after 60 seconds. Error: {ex.Message}");
+            return (null, null);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Selenium error: {ex}");
+            return (null, null);
+        }
+        finally
+        {
+            // Driver will be cleaned up by DisposeAllDrivers in the calling method's finally block
+        }
     }
 
     private static async Task<bool> TestSpecificField(NovelDataInitializer.Attr attribute, string xpath, HtmlDocument htmlDocument, ScraperData scraperData, SiteConfiguration config, Action<string> setSelector)

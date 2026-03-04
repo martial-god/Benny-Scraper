@@ -57,6 +57,14 @@ public class NovelProcessor(
             return;
         }
         scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
+
+        // Enable FlareSolverr if configured (for Cloudflare bypass)
+        if (_novelScraperSettings.FlareSolverrSettings?.Enabled == true)
+        {
+            var flareSolverrUrl = _novelScraperSettings.FlareSolverrSettings.Url ?? "http://localhost:8191";
+            await scraperStrategy.EnableFlareSolverrAsync(flareSolverrUrl);
+        }
+
         if (siteConfig.HasPremiumChapters)
             scraperStrategy.SetLoginPreference(withLogin);
         else
@@ -225,6 +233,7 @@ public class NovelProcessor(
             ? novelDataBuffer.ChapterLinks.Skip(selectedRange.Begin - 1).Take(selectedRange.Count).ToList()
             : novelDataBuffer.ChapterLinks;
 
+        scraperStrategy.SetSessionAuthenticated(novelDataBuffer?.IsLoggedIn ?? false);
         IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chaptersToDownload);
         newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
 
@@ -316,6 +325,7 @@ public class NovelProcessor(
             ChapterRangeSelector.ConfirmPremiumChapters(newChaptersRange, novelDataBuffer.ChapterLinks, novelDataBuffer?.UserPremiumCurrencies, novelDataBuffer?.IsLoggedIn ?? false);
         }
 
+        scraperStrategy.SetSessionAuthenticated(novelDataBuffer?.IsLoggedIn ?? false);
         var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterLinks);
         var newChapters = CreateChapters(chapterDataBuffers, novel.Id);
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));

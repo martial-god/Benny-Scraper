@@ -265,6 +265,13 @@
         /// Only used when the site has images for chapter content.
         /// </summary>
         public string? ChapterContentImageUrlAttribute { get; set; }
+
+        /// <summary>
+        /// XPath for the "next chapter" button/link on chapter pages.
+        /// Used for SPA-aware navigation to avoid full page reloads that destroy auth state.
+        /// When set alongside an authenticated session, enables client-side navigation between chapters.
+        /// </summary>
+        public string? NextChapterButton { get; set; }
     }
 
     public sealed class PremiumChapterSelectorsRelativeToChapterLinks
