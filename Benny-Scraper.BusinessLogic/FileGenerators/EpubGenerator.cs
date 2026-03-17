@@ -324,7 +324,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
             foreach (string paragraph in paragraphs)
             {
-                xhtmlContentBuilder.AppendFormat("<p>{0}</p>", paragraph.Trim());
+                xhtmlContentBuilder.AppendFormat("<p>{0}</p>", System.Security.SecurityElement.Escape(paragraph.Trim()));
             }
 
             xhtmlContentBuilder.AppendLine("</div>");

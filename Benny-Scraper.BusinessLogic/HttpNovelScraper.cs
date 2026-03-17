@@ -28,16 +28,17 @@ namespace Benny_Scraper.BusinessLogic
         private void AddSupportForWebsite()
         {
             AddSiteToMap("https://www.lightnovelworld.com", new LightNovelWorldStrategy());
-            AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
             AddSiteToMap("https://mangakakalot.to", new MangaKakalotStrategy());
             AddSiteToMap("https://mangareader.to", new MangaReaderStrategy());
             AddSiteToMap("https://mangakatana.com", new MangaKatanaStrategy());
-            AddSiteToMap("https://noveldrama.com", new NovelDramaStrategy());
-            AddSiteToMap("https://www.wuxiaworld.com", new WuxiaWorldStrategy());
-            AddSiteToMap("https://wanderinginn.com", new WanderingInnStrategy());
             AddSiteToMap("https://novelbin.me", new NovelBinStrategy());
             AddSiteToMap("https://novelbin.com", new NovelBinStrategy());
+            AddSiteToMap("https://noveldrama.com", new NovelDramaStrategy());
+            AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
             AddSiteToMap("https://novlove.com", new NovelBinStrategy());
+            AddSiteToMap("https://wanderinginn.com", new WanderingInnStrategy());
+            AddSiteToMap("https://www.wuxiaworld.com", new WuxiaWorldStrategy());
+            AddSiteToMap("https://www.royalroad.com", new RoyalRoadStrategy());
         }
         #endregion
 

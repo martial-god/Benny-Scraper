@@ -246,6 +246,10 @@ namespace Benny_Scraper
             {
                 await UpdateNovelFileType(options.NovelExtensionById);
             }
+            else if (options.GetConcurrent)
+            {
+                await GetConcurrentRequestsAsync();
+            }
             else if (options.ConcurrentRequests > 0)
             {
                 await SetConcurrentRequestsAsync(options.ConcurrentRequests);
@@ -286,6 +290,10 @@ namespace Benny_Scraper
             else if (options.TestAll)
             {
                 await TestAllSitesAsync();
+            }
+            else if (options.ListFields)
+            {
+                DisplayTestableFields();
             }
             else if (options.SupportedSites)
             {
@@ -654,6 +662,14 @@ namespace Benny_Scraper
             {
                 Logger.Error($"Exception when trying to recreate novel. {ex.Message}");
             }
+        }
+
+        private static async Task GetConcurrentRequestsAsync()
+        {
+            await using var scope = Container.BeginLifetimeScope();
+            var configurationRepository = scope.Resolve<IConfigurationRepository>();
+            var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+            Console.WriteLine($"Concurrent request limit: {configuration.ConcurrencyLimit}");
         }
 
         private static async Task SetConcurrentRequestsAsync(int concurrentRequests)
@@ -1115,6 +1131,31 @@ namespace Benny_Scraper
         /// <summary>
         /// Displays all supported websites for scraping with ASCII art header.
         /// </summary>
+        private static void DisplayTestableFields()
+        {
+            var tocFields = new[] { "Title", "Author", "Description", "Genres", "Status", "AlternativeNames", "Thumbnail", "ChapterLinks", "NovelRating", "TotalRatings", "ChapterTitleInToc" };
+            var chapterFields = new[] { "ChapterTitle", "ChapterContent", "NextChapterButton" };
+
+            var messages = new List<string>
+            {
+                "TESTABLE FIELDS",
+                "",
+                "Table of Contents (use TOC URL)",
+                ""
+            };
+            messages.AddRange(tocFields.Select(f => $"  {f}"));
+            messages.Add("");
+            messages.Add("Chapter (use chapter URL)");
+            messages.Add("");
+            messages.AddRange(chapterFields.Select(f => $"  {f}"));
+            messages.Add("");
+            messages.Add("Note: ChapterTitleInToc uses a relative XPath evaluated per chapter link");
+            messages.Add("");
+            messages.Add("Usage: --test-field \"FieldName:XPath\" <URL>");
+
+            CommonHelper.DrawBox(messages.ToArray(), ConsoleColor.Cyan);
+        }
+
         private static void DisplaySupportedSites()
         {
             HttpNovelScraper httpNovelScraper = new();

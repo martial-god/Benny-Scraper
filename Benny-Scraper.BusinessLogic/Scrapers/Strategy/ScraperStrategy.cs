@@ -383,6 +383,8 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private const int MaxRetries = 6;
         private const int DefaultMinimumParagraphThreshold = 5;
+        private volatile int _globalBackoffMs;
+        private const int MaxGlobalBackoffMs = 30_000;
         protected const int TotalPossiblePaginationTabs = 6;
         protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
 
@@ -852,8 +854,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 // Add random delay between 100-500ms to avoid predictable request patterns
                 // This helps bypass Cloudflare's bot detection which looks for mechanical timing
-                int randomDelay = _random.Next(100, 500);
-                await Task.Delay(randomDelay);
+                int baseDelay = _random.Next(100, 500);
+                int totalDelay = baseDelay + _globalBackoffMs;
+                await Task.Delay(totalDelay);
 
                 Logger.Debug($"Sending request to {uri}");
 
@@ -952,14 +955,28 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         }
                     }
 
-                    // Guard: Handle too many requests at max retries
-                    if (response.StatusCode == HttpStatusCode.TooManyRequests &&
-                        (int)context["RetryCount"] >= MaxRetries)
-                        return (null, uri);
+                    // Guard: Handle too many requests — increase global backoff for all concurrent requests
+                    if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                    {
+                        var currentBackoff = _globalBackoffMs;
+                        var newBackoff = Math.Min(currentBackoff == 0 ? 3000 : currentBackoff * 2, MaxGlobalBackoffMs);
+                        _globalBackoffMs = newBackoff;
+                        Logger.Warn($"429 detected for {uri} — global backoff increased to {newBackoff}ms");
+
+                        if ((int)context["RetryCount"] >= MaxRetries)
+                            return (null, uri);
+
+                        throw new HttpRequestException(
+                            $"Rate limited by {uri}. Status code: {response.StatusCode}");
+                    }
 
                     throw new HttpRequestException(
                         $"Failed to load HTML document from {uri} after {MaxRetries} attempts. Status code: {response.StatusCode}");
                 }
+
+                // Gradually reduce global backoff after successful requests
+                if (_globalBackoffMs > 0)
+                    _globalBackoffMs = Math.Max(0, _globalBackoffMs / 2);
 
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync();

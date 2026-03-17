@@ -61,6 +61,8 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
                 Attr.NovelStatus => !string.IsNullOrEmpty(novelDataBuffer.NovelStatus),
                 Attr.AlternativeNames => novelDataBuffer.AlternativeNames?.Any() == true,
                 Attr.ThumbnailUrl => !string.IsNullOrEmpty(novelDataBuffer.ThumbnailUrl),
+                Attr.NovelRating => novelDataBuffer.Rating > 0,
+                Attr.TotalRatings => novelDataBuffer.TotalRatings > 0,
                 _ => false
             };
 
@@ -82,6 +84,8 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
                 Attr.NovelStatus => $"  ✓ {fieldName}: {novelDataBuffer.NovelStatus}",
                 Attr.AlternativeNames => $"  ✓ {fieldName}: {novelDataBuffer.AlternativeNames?.Count ?? 0} name(s)",
                 Attr.ThumbnailUrl => $"  ✓ {fieldName}: {novelDataBuffer.ThumbnailUrl}",
+                Attr.NovelRating => $"  ✓ {fieldName}: {novelDataBuffer.Rating}",
+                Attr.TotalRatings => $"  ✓ {fieldName}: {novelDataBuffer.TotalRatings}",
                 _ => $"  ✓ {fieldName}: Found"
             };
             Console.WriteLine(dataPreview);
@@ -112,6 +116,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     private Uri _testUri;
     private SiteConfiguration _config;
     private ScraperData _scraperData;
+    private HtmlDocument _chapterHtmlDocument;
     private bool _requiredFieldsFailed;
     private bool _titleFailed;
     private bool _chapterLinksFailed;
@@ -260,7 +265,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         {
             Name = siteName,
             UrlPattern = host,
-            Selectors = new Selectors(),
+            Selectors = new Selectors()
+            {
+                TableOfContents = new TableOfContentsSelectors()
+            },
             HasPagination = false,
             PaginationType = null,
             PaginationQueryPartial = null,
@@ -305,10 +313,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         await TestFieldAsync("Status", "//span[@class='status']/text()", NovelDataInitializer.Attr.NovelStatus, xpath => _config.Selectors.TableOfContents.NovelStatus = xpath, false);
         await TestFieldAsync("Alternative Names", "//div[@class='alt-names']/text()", NovelDataInitializer.Attr.AlternativeNames, xpath => _config.Selectors.TableOfContents.NovelAlternativeNames = xpath, false);
 
+        await TestNovelRatingFieldAsync();
+
         await TestThumbnailFieldAsync();
         TestChapterLinksField();
 
         TestPaginationSettings();
+        TestChapterSortOrderSetting();
         TestContentTypeSetting();
     }
 
@@ -351,13 +362,30 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.WriteLine("  9. Pagination Settings");
         Console.WriteLine(" 10. Content Type");
         Console.WriteLine(" 11. Completed Status");
+        Console.WriteLine(" 12. Chapter Sort Order");
+        Console.WriteLine(" 13. Novel Rating");
+        Console.WriteLine(" 14. Total Ratings");
+
+        if (_chapterHtmlDocument != null)
+        {
+            Console.WriteLine(" 15. Chapter Title");
+            Console.WriteLine(" 16. Chapter Content");
+            Console.WriteLine(" 17. Next Chapter Button");
+        }
+
         Console.WriteLine("  0. Done modifying");
         Console.Write("\nChoice: ");
 
-        var choice = int.Parse(Console.ReadLine()?.Trim() ?? "-1");
+        var input = Console.ReadLine()?.Trim();
+        if (!int.TryParse(input, out var choice))
+        {
+            choice = -1;
+        }
 
         switch (choice)
         {
+            case 0:
+                break;
             case 1:
                 _titleFailed = false;
                 await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title, xpath => _config.Selectors.TableOfContents.NovelTitle = xpath, true);
@@ -406,7 +434,29 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 TestCompletedStatusSetting();
                 await ModifyFieldsInteractivelyAsync();
                 break;
-            case -1:
+            case 12:
+                TestChapterSortOrderSetting();
+                await ModifyFieldsInteractivelyAsync();
+                break;
+            case 13:
+                await TestFieldAsync("Novel Rating", "//span[@class='rating']/text()", NovelDataInitializer.Attr.NovelRating, xpath => _config.Selectors.TableOfContents.NovelRating = xpath, false);
+                await ModifyFieldsInteractivelyAsync();
+                break;
+            case 14:
+                await TestFieldAsync("Total Ratings", "//span[@class='rating-count']/text()", NovelDataInitializer.Attr.TotalRatings, xpath => _config.Selectors.TableOfContents.TotalRatings = xpath, false);
+                await ModifyFieldsInteractivelyAsync();
+                break;
+            case 15 when _chapterHtmlDocument != null:
+                TestChapterTitle(_chapterHtmlDocument);
+                await ModifyFieldsInteractivelyAsync();
+                break;
+            case 16 when _chapterHtmlDocument != null:
+                TestChapterContent(_chapterHtmlDocument);
+                await ModifyFieldsInteractivelyAsync();
+                break;
+            case 17 when _chapterHtmlDocument != null:
+                TestNextChapterButtonField(_chapterHtmlDocument);
+                await ModifyFieldsInteractivelyAsync();
                 break;
             default:
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -467,7 +517,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             setSelectorAction(xpath);
             var success = await ValidateFieldAsync(attribute);
 
-            Console.Write("\nAre you happy with this result? (y/n/retry): ");
+            Console.Write("\nAre you happy with this result? (y/n/retry, default: y): ");
             var response = Console.ReadLine()?.Trim().ToLowerInvariant();
 
             switch (response)
@@ -549,6 +599,8 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 NovelDataInitializer.Attr.NovelStatus => !string.IsNullOrEmpty(novelDataBuffer.NovelStatus),
                 NovelDataInitializer.Attr.AlternativeNames => novelDataBuffer.AlternativeNames?.Any() == true,
                 NovelDataInitializer.Attr.ThumbnailUrl => !string.IsNullOrEmpty(novelDataBuffer.ThumbnailUrl),
+                NovelDataInitializer.Attr.NovelRating => novelDataBuffer.Rating > 0,
+                NovelDataInitializer.Attr.TotalRatings => novelDataBuffer.TotalRatings > 0,
                 _ => true
             };
 
@@ -615,7 +667,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             _config.Selectors.TableOfContents.ThumbnailUrlAttribute = attribute;
             var success = await ValidateFieldAsync(NovelDataInitializer.Attr.ThumbnailUrl);
 
-            Console.Write("\nAre you happy with this result? (y/n/retry): ");
+            Console.Write("\nAre you happy with this result? (y/n/retry, default: y): ");
             var response = Console.ReadLine()?.Trim().ToLowerInvariant();
 
             switch (response)
@@ -702,10 +754,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     Console.WriteLine("✗ No chapter links found");
                     Console.ResetColor();
 
-                    Console.Write("\nDo you want to retry with a different XPath? (y/n): ");
+                    Console.Write("\nDo you want to retry with a different XPath? (y/n, default: y): ");
                     var retryResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-                    if (retryResponse == "y" || retryResponse == "yes")
+                    if (retryResponse == "y" || retryResponse == "yes" || retryResponse == "")
                     {
                         continue;
                     }
@@ -736,10 +788,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     }
                 }
 
-                Console.Write("\nDo the chapter links look correct? (y/n): ");
+                Console.Write("\nDo the chapter links look correct? (y/n, default: y): ");
                 var verifyResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-                if (verifyResponse == "y" || verifyResponse == "yes")
+                if (verifyResponse == "y" || verifyResponse == "yes" || verifyResponse == "")
                 {
                     linksVerified = true;
                     break;
@@ -782,10 +834,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 Console.WriteLine($"✗ Invalid XPath: {ex.Message}");
                 Console.ResetColor();
 
-                Console.Write("\nDo you want to retry with a different XPath? (y/n): ");
+                Console.Write("\nDo you want to retry with a different XPath? (y/n, default: y): ");
                 var retryResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-                if (retryResponse == "y" || retryResponse == "yes")
+                if (retryResponse == "y" || retryResponse == "yes" || retryResponse == "")
                 {
                     continue;
                 }
@@ -847,6 +899,81 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"✓ Completed status: '{_config.CompletedStatus}'");
         Console.ResetColor();
+    }
+
+    private void TestChapterSortOrderSetting()
+    {
+        Console.WriteLine($"\n[Chapter Sort Order]");
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("How are chapters ordered on this site's table of contents page?");
+        Console.ResetColor();
+        Console.WriteLine("  1. Ascending (oldest first) (default)");
+        Console.WriteLine("  2. Descending (newest first)");
+        Console.WriteLine("  3. None (no specific order)");
+        Console.Write("Choice (1-3): ");
+
+        var choice = Console.ReadLine()?.Trim();
+
+        _config.ChapterSortOrder = choice switch
+        {
+            "2" => ChapterSortOrder.Descending,
+            "3" => ChapterSortOrder.None,
+            _ => ChapterSortOrder.Ascending
+        };
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"✓ Chapter sort order: {_config.ChapterSortOrder}");
+        Console.ResetColor();
+    }
+
+    private async Task TestNovelRatingFieldAsync()
+    {
+        Console.WriteLine($"\n[Novel Rating]");
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("XPath for the novel's rating score (e.g., 4.5 out of 5)");
+        Console.ResetColor();
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.Write("(Optional) ");
+        Console.ResetColor();
+        Console.Write("XPath: ");
+
+        var xpath = Console.ReadLine()?.Trim();
+        if (string.IsNullOrEmpty(xpath))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("⊘ Skipped");
+            Console.ResetColor();
+            return;
+        }
+
+        _config.Selectors.TableOfContents.NovelRating = xpath;
+        await ValidateFieldAsync(NovelDataInitializer.Attr.NovelRating);
+
+        await TestTotalRatingsFieldAsync();
+    }
+
+    private async Task TestTotalRatingsFieldAsync()
+    {
+        Console.WriteLine($"\n[Total Ratings]");
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("XPath for the total number of ratings/votes");
+        Console.ResetColor();
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.Write("(Optional) ");
+        Console.ResetColor();
+        Console.Write("XPath: ");
+
+        var xpath = Console.ReadLine()?.Trim();
+        if (string.IsNullOrEmpty(xpath))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("⊘ Skipped");
+            Console.ResetColor();
+            return;
+        }
+
+        _config.Selectors.TableOfContents.TotalRatings = xpath;
+        await ValidateFieldAsync(NovelDataInitializer.Attr.TotalRatings);
     }
 
     private void TestContentTypeSetting()
@@ -926,8 +1053,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.WriteLine($"✓ Chapter page loaded successfully (Status: {statusCode})\n");
         Console.ResetColor();
 
+        _chapterHtmlDocument = chapterHtml;
+
         TestChapterTitle(chapterHtml);
         TestChapterContent(chapterHtml);
+        TestNextChapterButtonField(chapterHtml);
     }
 
     private void TestChapterTitle(HtmlDocument chapterHtml)
@@ -995,7 +1125,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             }
 
             // Ask user if they're happy with the result
-            Console.Write("\nAre you happy with this result? (y/n/retry): ");
+            Console.Write("\nAre you happy with this result? (y/n/retry, default: y): ");
             var response = Console.ReadLine()?.Trim().ToLowerInvariant();
 
             switch (response)
@@ -1164,7 +1294,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 }
             }
 
-            Console.Write("\nAre you happy with this result? (y/n/retry): ");
+            Console.Write("\nAre you happy with this result? (y/n/retry, default: y): ");
             var response = Console.ReadLine()?.Trim().ToLowerInvariant();
 
             switch (response)
@@ -1197,6 +1327,82 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
+    private void TestNextChapterButtonField(HtmlDocument chapterHtml)
+    {
+        var fieldVerified = false;
+
+        while (!fieldVerified)
+        {
+            Console.WriteLine($"\n[Next Chapter Button]");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("XPath for the 'next chapter' navigation link/button.");
+            Console.WriteLine("Used for SPA-style sites that navigate via next-chapter buttons instead of TOC links.");
+            Console.WriteLine("Example: //a[@class='next-chap']");
+            Console.ResetColor();
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.Write("(Optional) ");
+            Console.ResetColor();
+            Console.Write("XPath: ");
+
+            var xpath = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(xpath))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("⊘ Skipped");
+                Console.ResetColor();
+                return;
+            }
+
+            _config.Selectors.NextChapterButton = xpath;
+
+            try
+            {
+                var node = chapterHtml.DocumentNode.SelectSingleNode(xpath);
+
+                if (node == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("✗ No element found with this XPath");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    var text = node.InnerText?.Trim();
+                    var href = node.GetAttributeValue("href", "(no href)");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"✓ Found: text=\"{text}\", href=\"{href}\"");
+                    Console.ResetColor();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"✗ Error: {ex.Message}");
+                Console.ResetColor();
+            }
+
+            Console.Write("\nAre you happy with this result? (y/n/retry, default: y): ");
+            var response = Console.ReadLine()?.Trim().ToLowerInvariant();
+
+            switch (response)
+            {
+                case "y":
+                case "yes":
+                    fieldVerified = true;
+                    break;
+                case "n":
+                case "no":
+                case "retry":
+                case "r":
+                    _config.Selectors.NextChapterButton = string.Empty;
+                    continue;
+                default:
+                    fieldVerified = true;
+                    break;
+            }
+        }
+    }
+
     private void GenerateAndDisplayConfig()
     {
         Console.WriteLine($"\n{new string('=', 70)}");
@@ -1209,7 +1415,9 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         {
             WriteIndented = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
         };
 
         var json = JsonSerializer.Serialize(_config, options);
@@ -1340,7 +1548,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
             var config = new SiteConfiguration
             {
-                Selectors = new Selectors()
+                Selectors = new Selectors
+                {
+                    TableOfContents = new TableOfContentsSelectors()
+                }
             };
 
             var scraperData = new ScraperData
@@ -1364,6 +1575,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 "CHAPTERLINKS" => TestChapterLinksField(xpath, htmlDocument),
                 "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
                 "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
+                "NOVELRATING" => await TestSpecificField(NovelDataInitializer.Attr.NovelRating, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelRating = s),
+                "TOTALRATINGS" => await TestSpecificField(NovelDataInitializer.Attr.TotalRatings, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.TotalRatings = s),
+                "CHAPTERTITLEINTOC" => TestChapterTitleInTocField(xpath, htmlDocument),
+                "NEXTCHAPTERBUTTON" => TestNextChapterButtonSingleField(xpath, htmlDocument),
                 _ => HandleUnknownField(fieldName)
             };
 
@@ -1526,6 +1741,8 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 NovelDataInitializer.Attr.NovelStatus => !string.IsNullOrEmpty(novelDataBuffer.NovelStatus),
                 NovelDataInitializer.Attr.AlternativeNames => novelDataBuffer.AlternativeNames?.Any() == true,
                 NovelDataInitializer.Attr.ThumbnailUrl => !string.IsNullOrEmpty(novelDataBuffer.ThumbnailUrl),
+                NovelDataInitializer.Attr.NovelRating => novelDataBuffer.Rating > 0,
+                NovelDataInitializer.Attr.TotalRatings => novelDataBuffer.TotalRatings > 0,
                 _ => false
             };
 
@@ -1687,6 +1904,132 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
+    private static bool TestChapterTitleInTocField(string xpath, HtmlDocument htmlDocument)
+    {
+        try
+        {
+            // ChapterTitleInToc uses a relative XPath evaluated against each chapter link node.
+            // First, find chapter link nodes to test against.
+            var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes("//a[contains(@href, 'chapter') or contains(@href, 'ch')]");
+
+            if (chapterLinkNodes == null || !chapterLinkNodes.Any())
+            {
+                // Fallback: try all anchor tags
+                chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
+            }
+
+            if (chapterLinkNodes == null || !chapterLinkNodes.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ No chapter link nodes found to test relative XPath against");
+                Console.ResetColor();
+                return false;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"Testing relative XPath against {chapterLinkNodes.Count} link nodes...");
+            Console.ResetColor();
+
+            var foundCount = 0;
+            var sampleResults = new List<string>();
+
+            foreach (var linkNode in chapterLinkNodes.Take(10))
+            {
+                var titleNode = linkNode.SelectSingleNode(xpath);
+                if (titleNode == null) continue;
+
+                foundCount++;
+                var text = titleNode.InnerText?.Trim();
+                if (!string.IsNullOrEmpty(text) && sampleResults.Count < 5)
+                {
+                    sampleResults.Add(text);
+                }
+            }
+
+            if (foundCount == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Relative XPath matched no elements on any link node");
+                Console.ResetColor();
+
+                // Show fallback: test as absolute XPath
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("\nTrying as absolute XPath for reference:");
+                Console.ResetColor();
+                var absoluteNodes = htmlDocument.DocumentNode.SelectNodes(xpath);
+                if (absoluteNodes != null && absoluteNodes.Any())
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"  Found {absoluteNodes.Count} nodes as absolute XPath");
+                    for (var i = 0; i < Math.Min(3, absoluteNodes.Count); i++)
+                    {
+                        Console.WriteLine($"  [{i + 1}] {absoluteNodes[i].InnerText?.Trim()}");
+                    }
+                    Console.ResetColor();
+                    Console.WriteLine("  Note: ChapterTitleInToc expects a relative XPath (evaluated per chapter link)");
+                }
+                return false;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"✓ Matched on {foundCount}/{Math.Min(10, chapterLinkNodes.Count)} tested links");
+            Console.ResetColor();
+
+            if (sampleResults.Any())
+            {
+                Console.WriteLine("\nSample titles found:");
+                for (var i = 0; i < sampleResults.Count; i++)
+                {
+                    var preview = sampleResults[i].Length > 80 ? sampleResults[i].Substring(0, 80) + "..." : sampleResults[i];
+                    Console.WriteLine($"  [{i + 1}] {preview}");
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: {ex.Message}");
+            Console.ResetColor();
+            return false;
+        }
+    }
+
+    private static bool TestNextChapterButtonSingleField(string xpath, HtmlDocument htmlDocument)
+    {
+        try
+        {
+            var node = htmlDocument.DocumentNode.SelectSingleNode(xpath);
+
+            if (node == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ No element found with this XPath");
+                Console.ResetColor();
+                return false;
+            }
+
+            var text = node.InnerText?.Trim();
+            var href = node.GetAttributeValue("href", "(no href)");
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"✓ Found next chapter button");
+            Console.ResetColor();
+            Console.WriteLine($"  Text: {text}");
+            Console.WriteLine($"  Href: {href}");
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: {ex.Message}");
+            Console.ResetColor();
+            return false;
+        }
+    }
+
     private static bool HandleUnknownField(string fieldName)
     {
         Console.ForegroundColor = ConsoleColor.Red;
@@ -1701,8 +2044,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.WriteLine("  - AlternativeNames");
         Console.WriteLine("  - Thumbnail");
         Console.WriteLine("  - ChapterLinks");
-        Console.WriteLine("\nNote: Chapter content fields (chapterTitle, chapterContent, etc.)");
-        Console.WriteLine("require a chapter URL, not a table of contents URL.");
+        Console.WriteLine("  - NovelRating");
+        Console.WriteLine("  - TotalRatings");
+        Console.WriteLine("  - ChapterTitleInToc  (uses relative XPath evaluated per chapter link)");
+        Console.WriteLine("\nChapter fields (use chapter URL):");
+        Console.WriteLine("  - ChapterTitle");
+        Console.WriteLine("  - ChapterContent");
+        Console.WriteLine("  - NextChapterButton");
         return false;
     }
 

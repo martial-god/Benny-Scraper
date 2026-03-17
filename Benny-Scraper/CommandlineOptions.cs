@@ -23,6 +23,9 @@ namespace Benny_Scraper
         [Option('c', "concurrent-request", Required = false, HelpText = "Set the number [INT] of concurrent requests to a website. Default is 2, value will be limited to number of CPU cores on your computer. *Some websites may block your ip if too many requests are made in a short time*")]
         public int ConcurrentRequests { get; set; }
 
+        [Option("get-concurrent", Required = false, HelpText = "Gets the saved concurrent request limit.")]
+        public bool GetConcurrent { get; set; }
+
         [Option('s', "save-location", Required = false, HelpText = "Set default save location [PATH]. Overridden by specific 'manga' or 'novel' locations if set.")]
         public string SaveLocation { get; set; }
 
@@ -98,6 +101,9 @@ namespace Benny_Scraper
 
         [Option("retry-all-failed", Required = false, HelpText = "Retries scraping failed chapters for ALL novels.")]
         public bool RetryAllFailed { get; set; }
+
+        [Option("fields", Required = false, HelpText = "List all testable fields for --test-field, grouped by Table of Contents and Chapter.")]
+        public bool ListFields { get; set; }
 
         [Option("sites", Required = false, HelpText = "Display all supported websites for scraping with clickable URLs.")]
         public bool SupportedSites { get; set; }
