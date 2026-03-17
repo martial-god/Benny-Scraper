@@ -314,6 +314,14 @@ namespace Benny_Scraper
             {
                 await ValidateAllSiteConfigsAsync();
             }
+            else if (options.RetryFailedById != Guid.Empty)
+            {
+                await RetryFailedChaptersAsync(options.RetryFailedById, options.WithLogin);
+            }
+            else if (options.RetryAllFailed)
+            {
+                await RetryAllFailedChaptersAsync(options.WithLogin);
+            }
             else if (!string.IsNullOrEmpty(options.Url))
             {
                 // Handle URL with optional chapter range
@@ -1172,7 +1180,6 @@ namespace Benny_Scraper
 
                 try
                 {
-                    // Guard: Validate URI
                     if (!Uri.TryCreate(site, UriKind.Absolute, out Uri testUri))
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
@@ -1186,7 +1193,6 @@ namespace Benny_Scraper
 
                     var siteConfig = novelScraperSettings?.SiteConfigurations?.FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern));
 
-                    // Guard: Check for inactive site
                     if (siteConfig is { IsActive: false })
                     {
                         Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -1205,7 +1211,6 @@ namespace Benny_Scraper
 
                     var needsConfigUpdate = cloudflareDetected && siteConfig != null && !siteConfig.CloudflareProtection.HasValue;
 
-                    // Guard: Handle successful connection
                     if (htmlDocument != null)
                     {
                         var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
@@ -1362,6 +1367,86 @@ namespace Benny_Scraper
             }
 
             Console.WriteLine($"\n{'='}{new string('=', 60)}\n");
+        }
+
+        private static async Task RetryFailedChaptersAsync(Guid novelId, bool withLogin)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var novelProcessor = scope.Resolve<INovelProcessor>();
+                await novelProcessor.RetryFailedChaptersAsync(novelId, withLogin);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when retrying failed chapters for novel {novelId}. {ex.Message}");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error retrying failed chapters: {ex.Message}");
+                Console.ResetColor();
+            }
+        }
+
+        private static async Task RetryAllFailedChaptersAsync(bool withLogin)
+        {
+            try
+            {
+                await using var scope = Container.BeginLifetimeScope();
+                var novelService = scope.Resolve<INovelService>();
+                var novelProcessor = scope.Resolve<INovelProcessor>();
+                var novels = await novelService.GetAllAsync();
+                var novelList = novels.ToList();
+
+                Console.WriteLine();
+                var headerMessages = new[] { $"RETRY ALL FAILED CHAPTERS ({novelList.Count} novels)" };
+                CommonHelper.DrawBox(headerMessages, ConsoleColor.Cyan);
+
+                var totalRecovered = 0;
+                var totalStillFailed = 0;
+                var novelsWithFailures = new List<(string Title, int Recovered, int StillFailed)>();
+
+                foreach (var novel in novelList)
+                {
+                    var result = await novelProcessor.RetryFailedChaptersAsync(novel.Id, withLogin);
+                    if (result.TotalFailed > 0)
+                    {
+                        totalRecovered += result.Succeeded;
+                        totalStillFailed += result.StillFailed;
+                        novelsWithFailures.Add((novel.Title, result.Succeeded, result.StillFailed));
+                    }
+                }
+
+                Console.WriteLine();
+                if (novelsWithFailures.Count > 0)
+                {
+                    var summaryMessages = new[] { "OVERALL RETRY SUMMARY" };
+                    CommonHelper.DrawBox(summaryMessages, ConsoleColor.Cyan);
+                    Console.WriteLine($"  Novels with failed chapters: {novelsWithFailures.Count}");
+                    Console.WriteLine($"  Total recovered:             {totalRecovered}");
+                    Console.WriteLine($"  Total still failed:          {totalStillFailed}");
+                    Console.WriteLine();
+
+                    foreach (var (title, recovered, stillFailed) in novelsWithFailures)
+                    {
+                        var color = stillFailed == 0 ? ConsoleColor.Green : ConsoleColor.Yellow;
+                        Console.ForegroundColor = color;
+                        Console.WriteLine($"  {title}: {recovered} recovered, {stillFailed} still failed");
+                    }
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("No failed chapters found across any novels.");
+                    Console.ResetColor();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception when retrying all failed chapters. {ex.Message}");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error retrying all failed chapters: {ex.Message}");
+                Console.ResetColor();
+            }
         }
 
         public static async Task UpdateNovelSavedLocationByIdAsync(Guid id)

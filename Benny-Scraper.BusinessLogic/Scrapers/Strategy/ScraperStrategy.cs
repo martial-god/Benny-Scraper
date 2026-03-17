@@ -1251,8 +1251,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     var tasks = new List<Task<ChapterDataBuffer>>();
                     // I haven't run into a httpclient site that requires premium so no need to pass the entire chapterLink yet.
-                    await ProcessChaptersWithHttpClient(chapterLinks.Select(c => c.Url).ToList(), tasks,
-                        chapterDataBuffers);
+                    await ProcessChaptersWithHttpClient(chapterLinks.Select(c => c.Url).ToList(), tasks, chapterDataBuffers);
                 }
 
                 for (var i = 0; i < chapterDataBuffers.Count && i < chapterLinks.Count; i++)
@@ -1394,7 +1393,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             {
                 // Only dispose the driver if we explicitly don't want to reuse it.
                 // When reuseExistingDriver=true, keep the driver alive for subsequent calls
-                // (e.g., table of contents followed by chapter content scraping).
+                // (e.g., table of contents needs driver and so does chapter content scraping).
                 if (!reuseExistingDriver && driver != null)
                 {
                     driver.Dispose();
@@ -1484,8 +1483,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             Logger.Debug("Using Selenium to get chapters data");
 
-            // Reuse existing driver if one was left alive from TOC scraping (when both
-            // tableOfContentsRequiresSelenium and chapterContentRequiresSelenium are true)
             IWebDriver driver;
             if (_driverFactory.GetAllDrivers().Any())
             {
@@ -1568,7 +1565,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                 if (currentChapter == 1)
                 {
-                    // First chapter: full navigation + auth verification
                     await driver.Navigate().GoToUrlAsync(chapterLink.Url);
 
                     if (!string.IsNullOrEmpty(authElementXPath))
@@ -1593,28 +1589,43 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     try
                     {
                         var navWait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                        navWait.Until(ExpectedConditions.ElementToBeClickable(
-                            By.XPath(nextChapterXPath))).Click();
+                        var nextChapterbutton = navWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(nextChapterXPath)));
+                        if (nextChapterbutton != null)
+                        {
+                            IWebElement? previousContentElement = null;
+                            try
+                            {
+                                previousContentElement = driver.FindElement(By.XPath(ScraperData.SiteConfig!.Selectors.ChapterContent!));
+                            }
+                            catch (NoSuchElementException)
+                            {
+                                Logger.Debug("Could not find previous content element for staleness check");
+                            }
 
-                        // Verify URL matches expected chapter
-                        navWait.Until(d => d.Url.Contains(
-                            new Uri(chapterLink.Url).AbsolutePath, StringComparison.OrdinalIgnoreCase));
+                            nextChapterbutton.Click();
 
-                        // Wait for auth element to reappear (confirms SPA transition completed with auth intact)
+                            if (previousContentElement != null)
+                            {
+                                var staleWait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
+                                staleWait.Until(ExpectedConditions.StalenessOf(previousContentElement));
+                                Logger.Debug("Previous chapter content element became stale — SPA transition detected");
+                            }
+                        }
+
                         if (!string.IsNullOrEmpty(authElementXPath))
                         {
-                            navWait.Until(ExpectedConditions.ElementExists(By.XPath(authElementXPath)));
+                            Logger.Debug($"\nWaiting for auth verification element to reappear after SPA navigation to chapter {currentChapter}/{totalChapters}");
+                            navWait.Until(ExpectedConditions.ElementIsVisible(By.XPath(authElementXPath)));
                         }
 
                         skipNavigation = true;
                         Logger.Debug($"SPA navigation to {chapterLink.Url} succeeded (chapter {currentChapter}/{totalChapters})");
                     }
-                    catch (WebDriverTimeoutException)
+                    catch (WebDriverTimeoutException ex)
                     {
                         Logger.Warn($"SPA navigation failed for {chapterLink.Url}, falling back to full navigation");
                         skipNavigation = false;
 
-                        // Fallback: full navigation + auth wait
                         await driver.Navigate().GoToUrlAsync(chapterLink.Url);
                         if (!string.IsNullOrEmpty(authElementXPath))
                         {
@@ -1630,14 +1641,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             }
                         }
 
-                        skipNavigation = true; // Navigation handled here either way
+                        skipNavigation = true;
                     }
                 }
 
                 chapterDataBuffers.Add(await GetChapterDataAsync(driver, chapterLink, tempImageDirectory, currentChapter, totalChapters, skipNavigation));
             }
 
-            Console.Write("\r" + new string(' ', 80) + "\r"); // Clear the progress line
+            Console.Write("\r" + new string(' ', 80) + "\r");
             Logger.Info($"Finished getting chapters data via SPA navigation. Total chapters: {chapterDataBuffers.Count}");
         }
 
@@ -1852,16 +1863,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Info($"Finished navigating to {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
                 stopwatch.Restart();
 
-                var titleNode =
-                    htmlDocument.DocumentNode.SelectSingleNode(ScraperData.SiteConfig?.Selectors.ChapterTitle);
+                var titleNode = htmlDocument.DocumentNode.SelectSingleNode(ScraperData.SiteConfig?.Selectors.ChapterTitle);
                 chapterDataBuffer.Title =
                     titleNode != null ? NormalizeChapterTitle(titleNode.InnerText) : "Unknown Title";
                 Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
 
-                var paragraphNodes =
-                    htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterContent);
-                chapterDataBuffer =
-                    AddTextContentToChapterDataBuffer(htmlDocument, chapterDataBuffer, paragraphNodes, url);
+                var paragraphNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterContent);
+                chapterDataBuffer = AddTextContentToChapterDataBuffer(htmlDocument, chapterDataBuffer, paragraphNodes, url);
                 Logger.Info($"Finished processing chapter data. Time taken: {stopwatch.ElapsedMilliseconds} ms");
             }
             catch (Exception ex)

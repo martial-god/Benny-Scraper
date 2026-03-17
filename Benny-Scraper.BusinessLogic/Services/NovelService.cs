@@ -59,7 +59,7 @@ namespace Benny_Scraper.BusinessLogic.Services
 
         public async Task<Novel?> GetByUrlAsync(Uri uri)
         {
-            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString);
+            var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString, includeProperties: "ChapterRanges");
             if (context == null) return context;
             
             var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
@@ -71,8 +71,8 @@ namespace Benny_Scraper.BusinessLogic.Services
         {
             var context = await _unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Id == id);
             if (context == null) return context;
-            
-            var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
+
+            var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id, includeProperties: "Pages");
             context.Chapters = chapterContext.ToList();
             return context;
         }

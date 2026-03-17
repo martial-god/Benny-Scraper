@@ -6,7 +6,7 @@
     },
     "Benny-Scraper": {
       "commandName": "Project",
-      "commandLineArgs": "https://www.wuxiaworld.com/novel/tribulation-of-myriad-races --with-login",
+      "commandLineArgs": "https://www.wuxiaworld.com/novel/karnak-monarch-of-death --with-login",
       "nativeDebugging": true
     }
   }

@@ -233,6 +233,22 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 Console.WriteLine($"  Saved to:       {outputFilePath}");
                 Console.ResetColor();
 
+                // Count and report failed chapters (matching manga pattern)
+                var totalMissingChapters = chapters.Count(chapter =>
+                    string.IsNullOrEmpty(chapter.Content) || chapter.Content == "No content found");
+                var missingChapterUrls = chapters.Where(chapter =>
+                    string.IsNullOrEmpty(chapter.Content) || chapter.Content == "No content found")
+                    .Select(chapter => chapter.Url);
+
+                if (totalMissingChapters > 0)
+                {
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"  ⚠ Warning: {totalMissingChapters} chapters had no content");
+                    Console.WriteLine($"  Missing URLs: {string.Join(", ", missingChapterUrls)}");
+                    Console.ResetColor();
+                }
+
                 Console.WriteLine();
                 Console.WriteLine(new string('─', 78));
                 Console.WriteLine();

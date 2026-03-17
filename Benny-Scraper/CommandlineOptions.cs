@@ -93,6 +93,12 @@ namespace Benny_Scraper
         [Option("with-login", Required = false, HelpText = "Show browser for manual login to access premium chapters (e.g., WuxiaWorld). Your credentials are NEVER stored - you login manually in the browser window, then scraping continues. Useful for accessing premium/locked chapters you own.")]
         public bool WithLogin { get; set; }
 
+        [Option("retry-failed", Required = false, HelpText = "Retries scraping failed chapters for a novel by its ID [GUID].")]
+        public Guid RetryFailedById { get; set; }
+
+        [Option("retry-all-failed", Required = false, HelpText = "Retries scraping failed chapters for ALL novels.")]
+        public bool RetryAllFailed { get; set; }
+
         [Option("sites", Required = false, HelpText = "Display all supported websites for scraping with clickable URLs.")]
         public bool SupportedSites { get; set; }
 
