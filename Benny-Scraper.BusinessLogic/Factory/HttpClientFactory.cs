@@ -1,4 +1,5 @@
 using System.Net;
+using Polly;
 
 namespace Benny_Scraper.BusinessLogic.Factory;
 
@@ -18,12 +19,16 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
 {
     private readonly SocketsHttpHandler _handler;
     private readonly System.Net.CookieContainer _cookieContainer;
+    private readonly ResiliencePipeline<HttpResponseMessage> _responsePipeline;
     private bool _disposed;
 
     public TimeSpan Timeout { get; }
 
-    public HttpClientFactory(TimeSpan? timeout = null)
+    public HttpClientFactory(
+        ResiliencePipeline<HttpResponseMessage>? responsePipeline = null,
+        TimeSpan? timeout = null)
     {
+        _responsePipeline = responsePipeline ?? HttpClientResilience.CreatePipeline();
         Timeout = timeout ?? TimeSpan.FromSeconds(30);
 
         // Shared cookie container across all clients for proper session management
@@ -48,7 +53,7 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
     {
         ThrowIfDisposed();
 
-        var client = new HttpClient(_handler, disposeHandler: false)
+        var client = new HttpClient(new ResilientHttpMessageHandler(_handler, _responsePipeline), disposeHandler: true)
         {
             Timeout = Timeout
         };

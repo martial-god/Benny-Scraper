@@ -2,6 +2,7 @@
 using Autofac;
 using Benny_Scraper.BusinessLogic;
 using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Extensions;
 using Benny_Scraper.BusinessLogic.Factory;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.FileGenerators;
@@ -1724,8 +1725,7 @@ namespace Benny_Scraper
             builder.RegisterType<PdfGenerator>().As<PdfGenerator>().InstancePerDependency();
             builder.RegisterType<ComicBookArchiveGenerator>().As<IComicBookArchiveGenerator>().InstancePerDependency();
 
-            // Centralized HttpClient creation (shared handler, per-call HttpClient instances)
-            builder.RegisterType<HttpClientFactory>().As<IHttpClientFactory>().SingleInstance();
+            builder.AddHttpResilience();
 
             // Centralized Selenium driver factory (so all drivers can be disposed on shutdown)
             builder.RegisterType<DriverFactory>().As<IDriverFactory>().SingleInstance();

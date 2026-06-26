@@ -8,7 +8,6 @@ using HtmlAgilityPack;
 using NLog;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
-using Polly;
 using SeleniumExtras.WaitHelpers;
 using System.Diagnostics;
 using System.Net;
@@ -381,7 +380,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private int ConcurrentRequestsLimit { get; set; } = 2;
         protected bool RequiresLogin { get; private set; }
 
-        private const int MaxRetries = 6;
         private const int DefaultMinimumParagraphThreshold = 5;
         private volatile int _globalBackoffMs;
         private const int MaxGlobalBackoffMs = 30_000;
@@ -800,203 +798,167 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             ServicePointManager.SecurityProtocol =
                 SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 
-            var retryPolicy = Policy
-                .Handle<HttpRequestException>()
-                .OrResult<(HtmlDocument, Uri)>(result => false) // Retry if the result is null
-                .WaitAndRetryAsync(MaxRetries, retryAttempt =>
-                        TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // exponential back-off
-                    (outcome, timeSpan, retryCount, context) =>
-                    {
-                        if (outcome.Exception != null)
-                        {
-                            Logger.Warn($"Error occurred while navigating to {uri}. Code: Attempt: {retryCount}");
-                        }
-                        else
-                        {
-                            Logger.Warn($"Skipping chapter due to repeated failures: {uri}. Attempt: {retryCount}");
-                        }
-                    });
+            using var client = _httpClientFactory.CreateClient();
 
-            return await retryPolicy.ExecuteAsync(async context =>
+            var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
+
+            // Use FlareSolverr's user-agent if we got one from solving a challenge
+            string userAgent = _flareSolverrUserAgent ??
+                               _userAgents[
+                                   System.Threading.Interlocked.Increment(ref _userAgentIndex) % _userAgents.Count];
+
+            if (ScraperData.BaseUri == new Uri("https://www.lightnovelworld.com/"))
+                userAgent = _userAgents[0];
+
+            // Add realistic browser headers to bypass Cloudflare
+            requestMessage.Headers.Add("User-Agent", userAgent);
+            requestMessage.Headers.Add("Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+            requestMessage.Headers.Add("Accept-Language", "en-US,en;q=0.9");
+            requestMessage.Headers.Add("Accept-Encoding", "gzip, deflate, br");
+            requestMessage.Headers.Add("DNT", "1");
+            requestMessage.Headers.Add("Connection", "keep-alive");
+            requestMessage.Headers.Add("Upgrade-Insecure-Requests", "1");
+            requestMessage.Headers.Add("Sec-Fetch-Dest", "document");
+            requestMessage.Headers.Add("Sec-Fetch-Mode", "navigate");
+            requestMessage.Headers.Add("Sec-Fetch-Site", "none");
+            requestMessage.Headers.Add("Sec-Fetch-User", "?1");
+            requestMessage.Headers.Add("Cache-Control", "max-age=0");
+
+            if (ScraperData.BaseUri != null)
+                requestMessage.Headers.Add("Referer", ScraperData.BaseUri.ToString());
+
+            requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"),
+                TimeSpan.FromSeconds(10));
+
+            // Add random delay between 100-500ms to avoid predictable request patterns
+            // This helps bypass Cloudflare's bot detection which looks for mechanical timing
+            int baseDelay = _random.Next(100, 500);
+            int totalDelay = baseDelay + _globalBackoffMs;
+            await Task.Delay(totalDelay);
+
+            Logger.Debug($"Sending request to {uri}");
+
+            using var response = await client.SendAsync(requestMessage);
+
+            Logger.Debug($"Response Status: {(int)response.StatusCode} {response.StatusCode}");
+            Logger.Debug(
+                $"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(";", h.Value)}"))}");
+
+            // Guard: Handle unsuccessful response
+            if (!response.IsSuccessStatusCode)
             {
-                using var client = _httpClientFactory.CreateClient();
-
-                var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-
-                // Use FlareSolverr's user-agent if we got one from solving a challenge
-                string userAgent = _flareSolverrUserAgent ??
-                                   _userAgents[
-                                       System.Threading.Interlocked.Increment(ref _userAgentIndex) % _userAgents.Count];
-
-                if (ScraperData.BaseUri == new Uri("https://www.lightnovelworld.com/"))
-                    userAgent = _userAgents[0];
-
-                // Add realistic browser headers to bypass Cloudflare
-                requestMessage.Headers.Add("User-Agent", userAgent);
-                requestMessage.Headers.Add("Accept",
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-                requestMessage.Headers.Add("Accept-Language", "en-US,en;q=0.9");
-                requestMessage.Headers.Add("Accept-Encoding", "gzip, deflate, br");
-                requestMessage.Headers.Add("DNT", "1");
-                requestMessage.Headers.Add("Connection", "keep-alive");
-                requestMessage.Headers.Add("Upgrade-Insecure-Requests", "1");
-                requestMessage.Headers.Add("Sec-Fetch-Dest", "document");
-                requestMessage.Headers.Add("Sec-Fetch-Mode", "navigate");
-                requestMessage.Headers.Add("Sec-Fetch-Site", "none");
-                requestMessage.Headers.Add("Sec-Fetch-User", "?1");
-                requestMessage.Headers.Add("Cache-Control", "max-age=0");
-
-                if (ScraperData.BaseUri != null)
-                    requestMessage.Headers.Add("Referer", ScraperData.BaseUri.ToString());
-
-                requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"),
-                    TimeSpan.FromSeconds(10));
-
-                // Add random delay between 100-500ms to avoid predictable request patterns
-                // This helps bypass Cloudflare's bot detection which looks for mechanical timing
-                int baseDelay = _random.Next(100, 500);
-                int totalDelay = baseDelay + _globalBackoffMs;
-                await Task.Delay(totalDelay);
-
-                Logger.Debug($"Sending request to {uri}");
-
-                var response = await client.SendAsync(requestMessage);
-
-                Logger.Debug($"Response Status: {(int)response.StatusCode} {response.StatusCode}");
-                Logger.Debug(
+                Logger.Error($"Request failed to {uri}");
+                Logger.Error($"Status Code: {(int)response.StatusCode} {response.StatusCode}");
+                Logger.Error(
                     $"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(";", h.Value)}"))}");
 
-                // Guard: Handle unsuccessful response
-                if (!response.IsSuccessStatusCode)
+                string? errorContent = null;
+                try
                 {
-                    Logger.Error($"Request failed to {uri}");
-                    Logger.Error($"Status Code: {(int)response.StatusCode} {response.StatusCode}");
-                    Logger.Error(
-                        $"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(";", h.Value)}"))}");
+                    errorContent = await response.Content.ReadAsStringAsync();
 
-                    string? errorContent = null;
-                    try
+                    if (string.IsNullOrEmpty(errorContent))
                     {
-                        errorContent = await response.Content.ReadAsStringAsync();
-
-                        if (string.IsNullOrEmpty(errorContent))
-                        {
-                            // No content to log
-                        }
-                        else if (errorContent.Length < 1000)
-                        {
-                            Logger.Error($"Response Body: {errorContent}");
-                        }
-                        else
-                        {
-                            Logger.Error($"Response Body (truncated): {errorContent.Substring(0, 1000)}...");
-                        }
                     }
-                    catch (Exception ex)
+                    else if (errorContent.Length < 1000)
                     {
-                        Logger.Error($"Could not read error response body: {ex.Message}");
+                        Logger.Error($"Response Body: {errorContent}");
                     }
-
-                    // Check if this is a Cloudflare challenge and FlareSolverr is available
-                    if (_flareSolverrEnabled && _flareSolverr != null &&
-                        FlareSolverrService.IsCloudflareChallenge(response.StatusCode, errorContent))
+                    else
                     {
-                        Logger.Info($"Cloudflare challenge detected for {uri}. Using FlareSolverr to solve...");
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.WriteLine($"🔓 Cloudflare challenge detected - solving with FlareSolverr...");
+                        Logger.Error($"Response Body (truncated): {errorContent.Substring(0, 1000)}...");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Could not read error response body: {ex.Message}");
+                }
+
+                if (_flareSolverrEnabled && _flareSolverr != null &&
+                    FlareSolverrService.IsCloudflareChallenge(response.StatusCode, errorContent))
+                {
+                    Logger.Info($"Cloudflare challenge detected for {uri}. Using FlareSolverr to solve...");
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"🔓 Cloudflare challenge detected - solving with FlareSolverr...");
+                    Console.ResetColor();
+
+                    var flareSolverrResult = await _flareSolverr.SolveAsync(uri.ToString());
+                    if (flareSolverrResult?.Status == "ok" && flareSolverrResult.Solution != null)
+                    {
+                        var cookieHeader = FlareSolverrService.GetCookieHeader(flareSolverrResult);
+                        if (!string.IsNullOrEmpty(cookieHeader))
+                        {
+                            _httpClientFactory.AddCookiesFromHeader(uri, cookieHeader);
+                            Logger.Info(
+                                $"Injected {flareSolverrResult.Solution.Cookies?.Count ?? 0} cookies from FlareSolverr");
+                        }
+
+                        _flareSolverrUserAgent = flareSolverrResult.Solution.UserAgent;
+
+                        var solvedHtmlDocument = new HtmlDocument();
+                        solvedHtmlDocument.LoadHtml(flareSolverrResult.Solution.Response);
+
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"✓ Cloudflare challenge solved successfully");
                         Console.ResetColor();
 
-                        var flareSolverrResult = await _flareSolverr.SolveAsync(uri.ToString());
-                        if (flareSolverrResult?.Status == "ok" && flareSolverrResult.Solution != null)
+                        var solvedCanonicalNode =
+                            solvedHtmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+                        if (solvedCanonicalNode != null)
                         {
-                            // Inject the cookies for future requests
-                            var cookieHeader = FlareSolverrService.GetCookieHeader(flareSolverrResult);
-                            if (!string.IsNullOrEmpty(cookieHeader))
+                            var solvedCanonicalUrl = solvedCanonicalNode.Attributes["href"]?.Value;
+                            if (!string.IsNullOrEmpty(solvedCanonicalUrl) && solvedCanonicalUrl != uri.ToString())
                             {
-                                _httpClientFactory.AddCookiesFromHeader(uri, cookieHeader);
-                                Logger.Info(
-                                    $"Injected {flareSolverrResult.Solution.Cookies?.Count ?? 0} cookies from FlareSolverr");
+                                Logger.Debug(
+                                    $"Canonical URL detected. Old URL: {uri}, Canonical URL: {solvedCanonicalUrl}");
+                                uri = new Uri(solvedCanonicalUrl);
                             }
-
-                            // Store the user-agent for subsequent requests
-                            _flareSolverrUserAgent = flareSolverrResult.Solution.UserAgent;
-
-                            // Return the HTML from FlareSolverr's response
-                            var solvedHtmlDocument = new HtmlDocument();
-                            solvedHtmlDocument.LoadHtml(flareSolverrResult.Solution.Response);
-
-                            Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine($"✓ Cloudflare challenge solved successfully");
-                            Console.ResetColor();
-
-                            // Check for canonical URL in solved document
-                            var solvedCanonicalNode =
-                                solvedHtmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
-                            if (solvedCanonicalNode != null)
-                            {
-                                var solvedCanonicalUrl = solvedCanonicalNode.Attributes["href"]?.Value;
-                                if (!string.IsNullOrEmpty(solvedCanonicalUrl) && solvedCanonicalUrl != uri.ToString())
-                                {
-                                    Logger.Debug(
-                                        $"Canonical URL detected. Old URL: {uri}, Canonical URL: {solvedCanonicalUrl}");
-                                    uri = new Uri(solvedCanonicalUrl);
-                                }
-                            }
-
-                            return (solvedHtmlDocument, uri);
                         }
-                        else
-                        {
-                            Logger.Error(
-                                $"FlareSolverr failed to solve challenge: {flareSolverrResult?.Message ?? "Unknown error"}");
-                            Console.ForegroundColor = ConsoleColor.Red;
-                            Console.WriteLine($"✗ FlareSolverr failed to solve challenge");
-                            Console.ResetColor();
-                        }
+
+                        return (solvedHtmlDocument, uri);
                     }
 
-                    // Guard: Handle too many requests — increase global backoff for all concurrent requests
-                    if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                    {
-                        var currentBackoff = _globalBackoffMs;
-                        var newBackoff = Math.Min(currentBackoff == 0 ? 3000 : currentBackoff * 2, MaxGlobalBackoffMs);
-                        _globalBackoffMs = newBackoff;
-                        Logger.Warn($"429 detected for {uri} — global backoff increased to {newBackoff}ms");
-
-                        if ((int)context["RetryCount"] >= MaxRetries)
-                            return (null, uri);
-
-                        throw new HttpRequestException(
-                            $"Rate limited by {uri}. Status code: {response.StatusCode}");
-                    }
-
-                    throw new HttpRequestException(
-                        $"Failed to load HTML document from {uri} after {MaxRetries} attempts. Status code: {response.StatusCode}");
+                    Logger.Error(
+                        $"FlareSolverr failed to solve challenge: {flareSolverrResult?.Message ?? "Unknown error"}");
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"✗ FlareSolverr failed to solve challenge");
+                    Console.ResetColor();
                 }
 
-                // Gradually reduce global backoff after successful requests
-                if (_globalBackoffMs > 0)
-                    _globalBackoffMs = Math.Max(0, _globalBackoffMs / 2);
-
-                response.EnsureSuccessStatusCode();
-                var content = await response.Content.ReadAsStringAsync();
-
-                var htmlDocument = new HtmlDocument();
-                htmlDocument.LoadHtml(content);
-
-                var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
-                if (canonicalNode != null)
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
-                    var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
-                    if (!string.IsNullOrEmpty(canonicalUrl) && canonicalUrl != uri.ToString())
-                    {
-                        Logger.Debug($"Canonical URL detected. Old URL: {uri}, Canonical URL: {canonicalUrl}");
-                        uri = new Uri(canonicalUrl);
-                    }
+                    var currentBackoff = _globalBackoffMs;
+                    var newBackoff = Math.Min(currentBackoff == 0 ? 3000 : currentBackoff * 2, MaxGlobalBackoffMs);
+                    _globalBackoffMs = newBackoff;
+                    Logger.Warn($"429 detected for {uri} — global backoff increased to {newBackoff}ms");
                 }
 
-                return (htmlDocument, uri);
-            }, new Context { ["RetryCount"] = 0 });
+                throw new HttpRequestException(
+                    $"Failed to load HTML document from {uri}. Status code: {response.StatusCode}");
+            }
+
+            if (_globalBackoffMs > 0)
+                _globalBackoffMs = Math.Max(0, _globalBackoffMs / 2);
+
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+
+            var htmlDocument = new HtmlDocument();
+            htmlDocument.LoadHtml(content);
+
+            var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+            if (canonicalNode != null)
+            {
+                var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
+                if (!string.IsNullOrEmpty(canonicalUrl) && canonicalUrl != uri.ToString())
+                {
+                    Logger.Debug($"Canonical URL detected. Old URL: {uri}, Canonical URL: {canonicalUrl}");
+                    uri = new Uri(canonicalUrl);
+                }
+            }
+
+            return (htmlDocument, uri);
         }
 
         protected async Task<string> DownloadImageAsync(Uri uri, string tempImageDirectory)
@@ -1007,52 +969,46 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             ServicePointManager.SecurityProtocol =
                 SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 
-            int retryCount = 0;
-            while (retryCount < MaxRetries)
+            try
             {
-                try
+                using var client = _httpClientFactory.CreateClient();
+
+                var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
+                var userAgent =
+                    _userAgents[System.Threading.Interlocked.Increment(ref _userAgentIndex) % _userAgents.Count];
+
+                // Add realistic browser headers for image downloads
+                requestMessage.Headers.Add("User-Agent", userAgent);
+                requestMessage.Headers.Add("Accept",
+                    "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
+                requestMessage.Headers.Add("Accept-Language", "en-US,en;q=0.9");
+                requestMessage.Headers.Add("Accept-Encoding", "gzip, deflate, br");
+                requestMessage.Headers.Add("DNT", "1");
+                requestMessage.Headers.Add("Connection", "keep-alive");
+                requestMessage.Headers.Add("Sec-Fetch-Dest", "image");
+                requestMessage.Headers.Add("Sec-Fetch-Mode", "no-cors");
+                requestMessage.Headers.Add("Sec-Fetch-Site", "cross-site");
+
+                if (ScraperData.BaseUri != null)
+                    requestMessage.Headers.Add("Referer", ScraperData.BaseUri.ToString());
+
+                using var response =
+                    await client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+
+                await using var imageStream = await response.Content.ReadAsStreamAsync();
+                var imagePath = Path.Combine(tempImageDirectory, Path.GetRandomFileName() + ".jpg");
+                await using (var fileStream = File.Create(imagePath))
                 {
-                    using var client = _httpClientFactory.CreateClient();
-
-                    var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-                    var userAgent =
-                        _userAgents[System.Threading.Interlocked.Increment(ref _userAgentIndex) % _userAgents.Count];
-
-                    // Add realistic browser headers for image downloads
-                    requestMessage.Headers.Add("User-Agent", userAgent);
-                    requestMessage.Headers.Add("Accept",
-                        "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
-                    requestMessage.Headers.Add("Accept-Language", "en-US,en;q=0.9");
-                    requestMessage.Headers.Add("Accept-Encoding", "gzip, deflate, br");
-                    requestMessage.Headers.Add("DNT", "1");
-                    requestMessage.Headers.Add("Connection", "keep-alive");
-                    requestMessage.Headers.Add("Sec-Fetch-Dest", "image");
-                    requestMessage.Headers.Add("Sec-Fetch-Mode", "no-cors");
-                    requestMessage.Headers.Add("Sec-Fetch-Site", "cross-site");
-
-                    if (ScraperData.BaseUri != null)
-                        requestMessage.Headers.Add("Referer", ScraperData.BaseUri.ToString());
-
-                    using var response =
-                        await client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
-                    response.EnsureSuccessStatusCode();
-
-                    await using var imageStream = await response.Content.ReadAsStreamAsync();
-                    var imagePath = Path.Combine(tempImageDirectory, Path.GetRandomFileName() + ".jpg");
-                    await using (var fileStream = File.Create(imagePath))
-                    {
-                        await imageStream.CopyToAsync(fileStream);
-                        Logger.Debug($"Downloaded image to temp folder {imagePath}");
-                    }
-
-                    return imagePath;
+                    await imageStream.CopyToAsync(fileStream);
+                    Logger.Debug($"Downloaded image to temp folder {imagePath}");
                 }
-                catch (HttpRequestException e)
-                {
-                    retryCount++;
-                    Logger.Error($"Error occurred while navigating to {uri}. Error: {e}. Attempt: {retryCount}");
-                    await Task.Delay(3000);
-                }
+
+                return imagePath;
+            }
+            catch (HttpRequestException e)
+            {
+                Logger.Error($"Error occurred while navigating to {uri}. Error: {e}");
             }
 
             AppDomain.CurrentDomain.ProcessExit += (s, e) =>
@@ -1063,7 +1019,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     Logger.Info($"Application shutdown. Temp directory {tempImageDirectory} deleted");
                 }
             };
-            throw new HttpRequestException($"Failed to download image from {uri} after {MaxRetries} attempts.");
+            throw new HttpRequestException($"Failed to download image from {uri}.");
         }
 
         #region Url Helpers

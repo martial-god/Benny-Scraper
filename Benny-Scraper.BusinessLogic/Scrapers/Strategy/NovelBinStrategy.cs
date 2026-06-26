@@ -115,9 +115,9 @@ public class NovelBinStrategy : ScraperStrategy
         }
 
         var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-        SortChapters(novelDataBuffer);
         novelDataBuffer.NovelUrl = ScraperData.SiteTableOfContents.ToString();
         ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, ScraperData);
+        SortChapters(novelDataBuffer);
 
         Logger.Info($"Found {novelDataBuffer.ChapterLinks.Count} chapters");
 

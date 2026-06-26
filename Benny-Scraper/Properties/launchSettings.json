@@ -6,7 +6,6 @@
     },
     "Benny-Scraper": {
       "commandName": "Project",
-      "commandLineArgs": "--retry-failed a7a87227-afac-4134-bc1f-3650d75f1fba",
       "nativeDebugging": true
     }
   }
