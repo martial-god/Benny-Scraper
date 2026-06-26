@@ -395,7 +395,7 @@ public class NovelProcessor(
         if (novel == null)
         {
             // This should never happen, somehow some idiot deleted the novel after it was just added within milliseconds, proud of you idiot.
-            Logger.Warn($"Novel with url {novelTableOfContentsUri} could not be found in the database, even though it should. Novel will not be stored in database.");
+            Logger.Error($"Novel with url {novelTableOfContentsUri} could not be found in the database, even though it should. Novel will not be stored in database.");
             novel = newNovel;
         }
         else
