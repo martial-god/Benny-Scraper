@@ -4,9 +4,12 @@ Webscraper that sets out make listening to webnovels easier for myself. Turned i
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)
 
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
-## IN PROGRESS - ON DEV BRANCH
-- [ ] Addition of webnovle.com from https://github.com/martial-god/Benny-Scraper/issues/41 - Expected Release by 04/14/2024
-- [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites - *COMING SOON* https://feahnthor.github.io/
+## IN PROGRESS - ON NewYearResolution BRANCH
+ This branch [NewYearResolution](https://github.com/martial-god/Benny-Scraper/tree/NewYearResolution) is meant to be my way to actually update this application in one big push. I have some things I am still testing, so I don't want to merge it yet, but it is working. With the addition of Wuxiaworld, adding Webnovel.com is now a possibility as I think it can go through the same pipeline.
+- [x] - Added [Wuxiaworld.com](https://www.wuxiaworld.com/) - Works, though I decided to stop fighting with Cloudflare and switched to Selenium. Premium chapters that requires credit would need to use the `--with-login` command option which would spanw a browser for the user to login to (the app will pause and won't track password, it will wait until the user is logged in to continue). Once logged in, you can chose the chapters you already own.
+- [x] Added [royalworld.com](https://www.royalroad.com/) - This works fine right now
+- [ ] Adding tests
+- [ ] Cleanup and set coding standards by using an `.editorconfig`
 ## COMPLETED - or Things to Do
 - [x] Add Cbz filetype as an option for Mangas
 - [x] Figure out how to properly construct an Epub. https://validator.w3.org/#validate-by-upload for chapter validations
@@ -19,7 +22,10 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 - [x] Verify the update novel works - INFO can be found https://github.com/martial-god/Benny-Scraper/pull/24#issue-1885102090
 - [x] Try Manga sites
 - [x] Add a Configuration table to have user have more control of settings. *STILL NEED TO ADD COMMANDLINE OPTIONS TO RETRIEVE VALUES*
-- [ ] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
+- [X] Finish up Selenium Scraper -- UPDATE: use of seleniumn was necessary when trying to retrieve images from manga sites, it is still faster to use http for NovelData (things such as tags and author)
+## ON HOLD
+- [ ] Addition of webnovle.com from https://github.com/martial-god/Benny-Scraper/issues/41 - Expected Release by 04/14/2024
+- [ ] Create Documentation, especially for trying to add a new Scraper Strategy for new sites - *COMING SOON* https://feahnthor.github.io/
 - [ ] Add UI
 
 ## Getting Started
