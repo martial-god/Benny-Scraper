@@ -145,8 +145,8 @@ namespace Benny_Scraper.BusinessLogic.Factory
         public void DisposeDriverById(int id)
         {
             var driver = _drivers[id];
-            driver.Dispose();
             driver.Quit();
+            driver.Dispose();
             _drivers.TryRemove(id, out var value);
         }
 
@@ -155,8 +155,14 @@ namespace Benny_Scraper.BusinessLogic.Factory
         {
             foreach (IWebDriver driver in _drivers.Values)
             {
-                driver.Dispose(); // Clears up unmanaged resources.
-                driver.Quit(); // will also call Dispose
+                try
+                {
+                    driver.Quit();
+                    driver.Dispose();
+                }
+                catch
+                {
+                }
             }
 
             _drivers.Clear();

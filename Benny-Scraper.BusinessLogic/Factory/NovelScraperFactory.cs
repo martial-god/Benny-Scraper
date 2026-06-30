@@ -1,4 +1,4 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Factory.Interfaces;
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Microsoft.Extensions.Options;
@@ -8,46 +8,18 @@ namespace Benny_Scraper.BusinessLogic.Factory
 {
     public class NovelScraperFactory : INovelScraperFactory
     {
-        private readonly Func<string, INovelScraper> _novelScraperResolver;
+        private readonly Func<INovelScraper> _novelScraperResolver;
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private readonly NovelScraperSettings _novelScraperSettings;
 
-        public NovelScraperFactory(Func<string, INovelScraper> novelScraperResolver, IOptions<NovelScraperSettings> novelScraperSettings)
+        public NovelScraperFactory(Func<INovelScraper> novelScraperResolver, IOptions<NovelScraperSettings> novelScraperSettings)
         {
             _novelScraperResolver = novelScraperResolver;
             _novelScraperSettings = novelScraperSettings.Value;
         }
 
-        /// <summary>
-        /// Creates an instance of either a SeleniumNovelScraper or HttpNovelScraper depending on the url.
-        /// </summary>
-        /// <param name="novelTableOfContentsUri"></param>
-        /// <param name="siteConfig"></param>
-        /// <returns>Scraper instance that implemnts INovelService </returns>
         public INovelScraper CreateScraper(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
-            var isEntireSiteRequiresSelenium = siteConfig.EntireSiteRequiresSelenium;
-            // var requiresSeleniumForCloudflare = siteConfig.CloudflareProtection == CloudflareProtectionLevel.JsChallenge;
-
-            if (isEntireSiteRequiresSelenium)
-            {
-                // if (!entireSiteRequiresSelenium)
-                // {
-                //     Logger.Warn($"Site {siteConfig.Name} has CloudflareProtection set to JsChallenge but EntireSiteRequiresSelenium is false.");
-                //     Logger.Warn($"Automatically using Selenium scraper due to Cloudflare protection.");
-                // }
-
-                try
-                {
-                    return _novelScraperResolver("Selenium");
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Error when getting SeleniumNovelScraper. {ex}");
-                    throw;
-                }
-            }
-
             if (siteConfig.CloudflareProtection == CloudflareProtectionLevel.Detected)
             {
                 Logger.Info($"Site {siteConfig.Name} has Cloudflare protection detected. Using HttpClient with enhanced headers.");
@@ -55,15 +27,13 @@ namespace Benny_Scraper.BusinessLogic.Factory
 
             try
             {
-                return _novelScraperResolver("Http");
+                return _novelScraperResolver();
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error when getting HttpNovelScraper for {novelTableOfContentsUri.Host}. {ex}");
+                Logger.Error($"Error when getting NovelScraper for {novelTableOfContentsUri.Host}. {ex}");
                 throw;
             }
         }
-
     }
-
 }

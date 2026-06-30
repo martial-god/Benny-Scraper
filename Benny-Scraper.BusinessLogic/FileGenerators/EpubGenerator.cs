@@ -28,22 +28,13 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             _epubTemplates = epubTemplates.Value;
         }
 
-        public void CreateEpub(Novel? novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage)
+        public void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage)
         {
             Logger.Info("Creating epub file. Novel: {0}, Chapters: {1}, OutputFilePath: {2}", novel.Title, chapters.Count(), outputFilePath);
             var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Logger.Info("Temp directory: {0}", tempDirectory);
             Directory.CreateDirectory(tempDirectory);
             Logger.Info("Temp directory created");
-
-            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
-            {
-                if (Directory.Exists(tempDirectory))
-                {
-                    Directory.Delete(tempDirectory, true);
-                    Logger.Info($"Application shutdown. Temp directory {tempDirectory} deleted");
-                }
-            };
 
             try
             {
@@ -76,7 +67,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
                 foreach (var tag in novel.Genre.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
-                    subjectItems += $"<dc:subject>{tag}</dc:subject>";
+                    subjectItems += $"<dc:subject>{System.Security.SecurityElement.Escape(tag)}</dc:subject>";
                 }
 
                 // save cover image
@@ -99,7 +90,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 var introFileName = $"000{chapterIndex}_intro.xhtml";
                 var introFilePath = Path.Combine(textDirectory, introFileName);
 
-                var introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, introDescription, novel.Url);
+                var introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, System.Security.SecurityElement.Escape(introDescription), System.Security.SecurityElement.Escape(novel.Url));
                 File.WriteAllText(introFilePath, introContent);
 
                 manifestItems += $"<item id=\"intro\" href=\"Text/{introFileName}\" media-type=\"application/xhtml+xml\"/>";
@@ -137,7 +128,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 manifestItems += "<item id=\"css_nav\" href=\"css/nav.css\" media-type=\"text/css\"/>";
                 manifestItems += "<item id=\"css_toc\" href=\"css/toc.css\" media-type=\"text/css\"/>";
 
-                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, Regex.Replace(novel.Title, @"[^a-zA-Z0-9\s_.]+", "", RegexOptions.Compiled), novel.Author, novel.Author, subjectItems, manifestItems, spineItems, coverMeta, coverManifest);
+                string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, Regex.Replace(novel.Title, @"[^a-zA-Z0-9\s_.]+", "", RegexOptions.Compiled), System.Security.SecurityElement.Escape(novel.Author), System.Security.SecurityElement.Escape(novel.Author), subjectItems, manifestItems, spineItems, coverMeta, coverManifest);
 
                 XmlDocument contentOpf = new XmlDocument();
                 contentOpf.LoadXml(updatedContentOpf);
@@ -308,10 +299,11 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
         private string BuildXhtmlContent(string title, string content, string url)
         {
+            var safeTitle = System.Security.SecurityElement.Escape(title) ?? string.Empty;
             var xhtmlContentBuilder = new StringBuilder();
 
             xhtmlContentBuilder.AppendLine("<div>");
-            xhtmlContentBuilder.AppendFormat("<h2>{0}</h2>", title);
+            xhtmlContentBuilder.AppendFormat("<h2>{0}</h2>", safeTitle);
 
             var paragraphs = content?.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (paragraphs == null || paragraphs.Length == 0)
@@ -319,7 +311,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 xhtmlContentBuilder.AppendFormat("<p>{0} {1}</p>", "Error getting chapter content from ", url);
                 xhtmlContentBuilder.AppendLine("</div>");
 
-                return string.Format(_epubTemplates.ChapterContent, title, xhtmlContentBuilder.ToString());
+                return string.Format(_epubTemplates.ChapterContent, safeTitle, xhtmlContentBuilder.ToString());
             }
 
             foreach (string paragraph in paragraphs)
@@ -332,70 +324,6 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
             return string.Format(_epubTemplates.ChapterContent, title, xhtmlContentBuilder.ToString());
         }
 
-        public void ValidateEpub(string epubFilePath)
-        {
-            //check if the file exists
-            if (!File.Exists(epubFilePath))
-            {
-                throw new FileNotFoundException($"Epub file not found: {epubFilePath}");
-            }
-
-            //check if the file is a valid epub
-            using (FileStream fs = new FileStream(epubFilePath, FileMode.Open, FileAccess.Read))
-            {
-                using (ZipArchive zip = new ZipArchive(fs, ZipArchiveMode.Read))
-                {
-                    //check if the mimetype file exists
-                    var mimetypeEntry = zip.Entries.FirstOrDefault(x => x.FullName == "mimetype");
-                    if (mimetypeEntry == null)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is missing.");
-                    }
-
-                    //check if the mimetype file is the first file in the zip
-                    if (zip.Entries.IndexOf(mimetypeEntry) != 0)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is not the first file in the zip.");
-                    }
-
-                    //check if the mimetype file is uncompressed, do not use mimetypeEntry.CompressionLevel as it is not supported in .net core
-                    if (mimetypeEntry.CompressedLength != mimetypeEntry.Length)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is compressed.");
-                    }
-
-                    //check if the mimetype file is not empty
-                    if (mimetypeEntry.Length == 0)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is empty.");
-                    }
-
-                    //check if the mimetype file is not empty
-                    if (mimetypeEntry.Length > 100)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is too big.");
-                    }
-
-                    //check if the mimetype file is not empty
-                    if (mimetypeEntry.Length < 20)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is too small.");
-                    }
-
-                    //check if the mimetype file is not empty
-                    if (mimetypeEntry.Length != 20)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is not 20 bytes.");
-                    }
-
-                    //check if the mimetype file is not empty
-                    if (mimetypeEntry.Length != 20)
-                    {
-                        throw new Exception("Epub file is not valid. Mimetype file is not 20 bytes.");
-                    }
-                }
-            }
-        }
     }
 }
 

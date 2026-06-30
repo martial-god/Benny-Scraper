@@ -1,7 +1,6 @@
 ﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
 using Benny_Scraper.Models;
 using HtmlAgilityPack;
-using System.Text;
 
 namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 {
@@ -12,11 +11,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     {
         public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
         {
-            int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
-            var queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
-            queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
-            queryBuilder.Append(novelId);
-
             var attributesToFetch = new List<Attr>()
             {
                 Attr.Title,

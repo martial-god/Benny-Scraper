@@ -204,14 +204,5 @@ namespace Benny_Scraper.DataAccess.Repository
             _dbSet.RemoveRange(entity);
         }
 
-        public void RemoveById(Guid id)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task RemoveByIdAsync(Guid id, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

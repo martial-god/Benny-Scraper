@@ -55,9 +55,6 @@ namespace Benny_Scraper.DataAccess.Repository.IRepository
         Task AddAsync(GenericDbObject entity, CancellationToken cancellationToken = default);
         Task AddRangeAsync(IEnumerable<GenericDbObject> entities, CancellationToken cancellationToken = default);
 
-        void RemoveById(Guid id);
-
-        Task RemoveByIdAsync(Guid id, CancellationToken cancellationToken = default);
         void Remove(GenericDbObject entity);
 
         /// <summary>

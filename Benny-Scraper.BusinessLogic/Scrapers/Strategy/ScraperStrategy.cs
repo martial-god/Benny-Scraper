@@ -122,7 +122,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         var genreNodes =
                             htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.TableOfContents
                                 .NovelGenres);
-                        if (genreNodes.Count != 0)
+                        if (genreNodes != null && genreNodes.Count != 0)
                         {
                             novelDataBuffer.Genres = genreNodes
                                 .Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())).ToList();
@@ -135,7 +135,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     case Attr.AlternativeNames:
                         var alternateNameNodes = htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors
                             .TableOfContents.NovelAlternativeNames);
-                        if (alternateNameNodes.Count != 0)
+                        if (alternateNameNodes != null && alternateNameNodes.Count != 0)
                         {
                             List<string> alternateNames = alternateNameNodes.Select(alternateName =>
                                 HtmlEntity.DeEntitize(alternateName.InnerText.Trim())).ToList();
@@ -276,7 +276,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                                     ? new PremiumChapterInfo()
                                     {
                                         IsPremium = isPremium,
-                                        Cost = premiumCost != null ? int.Parse(premiumCost) : 0,
+                                        Cost = int.TryParse(premiumCost, out var parsedPremiumCost) ? parsedPremiumCost : 0,
                                         CurrencyName = scraperData.SiteConfig.PremiumInfo?.CurrencyName ?? "Credits"
                                     }
                                     : new PremiumChapterInfo()
@@ -293,8 +293,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     case Attr.CurrentChapter:
                         var latestChapterNode =
-                            htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.TableOfContents
-                                .LatestChapterLink);
+                            htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.TableOfContents.LatestChapterLink);
 
                         if (latestChapterNode == null)
                             return;
@@ -364,13 +363,20 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
     public sealed class ScraperData
     {
-        public SiteConfiguration? SiteConfig { get; set; }
-        public Uri? SiteTableOfContents { get; set; }
-        public Uri? BaseUri { get; set; }
+        public SiteConfiguration SiteConfig { get; set; } = null!;
+
+        public Uri SiteTableOfContents { get; set; } = null!;
+
+        public Uri BaseUri { get; set; } = null!;
+
         public IHttpClientFactory? HttpClientFactory { get; set; }
+
         public SelectedChapterRange? ChapterRange { get; set; }
+
         public string? DetectedVolumeName { get; set; }
+
         public List<OpenQA.Selenium.Cookie>? LoginCookies { get; set; }
+
         public bool IsSessionAuthenticated { get; set; }
     }
 
@@ -1011,14 +1017,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 Logger.Error($"Error occurred while navigating to {uri}. Error: {e}");
             }
 
-            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
-            {
-                if (Directory.Exists(tempImageDirectory))
-                {
-                    Directory.Delete(tempImageDirectory, true);
-                    Logger.Info($"Application shutdown. Temp directory {tempImageDirectory} deleted");
-                }
-            };
             throw new HttpRequestException($"Failed to download image from {uri}.");
         }
 
@@ -1151,23 +1149,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             return (chapterLinks, lastTableOfContentsUrl);
-        }
-
-        /// <summary>
-        /// Fetches chapter URLs and titles across multiple paginated table of contents pages.
-        /// Returns both URLs, titles, and the last table of contents URL.
-        /// </summary>
-        protected virtual async
-            Task<(List<string> ChapterUrls, List<string> ChapterTitles, string LastTableOfContentsUrl)>
-            GetPaginatedChapterUrlsAsync(Uri tableOfContentUri, bool getAllChapters, int pageToStopAt,
-                int pageToStartAt = 1)
-        {
-            // Deprecated in favor of GetPaginatedChapterLinksAsync; keep for callers to be updated.
-            var links = await GetPaginatedChapterLinksAsync(tableOfContentUri, getAllChapters, pageToStopAt,
-                pageToStartAt);
-            var urls = links.ChapterLinks.Select(l => l.Url).ToList();
-            var titles = links.ChapterLinks.Select(l => l.Title ?? string.Empty).ToList();
-            return (urls, titles, links.LastTableOfContentsUrl);
         }
 
         /// <summary>
@@ -1369,8 +1350,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 // (e.g., table of contents needs driver and so does chapter content scraping).
                 if (!reuseExistingDriver && driver != null)
                 {
-                    driver.Dispose();
-                    driver.Quit();
+                    try
+                    {
+                        driver.Quit();
+                        driver.Dispose();
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
                 }
             }
         }

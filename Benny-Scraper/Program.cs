@@ -1159,7 +1159,7 @@ namespace Benny_Scraper
 
         private static void DisplaySupportedSites()
         {
-            HttpNovelScraper httpNovelScraper = new();
+            NovelScraper httpNovelScraper = new();
             var supportedSites = httpNovelScraper.GetSupportedSites();
 
             // ASCII Art header
@@ -1201,7 +1201,7 @@ namespace Benny_Scraper
         /// </summary>
         private static async Task TestAllSitesAsync()
         {
-            HttpNovelScraper httpNovelScraper = new();
+            NovelScraper httpNovelScraper = new();
             var supportedSites = httpNovelScraper.GetSupportedSites();
 
             var novelScraperSettings = Configuration.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
@@ -1750,16 +1750,8 @@ namespace Benny_Scraper
             }).SingleInstance();
             builder.Register(c => Options.Create(c.Resolve<EpubTemplates>())).As<IOptions<EpubTemplates>>().SingleInstance();
 
-            // register the factory
-            builder.Register<Func<string, INovelScraper>>(c =>
-            {
-                var context = c.Resolve<IComponentContext>();
-                return key => context.ResolveNamed<INovelScraper>(key);
-            });
-
             builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
-            builder.RegisterType<SeleniumNovelScraper>().Named<INovelScraper>("Selenium").InstancePerDependency(); // InstancePerDependency() similar to transient
-            builder.RegisterType<HttpNovelScraper>().Named<INovelScraper>("Http").InstancePerDependency();
+            builder.RegisterType<NovelScraper>().As<INovelScraper>().InstancePerDependency();
         }
 
         /// <summary>

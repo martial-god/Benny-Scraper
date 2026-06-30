@@ -107,7 +107,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
 
                         for (int i = 0; i < imagePaths.Count; i++)
                         {
-                            var imageName = $"Chapter_{chapter.Number}_Page{(i + 1).ToString().PadLeft(chapter.Pages.Count.ToString().Length, '0')}.{Path.GetExtension(imagePaths[i])}";
+                            var imageName = $"Chapter_{chapter.Number}_Page{(i + 1).ToString().PadLeft(chapter.Pages.Count.ToString().Length, '0')}.{Path.GetExtension(imagePaths[i]).TrimStart('.')}";
 
                             // Delete existing image if it's already in the archive
                             var existingEntry = archive.GetEntry(imageName);
@@ -150,7 +150,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
                 var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
                 for (int i = 0; i < imagePaths.Count; i++)
                 {
-                    var imageName = $"Chapter_{chapter.Number}_Page{((i + 1).ToString().PadLeft(padLength, '0'))}.{Path.GetExtension(imagePaths[i])}";
+                    var imageName = $"Chapter_{chapter.Number}_Page{((i + 1).ToString().PadLeft(padLength, '0'))}.{Path.GetExtension(imagePaths[i]).TrimStart('.')}";
                     using (var fileStream = File.OpenRead(imagePaths[i]))
                     {
                         var destinationStream = File.Create(Path.Combine(chapterDirectory.FullName, imageName));

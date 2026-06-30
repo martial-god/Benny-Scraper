@@ -111,7 +111,6 @@ namespace Benny_Scraper.DataAccess.Data
 
         // Creates maps to the database
         public DbSet<Novel?> Novels { get; set; }
-        public DbSet<NovelList> NovelLists { get; set; }
         public DbSet<Chapter> Chapters { get; set; }
         public DbSet<Page> Pages { get; set; }
         public DbSet<Configuration> Configurations { get; set; }

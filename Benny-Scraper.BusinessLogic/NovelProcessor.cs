@@ -616,7 +616,7 @@ public class NovelProcessor(
         return novel;
     }
 
-    private string CreateEpub(Novel? novel, ICollection<Chapter> chapters, byte[]? thumbnailImage, string outputDirectory, string filenameSuffix = "")
+    private string CreateEpub(Novel novel, ICollection<Chapter> chapters, byte[]? thumbnailImage, string outputDirectory, string filenameSuffix = "")
     {
         Directory.CreateDirectory(outputDirectory);
         var baseFilename = CommonHelper.SanitizeFileName(novel.Title, true);

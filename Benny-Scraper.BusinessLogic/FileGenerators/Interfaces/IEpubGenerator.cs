@@ -1,10 +1,8 @@
-﻿using Benny_Scraper.Models;
+﻿namespace Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
 
-namespace Benny_Scraper.BusinessLogic.FileGenerators.Interfaces
+using Benny_Scraper.Models;
+
+public interface IEpubGenerator
 {
-    public interface IEpubGenerator
-    {
-        void CreateEpub(Novel? novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage);
-        void ValidateEpub(string epubFilePath);
-    }
+    void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage);
 }

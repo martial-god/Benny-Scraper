@@ -14,7 +14,7 @@ namespace Benny_Scraper.BusinessLogic.FileGenerators
         private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
         public const string PdfFileExtension = ".pdf";
 
-        public (string, bool) CreatePdf(Novel? novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration, string filenameSuffix = "")
+        public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration, string filenameSuffix = "")
         {
             string pdfSaveLocation;
             var isPdfSplit = false;

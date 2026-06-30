@@ -1,4 +1,4 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
+using Benny_Scraper.BusinessLogic.Config;
 using Benny_Scraper.BusinessLogic.Interfaces;
 using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
 using NLog;
@@ -6,20 +6,20 @@ using NLog;
 namespace Benny_Scraper.BusinessLogic
 {
     /// <summary>
-    /// A http implementation of the INovelScraper interface. Use this for sites that don't require login-in to get the chapter contents.
+    /// Resolves the scraping strategy for a given site URL. Individual strategies decide whether
+    /// they use HttpClient or Selenium internally (e.g. WuxiaWorld uses Selenium for premium login).
     /// </summary>
-    public class HttpNovelScraper : INovelScraper
+    public class NovelScraper : INovelScraper
     {
         private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
         private ScraperStrategy _scraperStrategy;
         private readonly Dictionary<string, ScraperStrategy> _websiteMap = new();
 
-        public HttpNovelScraper()
+        public NovelScraper()
         {
             AddSupportForWebsite();
         }
 
-        #region setup maps
         private void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy)
         {
             _websiteMap.Add(siteName, scraperStrategy);
@@ -40,14 +40,10 @@ namespace Benny_Scraper.BusinessLogic
             AddSiteToMap("https://www.wuxiaworld.com", new WuxiaWorldStrategy());
             AddSiteToMap("https://www.royalroad.com", new RoyalRoadStrategy());
         }
-        #endregion
 
         /// <summary>
         /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Classes are added to the map in the constructor.
         /// </summary>
-        /// <param name="novelTableOfContentsUri"></param>
-        /// <param name="siteConfig"></param>
-        /// <returns></returns>
         public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
         {
             var baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
@@ -63,12 +59,7 @@ namespace Benny_Scraper.BusinessLogic
 
         public List<string> GetSupportedSites()
         {
-            var websites = new List<string>();
-            foreach (var website in _websiteMap)
-            {
-                websites.Add(website.Key);
-            }
-            return websites;
+            return _websiteMap.Select(website => website.Key).ToList();
         }
     }
 }
