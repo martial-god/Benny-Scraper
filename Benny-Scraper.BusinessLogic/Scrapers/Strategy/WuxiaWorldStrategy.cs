@@ -18,7 +18,7 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
         HtmlDocument htmlDocument,
         ScraperData scraperData,
         ScraperStrategy scraperStrategy,
-        List<Attr> attributesToFetch)
+        IReadOnlyList<Attr> attributesToFetch)
     {
         Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
 
@@ -256,7 +256,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                             spiritStoneValue,
                             NumberStyles.Integer | NumberStyles.AllowThousands, CultureInfo.InvariantCulture,
                             out var spiritStones);
-                        novelDataBuffer.UserPremiumCurrencies =
+                        novelDataBuffer.UserPremiumCurrencies.ReplaceWith(
                         [
                             new UserPremiumCurrency
                             {
@@ -268,7 +268,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                                 CurrencyName = "Spirit Stones",
                                 Balance = spiritStones
                             }
-                        ];
+                        ]);
                         premiumButton.Click();// close button back.
                         Logger.Info($"User balance - Karma: {karma:N0}, Spirit Stones: {spiritStones:N0}");
                     }

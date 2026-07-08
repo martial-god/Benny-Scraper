@@ -1,3 +1,4 @@
+using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
@@ -19,7 +20,7 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
         HtmlDocument htmlDocument,
         ScraperData scraperData,
         ScraperStrategy scraperStrategy,
-        List<Attr> attributesToFetch)
+        IReadOnlyList<Attr> attributesToFetch)
     {
         Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
 
@@ -29,9 +30,9 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
         }
 
 
-        if (novelDataBuffer.Description == null || novelDataBuffer.Description.Count == 0)
+        if (novelDataBuffer.Description.Count == 0)
         {
-            novelDataBuffer.Description = new List<string> { DefaultDescription };
+            novelDataBuffer.Description.ReplaceWith([DefaultDescription]);
         }
 
         if (string.IsNullOrWhiteSpace(novelDataBuffer.ThumbnailUrl))
@@ -40,7 +41,7 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
             try
             {
                 using var client = scraperData.HttpClientFactory?.CreateClient() ?? new HttpClient();
-                novelDataBuffer.ThumbnailImage = await client.GetByteArrayAsync(DefaultThumbnailUrl);
+                novelDataBuffer.SetThumbnailImage(await client.GetByteArrayAsync(DefaultThumbnailUrl));
             }
             catch (Exception)
             {

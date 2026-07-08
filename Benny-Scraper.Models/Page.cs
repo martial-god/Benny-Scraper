@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace BennyScraper.Models;
@@ -13,5 +14,7 @@ public class Page
 
     public string Url { get; set; } = string.Empty;
 
-    public byte[]? Image { get; set; }
+    public ReadOnlyCollection<byte>? Image { get; private set; }
+
+    public void SetImage(byte[]? bytes) => Image = bytes is null ? null : new ReadOnlyCollection<byte>(bytes);
 }

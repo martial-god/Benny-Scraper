@@ -13,7 +13,7 @@ public abstract class RoyalRoadInitializer : NovelDataInitializer
         NovelDataBuffer novelDataBuffer,
         HtmlDocument htmlDocument,
         ScraperData scraperData,
-        List<Attr> attributesToFetch)
+        IReadOnlyList<Attr> attributesToFetch)
     {
         foreach (var attribute in attributesToFetch)
         {

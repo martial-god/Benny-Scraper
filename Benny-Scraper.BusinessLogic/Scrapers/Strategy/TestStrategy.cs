@@ -258,6 +258,394 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         GenerateAndDisplayConfig();
     }
 
+    public async Task<bool> TestSingleFieldAsync(Uri testUri, string fieldName, string xpath, bool useSelenium = false, bool headless = true)
+    {
+        Console.WriteLine($"\n{new string('=', 70)}");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"Testing Field: {fieldName}");
+        Console.ResetColor();
+        Console.WriteLine($"{new string('=', 70)}");
+        Console.WriteLine($"URL: {testUri}");
+        Console.WriteLine($"XPath: {xpath}");
+        if (useSelenium)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"Mode: Selenium (Headless: {headless})");
+            Console.ResetColor();
+        }
+
+        Console.WriteLine();
+
+        HtmlDocument htmlDocument;
+        int statusCode = 200;
+        bool cloudflareDetected = false;
+
+        try
+        {
+            if (useSelenium)
+            {
+                // Use Selenium to load the page
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("🌐 Loading page with Selenium...");
+                Console.ResetColor();
+
+                var (seleniumDoc, _) = await LoadHtmlWithSeleniumAsync(testUri, xpath, fieldName, headless);
+
+                if (seleniumDoc == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("✗ Failed to load page using Selenium");
+                    Console.ResetColor();
+                    return false;
+                }
+
+                htmlDocument = seleniumDoc;
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ Page loaded successfully using Selenium\n");
+                Console.ResetColor();
+            }
+            else
+            {
+                // Existing HTTP-based loading
+                var (httpDoc, updatedUri, status, cloudflare) = await TestLoadHtmlAsync(testUri);
+                htmlDocument = httpDoc;
+                statusCode = status;
+                cloudflareDetected = cloudflare;
+
+                if (htmlDocument == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
+                    if (cloudflareDetected)
+                    {
+                        Console.WriteLine("✗ Cloudflare protection detected - try using --use-selenium flag");
+                    }
+
+                    Console.ResetColor();
+                    return false;
+                }
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
+                Console.ResetColor();
+            }
+
+            var config = new SiteConfiguration
+            {
+                Selectors = new Selectors
+                {
+                    TableOfContents = new TableOfContentsSelectors()
+                }
+            };
+
+            var scraperData = new ScraperData
+            {
+                SiteConfig = config,
+                SiteTableOfContents = testUri,
+                BaseUri = new Uri(testUri.GetLeftPart(UriPartial.Authority)),
+                HttpClientFactory = _httpClientFactory
+            };
+
+            var fieldUpper = fieldName.ToUpperInvariant();
+            var success = fieldUpper switch
+            {
+                "TITLE" => await TestSpecificField(NovelDataInitializer.Attr.Title, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelTitle = s),
+                "AUTHOR" => await TestSpecificField(NovelDataInitializer.Attr.Author, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAuthor = s),
+                "DESCRIPTION" => await TestSpecificField(NovelDataInitializer.Attr.Description, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelDescription = s),
+                "GENRES" => await TestSpecificField(NovelDataInitializer.Attr.Genres, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelGenres = s),
+                "STATUS" => await TestSpecificField(NovelDataInitializer.Attr.NovelStatus, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelStatus = s),
+                "ALTERNATIVENAMES" => await TestSpecificField(NovelDataInitializer.Attr.AlternativeNames, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAlternativeNames = s),
+                "THUMBNAIL" => await TestSpecificField(NovelDataInitializer.Attr.ThumbnailUrl, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelThumbnailUrl = s),
+                "CHAPTERLINKS" => TestChapterLinksField(xpath, htmlDocument),
+                "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
+                "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
+                "NOVELRATING" => await TestSpecificField(NovelDataInitializer.Attr.NovelRating, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelRating = s),
+                "TOTALRATINGS" => await TestSpecificField(NovelDataInitializer.Attr.TotalRatings, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.TotalRatings = s),
+                "CHAPTERTITLEINTOC" => TestChapterTitleInTocField(xpath, htmlDocument),
+                "NEXTCHAPTERBUTTON" => TestNextChapterButtonSingleField(xpath, htmlDocument),
+                _ => HandleUnknownField(fieldName)
+            };
+
+            Console.WriteLine($"\n{new string('=', 70)}\n");
+            return success;
+        }
+        finally
+        {
+            // Clean up any Selenium drivers that were created
+            if (useSelenium)
+            {
+                _driverFactory.DisposeAllDrivers();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Tests loading HTML with a single attempt (no retries) for faster testing.
+    /// </summary>
+    public async Task<(HtmlDocument? document, Uri updatedUri, int statusCode, bool cloudflareDetected)> TestLoadHtmlAsync(Uri uri)
+    {
+        ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient();
+            var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
+
+            var userAgent = GetNextUserAgent();
+
+            requestMessage.Headers.Add("User-Agent", userAgent);
+            requestMessage.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+            requestMessage.Headers.Add("Accept-Language", "en-US,en;q=0.9");
+            requestMessage.Headers.Add("Accept-Encoding", "gzip, deflate, br");
+            requestMessage.Headers.Add("DNT", "1");
+            requestMessage.Headers.Add("Connection", "keep-alive");
+            requestMessage.Headers.Add("Upgrade-Insecure-Requests", "1");
+            requestMessage.Headers.Add("Sec-Fetch-Dest", "document");
+            requestMessage.Headers.Add("Sec-Fetch-Mode", "navigate");
+            requestMessage.Headers.Add("Sec-Fetch-Site", "none");
+            requestMessage.Headers.Add("Sec-Fetch-User", "?1");
+            requestMessage.Headers.Add("Cache-Control", "max-age=0");
+
+            requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
+
+            var response = await client.SendAsync(requestMessage);
+            var statusCode = (int)response.StatusCode;
+
+            var content = await response.Content.ReadAsStringAsync();
+            var isCloudflareDetected = DetectCloudflare(response, content, statusCode);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.Warn($"[TEST] Request failed to {uri} - Status: {statusCode}");
+                if (isCloudflareDetected)
+                {
+                    Logger.Warn($"[TEST] Cloudflare protection detected");
+                }
+
+                return (null, uri, statusCode, isCloudflareDetected);
+            }
+
+            var htmlDocument = new HtmlDocument();
+            htmlDocument.LoadHtml(content);
+
+            var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+            if (canonicalNode == null)
+            {
+                return (htmlDocument, uri, statusCode, isCloudflareDetected);
+            }
+
+            var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
+            if (string.IsNullOrEmpty(canonicalUrl) || canonicalUrl == uri.ToString())
+            {
+                return (htmlDocument, uri, statusCode, isCloudflareDetected);
+            }
+
+            Logger.Debug($"[TEST] Canonical URL detected: {canonicalUrl}");
+            uri = new Uri(canonicalUrl);
+
+            return (htmlDocument, uri, statusCode, isCloudflareDetected);
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.Error($"[TEST] HTTP error: {ex.Message}");
+            return (null, uri, 0, false);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"[TEST] Error during test: {ex.Message}");
+            return (null, uri, 0, false);
+        }
+    }
+
+    public async Task ValidateConfigAsync(SiteConfiguration siteConfig, Uri testUri)
+    {
+        Console.WriteLine($"\n{new string('=', 70)}");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"Validating Configuration: {siteConfig.Name}");
+        Console.ResetColor();
+        Console.WriteLine($"{new string('=', 70)}\n");
+
+        Console.WriteLine($"Test URL: {testUri}\n");
+
+        var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(testUri);
+
+        if (htmlDocument == null)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
+            if (cloudflareDetected)
+            {
+                Console.WriteLine("✗ Cloudflare protection detected");
+            }
+
+            Console.ResetColor();
+            return;
+        }
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
+        Console.ResetColor();
+
+        var scraperData = new ScraperData
+        {
+            SiteConfig = siteConfig,
+            SiteTableOfContents = updatedUri,
+            BaseUri = new Uri(updatedUri.GetLeftPart(UriPartial.Authority)),
+            HttpClientFactory = _httpClientFactory
+        };
+
+        Console.WriteLine("Validating Selectors.TableOfContents...\n");
+
+        var validationResults = new List<(string fieldName, bool success)>();
+
+        Console.WriteLine($"Title:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelTitle}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
+            "Title",
+            NovelDataInitializer.Attr.Title,
+            htmlDocument,
+            scraperData,
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle)));
+
+        Console.WriteLine($"Author:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAuthor}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
+            "Author",
+            NovelDataInitializer.Attr.Author,
+            htmlDocument,
+            scraperData,
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor)));
+
+        Console.WriteLine($"Description:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelDescription}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
+            "Description",
+            NovelDataInitializer.Attr.Description,
+            htmlDocument,
+            scraperData,
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription)));
+
+        Console.WriteLine($"Genres:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelGenres}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
+            "Genres",
+            NovelDataInitializer.Attr.Genres,
+            htmlDocument,
+            scraperData,
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres)));
+
+        Console.WriteLine($"Status:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelStatus}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
+            "Status",
+            NovelDataInitializer.Attr.NovelStatus,
+            htmlDocument,
+            scraperData,
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus)));
+
+        Console.WriteLine($"Alternative Names:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAlternativeNames}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
+            "Alternative Names",
+            NovelDataInitializer.Attr.AlternativeNames,
+            htmlDocument,
+            scraperData,
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames)));
+
+        Console.WriteLine($"Thumbnail:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelThumbnailUrl}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
+            "Thumbnail",
+            NovelDataInitializer.Attr.ThumbnailUrl,
+            htmlDocument,
+            scraperData,
+            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl)));
+
+        // Validate Chapter Links (REQUIRED)
+        Console.WriteLine($"Chapter Links:");
+        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.ChapterLinks))
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.ChapterLinks}");
+            Console.ResetColor();
+        }
+
+        validationResults.Add(ValidateChapterLinks("Chapter Links", htmlDocument, siteConfig.Selectors.TableOfContents.ChapterLinks));
+
+        Console.WriteLine($"\n{new string('=', 70)}");
+        Console.WriteLine("Validation Summary:");
+        Console.WriteLine($"{new string('=', 70)}\n");
+
+        var successCount = validationResults.Count(r => r.success);
+        var totalCount = validationResults.Count;
+
+        if (successCount == totalCount)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"✓ All selectors validated successfully ({successCount}/{totalCount})");
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"⚠ Some selectors failed validation ({successCount}/{totalCount} passed)");
+        }
+
+        Console.ResetColor();
+        Console.WriteLine($"\n{new string('=', 70)}\n");
+    }
+
+    public override Task<NovelDataBuffer> ScrapeAsync()
+    {
+        throw new NotImplementedException("TestStrategy does not implement ScrapeAsync");
+    }
+
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+    {
+        throw new NotImplementedException("TestStrategy does not implement FetchNovelDataFromTableOfContents");
+    }
+
     private void InitializeConfiguration()
     {
         var host = _testUri.Host.Replace("www.", "");
@@ -1503,127 +1891,6 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
-    public async Task<bool> TestSingleFieldAsync(Uri testUri, string fieldName, string xpath, bool useSelenium = false, bool headless = true)
-    {
-        Console.WriteLine($"\n{new string('=', 70)}");
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"Testing Field: {fieldName}");
-        Console.ResetColor();
-        Console.WriteLine($"{new string('=', 70)}");
-        Console.WriteLine($"URL: {testUri}");
-        Console.WriteLine($"XPath: {xpath}");
-        if (useSelenium)
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"Mode: Selenium (Headless: {headless})");
-            Console.ResetColor();
-        }
-
-        Console.WriteLine();
-
-        HtmlDocument htmlDocument;
-        int statusCode = 200;
-        bool cloudflareDetected = false;
-
-        try
-        {
-            if (useSelenium)
-            {
-                // Use Selenium to load the page
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("🌐 Loading page with Selenium...");
-                Console.ResetColor();
-
-                var (seleniumDoc, _) = await LoadHtmlWithSeleniumAsync(testUri, xpath, fieldName, headless);
-
-                if (seleniumDoc == null)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("✗ Failed to load page using Selenium");
-                    Console.ResetColor();
-                    return false;
-                }
-
-                htmlDocument = seleniumDoc;
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("✓ Page loaded successfully using Selenium\n");
-                Console.ResetColor();
-            }
-            else
-            {
-                // Existing HTTP-based loading
-                var (httpDoc, updatedUri, status, cloudflare) = await TestLoadHtmlAsync(testUri);
-                htmlDocument = httpDoc;
-                statusCode = status;
-                cloudflareDetected = cloudflare;
-
-                if (htmlDocument == null)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
-                    if (cloudflareDetected)
-                    {
-                        Console.WriteLine("✗ Cloudflare protection detected - try using --use-selenium flag");
-                    }
-
-                    Console.ResetColor();
-                    return false;
-                }
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
-                Console.ResetColor();
-            }
-
-            var config = new SiteConfiguration
-            {
-                Selectors = new Selectors
-                {
-                    TableOfContents = new TableOfContentsSelectors()
-                }
-            };
-
-            var scraperData = new ScraperData
-            {
-                SiteConfig = config,
-                SiteTableOfContents = testUri,
-                BaseUri = new Uri(testUri.GetLeftPart(UriPartial.Authority)),
-                HttpClientFactory = _httpClientFactory
-            };
-
-            var fieldUpper = fieldName.ToUpperInvariant();
-            var success = fieldUpper switch
-            {
-                "TITLE" => await TestSpecificField(NovelDataInitializer.Attr.Title, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelTitle = s),
-                "AUTHOR" => await TestSpecificField(NovelDataInitializer.Attr.Author, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAuthor = s),
-                "DESCRIPTION" => await TestSpecificField(NovelDataInitializer.Attr.Description, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelDescription = s),
-                "GENRES" => await TestSpecificField(NovelDataInitializer.Attr.Genres, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelGenres = s),
-                "STATUS" => await TestSpecificField(NovelDataInitializer.Attr.NovelStatus, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelStatus = s),
-                "ALTERNATIVENAMES" => await TestSpecificField(NovelDataInitializer.Attr.AlternativeNames, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelAlternativeNames = s),
-                "THUMBNAIL" => await TestSpecificField(NovelDataInitializer.Attr.ThumbnailUrl, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelThumbnailUrl = s),
-                "CHAPTERLINKS" => TestChapterLinksField(xpath, htmlDocument),
-                "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
-                "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
-                "NOVELRATING" => await TestSpecificField(NovelDataInitializer.Attr.NovelRating, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.NovelRating = s),
-                "TOTALRATINGS" => await TestSpecificField(NovelDataInitializer.Attr.TotalRatings, xpath, htmlDocument, scraperData, config, s => config.Selectors.TableOfContents.TotalRatings = s),
-                "CHAPTERTITLEINTOC" => TestChapterTitleInTocField(xpath, htmlDocument),
-                "NEXTCHAPTERBUTTON" => TestNextChapterButtonSingleField(xpath, htmlDocument),
-                _ => HandleUnknownField(fieldName)
-            };
-
-            Console.WriteLine($"\n{new string('=', 70)}\n");
-            return success;
-        }
-        finally
-        {
-            // Clean up any Selenium drivers that were created
-            if (useSelenium)
-            {
-                _driverFactory.DisposeAllDrivers();
-            }
-        }
-    }
-
     private async Task<(HtmlDocument? Document, string? PageSource)> LoadHtmlWithSeleniumAsync(
         Uri testUri,
         string xpath,
@@ -2130,84 +2397,6 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
-    /// <summary>
-    /// Tests loading HTML with a single attempt (no retries) for faster testing.
-    /// </summary>
-    public async Task<(HtmlDocument? document, Uri updatedUri, int statusCode, bool cloudflareDetected)> TestLoadHtmlAsync(Uri uri)
-    {
-        ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-
-        try
-        {
-            using var client = _httpClientFactory.CreateClient();
-            var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-
-            var userAgent = GetNextUserAgent();
-
-            requestMessage.Headers.Add("User-Agent", userAgent);
-            requestMessage.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-            requestMessage.Headers.Add("Accept-Language", "en-US,en;q=0.9");
-            requestMessage.Headers.Add("Accept-Encoding", "gzip, deflate, br");
-            requestMessage.Headers.Add("DNT", "1");
-            requestMessage.Headers.Add("Connection", "keep-alive");
-            requestMessage.Headers.Add("Upgrade-Insecure-Requests", "1");
-            requestMessage.Headers.Add("Sec-Fetch-Dest", "document");
-            requestMessage.Headers.Add("Sec-Fetch-Mode", "navigate");
-            requestMessage.Headers.Add("Sec-Fetch-Site", "none");
-            requestMessage.Headers.Add("Sec-Fetch-User", "?1");
-            requestMessage.Headers.Add("Cache-Control", "max-age=0");
-
-            requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
-
-            var response = await client.SendAsync(requestMessage);
-            var statusCode = (int)response.StatusCode;
-
-            var content = await response.Content.ReadAsStringAsync();
-            var isCloudflareDetected = DetectCloudflare(response, content, statusCode);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                Logger.Warn($"[TEST] Request failed to {uri} - Status: {statusCode}");
-                if (isCloudflareDetected)
-                {
-                    Logger.Warn($"[TEST] Cloudflare protection detected");
-                }
-
-                return (null, uri, statusCode, isCloudflareDetected);
-            }
-
-            var htmlDocument = new HtmlDocument();
-            htmlDocument.LoadHtml(content);
-
-            var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
-            if (canonicalNode == null)
-            {
-                return (htmlDocument, uri, statusCode, isCloudflareDetected);
-            }
-
-            var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
-            if (string.IsNullOrEmpty(canonicalUrl) || canonicalUrl == uri.ToString())
-            {
-                return (htmlDocument, uri, statusCode, isCloudflareDetected);
-            }
-
-            Logger.Debug($"[TEST] Canonical URL detected: {canonicalUrl}");
-            uri = new Uri(canonicalUrl);
-
-            return (htmlDocument, uri, statusCode, isCloudflareDetected);
-        }
-        catch (HttpRequestException ex)
-        {
-            Logger.Error($"[TEST] HTTP error: {ex.Message}");
-            return (null, uri, 0, false);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"[TEST] Error during test: {ex.Message}");
-            return (null, uri, 0, false);
-        }
-    }
-
     private static bool DetectCloudflare(HttpResponseMessage response, string content, int statusCode)
     {
         if (!response.Headers.Contains("CF-RAY") &&
@@ -2243,194 +2432,5 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             };
         return userAgents[new Random().Next(userAgents.Count)];
-    }
-
-    public async Task ValidateConfigAsync(SiteConfiguration siteConfig, Uri testUri)
-    {
-        Console.WriteLine($"\n{new string('=', 70)}");
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"Validating Configuration: {siteConfig.Name}");
-        Console.ResetColor();
-        Console.WriteLine($"{new string('=', 70)}\n");
-
-        Console.WriteLine($"Test URL: {testUri}\n");
-
-        var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(testUri);
-
-        if (htmlDocument == null)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
-            if (cloudflareDetected)
-            {
-                Console.WriteLine("✗ Cloudflare protection detected");
-            }
-
-            Console.ResetColor();
-            return;
-        }
-
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
-        Console.ResetColor();
-
-        var scraperData = new ScraperData
-        {
-            SiteConfig = siteConfig,
-            SiteTableOfContents = updatedUri,
-            BaseUri = new Uri(updatedUri.GetLeftPart(UriPartial.Authority)),
-            HttpClientFactory = _httpClientFactory
-        };
-
-        Console.WriteLine("Validating Selectors.TableOfContents...\n");
-
-        var validationResults = new List<(string fieldName, bool success)>();
-
-        Console.WriteLine($"Title:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelTitle}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
-            "Title",
-            NovelDataInitializer.Attr.Title,
-            htmlDocument,
-            scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle)));
-
-        Console.WriteLine($"Author:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAuthor}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
-            "Author",
-            NovelDataInitializer.Attr.Author,
-            htmlDocument,
-            scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor)));
-
-        Console.WriteLine($"Description:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelDescription}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
-            "Description",
-            NovelDataInitializer.Attr.Description,
-            htmlDocument,
-            scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription)));
-
-        Console.WriteLine($"Genres:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelGenres}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
-            "Genres",
-            NovelDataInitializer.Attr.Genres,
-            htmlDocument,
-            scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres)));
-
-        Console.WriteLine($"Status:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelStatus}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
-            "Status",
-            NovelDataInitializer.Attr.NovelStatus,
-            htmlDocument,
-            scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus)));
-
-        Console.WriteLine($"Alternative Names:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAlternativeNames}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
-            "Alternative Names",
-            NovelDataInitializer.Attr.AlternativeNames,
-            htmlDocument,
-            scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames)));
-
-        Console.WriteLine($"Thumbnail:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelThumbnailUrl}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
-            "Thumbnail",
-            NovelDataInitializer.Attr.ThumbnailUrl,
-            htmlDocument,
-            scraperData,
-            !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl)));
-
-        // Validate Chapter Links (REQUIRED)
-        Console.WriteLine($"Chapter Links:");
-        if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.ChapterLinks))
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.ChapterLinks}");
-            Console.ResetColor();
-        }
-
-        validationResults.Add(ValidateChapterLinks("Chapter Links", htmlDocument, siteConfig.Selectors.TableOfContents.ChapterLinks));
-
-        Console.WriteLine($"\n{new string('=', 70)}");
-        Console.WriteLine("Validation Summary:");
-        Console.WriteLine($"{new string('=', 70)}\n");
-
-        var successCount = validationResults.Count(r => r.success);
-        var totalCount = validationResults.Count;
-
-        if (successCount == totalCount)
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"✓ All selectors validated successfully ({successCount}/{totalCount})");
-        }
-        else
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"⚠ Some selectors failed validation ({successCount}/{totalCount} passed)");
-        }
-
-        Console.ResetColor();
-        Console.WriteLine($"\n{new string('=', 70)}\n");
-    }
-
-    public override Task<NovelDataBuffer> ScrapeAsync()
-    {
-        throw new NotImplementedException("TestStrategy does not implement ScrapeAsync");
-    }
-
-    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
-    {
-        throw new NotImplementedException("TestStrategy does not implement FetchNovelDataFromTableOfContents");
     }
 }

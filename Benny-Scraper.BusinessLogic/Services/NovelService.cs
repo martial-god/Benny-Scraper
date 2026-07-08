@@ -1,3 +1,4 @@
+using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Services.Interface;
 using BennyScraper.DataAccess.Repository.IRepository;
 using BennyScraper.Models;
@@ -20,7 +21,7 @@ public class NovelService : INovelService
         novel.TotalChapters = novel.Chapters.Count;
         await _unitOfWork.Novel.AddAsync(novel);
 
-        //await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
+        // await _unitOfWork.Chapter.AddAsync(novel.Chapters.FirstOrDefault());
         await _unitOfWork.SaveAsync();
         return novel.Id;
     }
@@ -33,7 +34,7 @@ public class NovelService : INovelService
     /// <returns></returns>
     public async Task UpdateAndAddChaptersAsync(Novel? novel, IEnumerable<Chapter> newChapters)
     {
-        _unitOfWork.Novel.Update(novel); //update existing
+        _unitOfWork.Novel.Update(novel); // update existing
 
         await _unitOfWork.SaveAsync();
     }
@@ -64,7 +65,7 @@ public class NovelService : INovelService
         }
 
         var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id);
-        context.Chapters = chapterContext.ToList();
+        context.Chapters.ReplaceWith(chapterContext);
         return context;
     }
 
@@ -77,7 +78,7 @@ public class NovelService : INovelService
         }
 
         var chapterContext = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id, includeProperties: "Pages");
-        context.Chapters = chapterContext.ToList();
+        context.Chapters.ReplaceWith(chapterContext);
         return context;
     }
 
@@ -118,8 +119,8 @@ public class NovelService : INovelService
         }
 
         var chapters = await _unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == id);
-        //if (pages != null)
-        //    _unitOfWork.Page.RemoveRange(pages);
+        // if (pages != null)
+        //     _unitOfWork.Page.RemoveRange(pages);
         _unitOfWork.Chapter.RemoveRange(chapters);
         _unitOfWork.Novel.Remove(novel);
         await _unitOfWork.SaveAsync();

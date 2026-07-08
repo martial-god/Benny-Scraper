@@ -87,6 +87,10 @@ dotnet_diagnostic.CA1056.severity = none
 dotnet_diagnostic.CA1054.severity = none
 # CA2234 — Pass System.Uri objects instead of strings
 dotnet_diagnostic.CA2234.severity = none
+# CA1724 — Benny-Scraper.Models.Configuration conflicts with System.Configuration.
+#   Renaming ripples through IConfigurationRepository/ConfigurationRepository, DI registrations,
+#   and appsettings.json binding; out of scope for this pass.
+dotnet_diagnostic.CA1724.severity = none
 
 # -------- Security analyzer category --------
 dotnet_analyzer_diagnostic.category-Security.severity = error
@@ -110,10 +114,20 @@ dotnet_naming_style.underscore_camel.required_prefix = _
 dotnet_naming_style.underscore_camel.capitalization = camel_case
 
 # ===================================================================
+# Scraper strategies: Strategy + Initializer pair is a deliberate one-file-per-site
+# convention (see CLAUDE.md "Strategy + Initializer pair") — the XyzInitializer lives
+# in an `Impl` namespace inside the same file as its XyzStrategy. SA1402 would otherwise
+# force splitting that intentional pairing apart.
+# ===================================================================
+[Benny-Scraper.BusinessLogic/Scrapers/Strategy/*.cs]
+dotnet_diagnostic.SA1402.severity = none
+
+# ===================================================================
 # XML / Project files
 # ===================================================================
 [*.{xml,csproj,props,targets,xaml,config}]
 indent_size = 2
+tab_width = 2
 
 # ===================================================================
 # JSON / YAML

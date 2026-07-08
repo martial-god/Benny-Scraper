@@ -2,6 +2,25 @@ using System.ComponentModel.DataAnnotations;
 
 namespace BennyScraper.Models;
 
+public enum FileExtension
+{
+    Pdf,
+    Cbz,
+    Cbr,
+    Cb7,
+    Cbt,
+    Cba
+}
+
+public enum LogLevel
+{
+    Debug,
+    Info,
+    Warning,
+    Error,
+    Fatal
+}
+
 public class Configuration
 {
     [Key]
@@ -49,23 +68,4 @@ public class Configuration
 
         return SaveLocation ?? string.Empty;
     }
-}
-
-public enum FileExtension
-{
-    Pdf,
-    Cbz,
-    Cbr,
-    Cb7,
-    Cbt,
-    Cba
-}
-
-public enum LogLevel
-{
-    Debug,
-    Info,
-    Warning,
-    Error,
-    Fatal
 }

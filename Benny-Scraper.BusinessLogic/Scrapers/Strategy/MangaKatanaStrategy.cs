@@ -66,12 +66,6 @@ public class MangaKatanaStrategy : ScraperStrategy
         }
     }
 
-    private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
-    {
-        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-        return novelDataBuffer;
-    }
-
     protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {
         var novelDataBuffer = new NovelDataBuffer();
@@ -91,5 +85,11 @@ public class MangaKatanaStrategy : ScraperStrategy
     protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
     {
         throw new NotImplementedException();
+    }
+
+    private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
+    {
+        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+        return novelDataBuffer;
     }
 }

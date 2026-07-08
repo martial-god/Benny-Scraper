@@ -71,14 +71,6 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
         return client;
     }
 
-    private void ThrowIfDisposed()
-    {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(nameof(HttpClientFactory));
-        }
-    }
-
     /// <summary>
     /// Add a cookie to the shared cookie container for a specific URI.
     /// Useful for injecting cookies from the browser to bypass Cloudflare.
@@ -132,5 +124,13 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
 
         _disposed = true;
         _handler.Dispose();
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(HttpClientFactory));
+        }
     }
 }

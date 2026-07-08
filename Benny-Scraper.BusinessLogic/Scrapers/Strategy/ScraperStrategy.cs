@@ -20,13 +20,13 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
     namespace Impl
     {
-        //The NovelDataInitializer represents an abstraction around populating a NovelDataBuffer object with its required content.
-        //Each strategy implements a corresponding child of the NovelDataInitializer class which is used to neatly
-        //encapsulate the strategy-specific content fetching functions in the Impl namespace.
+        // The NovelDataInitializer represents an abstraction around populating a NovelDataBuffer object with its required content.
+        // Each strategy implements a corresponding child of the NovelDataInitializer class which is used to neatly
+        // encapsulate the strategy-specific content fetching functions in the Impl namespace.
         //
-        //Note that the data & methods used by the Initializer are static so that the strategies do not have to
-        //contain a data member of the class in order to call the given FetchNovelContent method (implemented on each
-        //child class).
+        // Note that the data & methods used by the Initializer are static so that the strategies do not have to
+        // contain a data member of the class in order to call the given FetchNovelContent method (implemented on each
+        // child class).
         public class NovelDataInitializer
         {
             public enum Attr
@@ -76,7 +76,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.Category:
-                        //TODO: Implement
+                        // TODO: Implement
                         break;
 
                     case Attr.NovelRating:
@@ -111,8 +111,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                                 .NovelDescription);
                         if (descriptionNodes != null)
                         {
-                            novelDataBuffer.Description = descriptionNodes
-                                .Select(description => HtmlEntity.DeEntitize(description.InnerText.Trim())).ToList();
+                            novelDataBuffer.Description.ReplaceWith(descriptionNodes
+                                .Select(description => HtmlEntity.DeEntitize(description.InnerText.Trim())));
                             Console.WriteLine($"Description line count: {novelDataBuffer.Description.Count}");
                         }
 
@@ -124,8 +124,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                                 .NovelGenres);
                         if (genreNodes != null && genreNodes.Count != 0)
                         {
-                            novelDataBuffer.Genres = genreNodes
-                                .Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())).ToList();
+                            novelDataBuffer.Genres.ReplaceWith(genreNodes
+                                .Select(genre => HtmlEntity.DeEntitize(genre.InnerText.Trim())));
                             Console.WriteLine($"Total Genres: {novelDataBuffer.Genres.Count}");
                             Console.WriteLine($"Genres: {string.Join(", ", novelDataBuffer.Genres)}");
                         }
@@ -142,8 +142,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                             if (alternateNames.Any())
                             {
                                 // SelectMany flattens a list of lists into a single list.
-                                novelDataBuffer.AlternativeNames = alternateNames
-                                    .SelectMany(altName => SplitByLanguage(altName)).ToList();
+                                novelDataBuffer.AlternativeNames.ReplaceWith(alternateNames
+                                    .SelectMany(altName => SplitByLanguage(altName)));
                             }
                         }
 
@@ -188,7 +188,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                             try
                             {
                                 var thumbnailBytes = await client.GetByteArrayAsync(absoluteUri);
-                                novelDataBuffer.ThumbnailImage = thumbnailBytes;
+                                novelDataBuffer.SetThumbnailImage(thumbnailBytes);
                             }
                             catch (Exception e)
                             {
@@ -264,10 +264,10 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                             var chapterUrl = chapterLinkNode.Attributes["href"].Value;
                             var chapterTitle =
                                 !string.IsNullOrEmpty(
-                                    scraperData.SiteConfig.Selectors.TableOfContents.chapterTitleInToc)
+                                    scraperData.SiteConfig.Selectors.TableOfContents.ChapterTitleInToc)
                                     ? HtmlEntity.DeEntitize(chapterLinkNode
                                         .SelectSingleNode(scraperData.SiteConfig.Selectors.TableOfContents
-                                            .chapterTitleInToc!)?.InnerText?.Trim())
+                                            .ChapterTitleInToc!)?.InnerText?.Trim())
                                     : HtmlEntity.DeEntitize(chapterLinkNode.InnerText?.Trim());
                             chapterUrl = chapterUrl != null && !IsValidHttpUrl(chapterUrl) &&
                                          scraperData.BaseUri != null
@@ -293,7 +293,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         break;
 
                     case Attr.FirstChapterUrl:
-                        //TODO: Implement
+                        // TODO: Implement
                         break;
 
                     case Attr.CurrentChapter:
@@ -333,7 +333,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             /// </summary>
             /// <param name="input"></param>
             /// <returns></returns>
-            public static List<string> SplitByLanguage(string input)
+            public static IList<string> SplitByLanguage(string input)
             {
                 List<string> result = new List<string>();
                 StringBuilder currentString = new StringBuilder();
@@ -341,7 +341,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
                 foreach (char c in input)
                 {
-                    //http://www.rikai.com/library/kanjitables/kanji_codes.unicode.shtml
+                    // http://www.rikai.com/library/kanjitables/kanji_codes.unicode.shtml
                     bool isCurrentCharAsian =
                         (c >= 0x3000 && c <= 0x9FFF) || (c >= 0x4E00 && c <= 0x9FFF); // range of Asian characters
 
@@ -382,7 +382,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         public string? DetectedVolumeName { get; set; }
 
-        public List<OpenQA.Selenium.Cookie>? LoginCookies { get; set; }
+        public IList<OpenQA.Selenium.Cookie>? LoginCookies { get; init; }
 
         public bool IsSessionAuthenticated { get; set; }
     }
@@ -391,75 +391,25 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
     {
         protected readonly ScraperData ScraperData = new ScraperData();
 
-        private int ConcurrentRequestsLimit { get; set; } = 2;
+        protected const int TotalPossiblePaginationTabs = 6;
 
-        protected bool RequiresLogin { get; private set; }
+        protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+
+        protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
 
         private const int DefaultMinimumParagraphThreshold = 5;
+
         private volatile int _globalBackoffMs;
+
         private const int MaxGlobalBackoffMs = 30_000;
-        protected const int TotalPossiblePaginationTabs = 6;
-        protected static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
 
         // FlareSolverr integration for Cloudflare bypass
         private FlareSolverrService? _flareSolverr;
         private bool _flareSolverrEnabled;
         private string? _flareSolverrUserAgent;
 
-        protected enum SeleniumPageStepType
-        {
-            Click,
-            WaitForPresence,
-            WaitForClickable,
-            Custom
-        }
-
-        protected sealed class SeleniumPageStep
-        {
-            public SeleniumPageStepType Type { get; }
-
-            public string XPath { get; }
-
-            public string? Description { get; }
-
-            public int? TimeoutSeconds { get; }
-
-            public Func<IWebDriver, WebDriverWait, Task>? CustomAction { get; }
-
-            private SeleniumPageStep(
-                SeleniumPageStepType type,
-                string xPath,
-                string? description,
-                int? timeoutSeconds,
-                Func<IWebDriver, WebDriverWait, Task>? customAction)
-            {
-                Type = type;
-                XPath = xPath;
-                Description = description;
-                TimeoutSeconds = timeoutSeconds;
-                CustomAction = customAction;
-            }
-
-            public static SeleniumPageStep Click(string xPath, string? description = null,
-                int? timeoutSeconds = null) =>
-                new SeleniumPageStep(SeleniumPageStepType.Click, xPath, description, timeoutSeconds, null);
-
-            public static SeleniumPageStep WaitForPresence(string xPath, string? description = null,
-                int? timeoutSeconds = null) =>
-                new SeleniumPageStep(SeleniumPageStepType.WaitForPresence, xPath, description, timeoutSeconds, null);
-
-            public static SeleniumPageStep WaitForClickable(string xPath, string? description = null,
-                int? timeoutSeconds = null) =>
-                new SeleniumPageStep(SeleniumPageStepType.WaitForClickable, xPath, description, timeoutSeconds, null);
-
-            public static SeleniumPageStep Custom(Func<IWebDriver, WebDriverWait, Task> customAction,
-                string? description = null, int? timeoutSeconds = null) =>
-                new SeleniumPageStep(SeleniumPageStepType.Custom, "(custom)", description, timeoutSeconds,
-                    customAction);
-        }
-
-        protected static readonly NovelScraperSettings Settings = new NovelScraperSettings();
         private readonly IHttpClientFactory _httpClientFactory;
+
         private readonly IDriverFactory _driverFactory;
 
         private SemaphoreSlim
@@ -489,6 +439,23 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             ScraperData.HttpClientFactory = _httpClientFactory;
             _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit);
         }
+
+        protected enum SeleniumPageStepType
+        {
+            Click,
+            WaitForPresence,
+            WaitForClickable,
+            Custom
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether FlareSolverr is currently enabled.
+        /// </summary>
+        public bool IsFlareSolverrEnabled => _flareSolverrEnabled && _flareSolverr != null;
+
+        protected bool RequiresLogin { get; private set; }
+
+        private int ConcurrentRequestsLimit { get; set; } = 2;
 
         /// <summary>
         /// Enable FlareSolverr for Cloudflare bypass.
@@ -526,11 +493,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         }
 
         /// <summary>
-        /// Check if FlareSolverr is currently enabled.
-        /// </summary>
-        public bool IsFlareSolverrEnabled => _flareSolverrEnabled && _flareSolverr != null;
-
-        /// <summary>
         /// Disable FlareSolverr and dispose the service.
         /// </summary>
         public void DisableFlareSolverr()
@@ -543,24 +505,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         }
 
         public abstract Task<NovelDataBuffer> ScrapeAsync();
-
-        /// <summary>
-        /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
-        /// </summary>
-        /// <param name="htmlDocument"></param>
-        /// <returns></returns>
-        protected abstract NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
-
-        /// <summary>
-        /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
-        /// </summary>
-        /// <param name="htmlDocument"></param>
-        /// <returns></returns>
-        protected virtual Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
-        {
-            // this method should always be overridden, I just needed a default implementation so other Strategies would not require it
-            return Task.Run(() => FetchNovelDataFromTableOfContents(htmlDocument));
-        }
 
         public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents, Configuration configuration)
         {
@@ -627,8 +571,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// Filters a list of chapter URLs based on the current ChapterRange.
         /// Returns the filtered list and optionally chapter titles if provided.
         /// </summary>
-        public List<string> FilterChaptersByRange(List<string> chapterUrls, out List<string>? filteredTitles,
-            List<string>? chapterTitles = null)
+        public IReadOnlyList<string> FilterChaptersByRange(IReadOnlyList<string> chapterUrls, out IReadOnlyList<string>? filteredTitles,
+            IReadOnlyList<string>? chapterTitles = null)
         {
             filteredTitles = null;
 
@@ -733,8 +677,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                     chapterLinks.Add(new ChapterLink { Url = url, Title = title });
                 }
 
-                novelDataBuffer.ChapterLinks = chapterLinks;
-                novelDataBuffer.ChapterTitles = chapterTitles;
+                novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);
+                novelDataBuffer.ChapterTitles.ReplaceWith(chapterTitles);
 
                 Console.WriteLine($"Extracted {chapterLinks.Count} chapter URLs and {chapterTitles.Count} titles");
             }
@@ -771,8 +715,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             if (sortOrder == ChapterSortOrder.Descending)
             {
                 Logger.Debug("Reversing chapter order (Descending -> Ascending)");
-                novelDataBuffer.ChapterLinks.Reverse();
-                novelDataBuffer.ChapterTitles.Reverse();
+                novelDataBuffer.ChapterLinks.ReverseInPlace();
+                novelDataBuffer.ChapterTitles.ReverseInPlace();
             }
             else
             {
@@ -781,16 +725,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
             // Assign chapter numbers based on final sorted order
             AssignChapterNumbers(novelDataBuffer);
-        }
-
-        private static void AssignChapterNumbers(NovelDataBuffer novelDataBuffer)
-        {
-            for (var i = 0; i < novelDataBuffer.ChapterLinks.Count; i++)
-            {
-                // Records support 'with' for non-destructive mutation - creates a new instance with modified properties
-                // instead of mutating the existing immutable ChapterLink. So we are swapping based on ChapterNumber 
-                novelDataBuffer.ChapterLinks[i] = novelDataBuffer.ChapterLinks[i] with { ChapterNumber = i + 1 };
-            }
         }
 
         public async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlPublicAsync(Uri uri)
@@ -818,6 +752,115 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         {
             _httpClientFactory.AddCookie(uri, cookie);
             Logger.Info($"Added cookie '{cookie.Name}' for {uri.Host}");
+        }
+
+        public bool IsValidHttpUrl(string url)
+        {
+            return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) &&
+                   (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+        }
+
+        /// <summary>
+        /// Gets the non-paginated chapter contents for each chapter url provided. This method uses either HttpClient or
+        /// Selenium based on site requirements.
+        /// </summary>
+        /// <param name="chapterLinks"></param>
+        /// <returns>Returns the list of Chapter Data Buffer which contains the contents</returns>
+        public async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(IList<ChapterLink> chapterLinks)
+        {
+            var tempImageDirectory = string.Empty;
+            try
+            {
+                Logger.Info("Getting chapters data");
+                var chapterDataBuffers = new List<ChapterDataBuffer>();
+
+                // Use Selenium for sites with images or if chapter content requires Selenium. Not thread safe, so don't use tasks.
+                if (ShouldUseSeleniumForChapters())
+                {
+                    if (ShouldUseSpaNavigation())
+                    {
+                        Logger.Info("Using SPA navigation for chapter processing (auth session active, next-chapter button configured)");
+
+                        // Reuse existing driver if one was left alive from TOC scraping
+                        IWebDriver driver;
+                        if (_driverFactory.GetAllDrivers().Any())
+                        {
+                            Logger.Debug("Reusing existing Selenium driver for SPA navigation");
+                            driver = _driverFactory.GetAllDrivers().Values.First();
+                        }
+                        else
+                        {
+                            driver = await _driverFactory.CreateDriverAsync(chapterLinks.First().Url, isHeadless: false);
+                        }
+
+                        if (ScraperData.SiteConfig!.HasImagesForChapterContent)
+                        {
+                            tempImageDirectory = CommonHelper.CreateTempDirectory();
+                        }
+
+                        try
+                        {
+                            await ProcessChaptersWithSpaNavigation(driver, chapterLinks, chapterDataBuffers, tempImageDirectory);
+                        }
+                        finally
+                        {
+                            _driverFactory.DisposeAllDrivers();
+                        }
+                    }
+                    else
+                    {
+                        await ProcessChaptersWithSelenium(chapterLinks, chapterDataBuffers, tempImageDirectory);
+                    }
+                }
+                else
+                {
+                    var tasks = new List<Task<ChapterDataBuffer>>();
+                    // I haven't run into a httpclient site that requires premium so no need to pass the entire chapterLink yet.
+                    await ProcessChaptersWithHttpClient(chapterLinks.Select(c => c.Url).ToList(), tasks, chapterDataBuffers);
+                }
+
+                for (var i = 0; i < chapterDataBuffers.Count && i < chapterLinks.Count; i++)
+                {
+                    chapterDataBuffers[i].SequenceNumber = chapterLinks[i].ChapterNumber;
+                }
+
+                return chapterDataBuffers;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error while getting chapters data. {ex}");
+                if (string.IsNullOrEmpty(tempImageDirectory))
+                {
+                    throw;
+                }
+
+                Directory.Delete(tempImageDirectory, true);
+                Logger.Info("Finished deleting temp directory");
+                throw;
+            }
+        }
+
+        public void SetSemaphoreLimit(int concurrentRequestLimit)
+        {
+            _semaphoreSlim = new SemaphoreSlim(concurrentRequestLimit);
+        }
+
+        /// <summary>
+        /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
+        /// </summary>
+        /// <param name="htmlDocument"></param>
+        /// <returns></returns>
+        protected abstract NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument);
+
+        /// <summary>
+        /// This method is what is used to get the novel data from the table of contents page. i.e. Description, Chapters, Title, Novel Status.
+        /// </summary>
+        /// <param name="htmlDocument"></param>
+        /// <returns></returns>
+        protected virtual Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        {
+            // this method should always be overridden, I just needed a default implementation so other Strategies would not require it
+            return Task.Run(() => FetchNovelDataFromTableOfContents(htmlDocument));
         }
 
         protected async Task<(HtmlDocument document, Uri updatedUri)> LoadHtmlAsync(Uri uri)
@@ -1049,12 +1092,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             throw new HttpRequestException($"Failed to download image from {uri}.");
         }
 
-        public bool IsValidHttpUrl(string url)
-        {
-            return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) &&
-                   (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
-        }
-
         protected virtual Uri TrimLastUriSegment(Uri siteUri)
         {
             string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1)
@@ -1099,7 +1136,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
             return -1;
         }
-
 
         /// <summary>
         /// Gets the chapter urls from the table of contents page that requires pagination to get chapters.
@@ -1192,86 +1228,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
 
             return (chapterLinks, lastTableOfContentsUrl);
-        }
-
-        /// <summary>
-        /// Gets the non-paginated chapter contents for each chapter url provided. This method uses either HttpClient or
-        /// Selenium based on site requirements.
-        /// </summary>
-        /// <param name="chapterLinks"></param>
-        /// <returns>Returns the list of Chapter Data Buffer which contains the contents</returns>
-        public async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(List<ChapterLink> chapterLinks)
-        {
-            var tempImageDirectory = string.Empty;
-            try
-            {
-                Logger.Info("Getting chapters data");
-                var chapterDataBuffers = new List<ChapterDataBuffer>();
-
-                // Use Selenium for sites with images or if chapter content requires Selenium. Not thread safe, so don't use tasks.
-                if (ShouldUseSeleniumForChapters())
-                {
-                    if (ShouldUseSpaNavigation())
-                    {
-                        Logger.Info("Using SPA navigation for chapter processing (auth session active, next-chapter button configured)");
-
-                        // Reuse existing driver if one was left alive from TOC scraping
-                        IWebDriver driver;
-                        if (_driverFactory.GetAllDrivers().Any())
-                        {
-                            Logger.Debug("Reusing existing Selenium driver for SPA navigation");
-                            driver = _driverFactory.GetAllDrivers().Values.First();
-                        }
-                        else
-                        {
-                            driver = await _driverFactory.CreateDriverAsync(chapterLinks.First().Url, isHeadless: false);
-                        }
-
-                        if (ScraperData.SiteConfig!.HasImagesForChapterContent)
-                        {
-                            tempImageDirectory = CommonHelper.CreateTempDirectory();
-                        }
-
-                        try
-                        {
-                            await ProcessChaptersWithSpaNavigation(driver, chapterLinks, chapterDataBuffers, tempImageDirectory);
-                        }
-                        finally
-                        {
-                            _driverFactory.DisposeAllDrivers();
-                        }
-                    }
-                    else
-                    {
-                        await ProcessChaptersWithSelenium(chapterLinks, chapterDataBuffers, tempImageDirectory);
-                    }
-                }
-                else
-                {
-                    var tasks = new List<Task<ChapterDataBuffer>>();
-                    // I haven't run into a httpclient site that requires premium so no need to pass the entire chapterLink yet.
-                    await ProcessChaptersWithHttpClient(chapterLinks.Select(c => c.Url).ToList(), tasks, chapterDataBuffers);
-                }
-
-                for (var i = 0; i < chapterDataBuffers.Count && i < chapterLinks.Count; i++)
-                {
-                    chapterDataBuffers[i].SequenceNumber = chapterLinks[i].ChapterNumber;
-                }
-
-                return chapterDataBuffers;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error while getting chapters data. {ex}");
-                if (string.IsNullOrEmpty(tempImageDirectory))
-                {
-                    throw;
-                }
-
-                Directory.Delete(tempImageDirectory, true);
-                Logger.Info("Finished deleting temp directory");
-                throw;
-            }
         }
 
         protected async Task<(HtmlDocument? Document, string? PageSource)> GetHtmlDocumentUsingSeleniumAsync(
@@ -1469,6 +1425,98 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                    || ScraperData.SiteConfig.ChapterContentRequiresSelenium;
         }
 
+        protected virtual string NormalizeChapterTitle(string? rawTitle)
+        {
+            return rawTitle?.Trim() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Extracts both chapter URLs and titles from an HTML document in a specified range.
+        /// This is typically used for paginated sites where chapters span multiple pages.
+        /// </summary>
+        protected virtual (List<string> Urls, List<string> Titles) GetChapterUrlsAndTitlesInRange(
+            HtmlDocument htmlDocument,
+            Uri? baseSiteUri,
+            int? startChapter = null,
+            int? endChapter = null)
+        {
+            Logger.Info("Getting chapter URLs and titles from table of contents");
+
+            if (baseSiteUri == null)
+            {
+                Logger.Error("Base site URI is null; cannot build absolute chapter URLs.");
+                return (new List<string>(), new List<string>());
+            }
+
+            try
+            {
+                var chapterLinks =
+                    htmlDocument.DocumentNode.SelectNodes(
+                        ScraperData.SiteConfig?.Selectors.TableOfContents.ChapterLinks);
+                if (chapterLinks == null || chapterLinks.Count == 0)
+                {
+                    Logger.Info("Chapter links Node Collection on table of contents page was null/empty.");
+                    return (new List<string>(), new List<string>());
+                }
+
+                var chapterUrls = new List<string>();
+                var chapterTitles = new List<string>();
+
+                var index = 0;
+                foreach (var link in chapterLinks)
+                {
+                    index++;
+
+                    if (index < startChapter)
+                    {
+                        continue;
+                    }
+
+                    if (index > endChapter)
+                    {
+                        break;
+                    }
+
+                    var href = link.Attributes["href"]?.Value;
+                    if (string.IsNullOrWhiteSpace(href))
+                    {
+                        continue;
+                    }
+
+                    var absoluteUrl = IsValidHttpUrl(href)
+                        ? href
+                        : new Uri(baseSiteUri, href.TrimStart('/')).ToString();
+
+                    chapterUrls.Add(absoluteUrl);
+
+                    var title = HtmlEntity.DeEntitize(link.InnerText ?? string.Empty).Trim();
+                    if (string.IsNullOrWhiteSpace(title))
+                    {
+                        title = $"Chapter {chapterUrls.Count}";
+                    }
+
+                    chapterTitles.Add(title);
+                }
+
+                return (chapterUrls, chapterTitles);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error getting chapter urls and titles from table of contents. {ex}");
+                return (new List<string>(), new List<string>());
+            }
+        }
+
+        private static void AssignChapterNumbers(NovelDataBuffer novelDataBuffer)
+        {
+            for (var i = 0; i < novelDataBuffer.ChapterLinks.Count; i++)
+            {
+                // Records support 'with' for non-destructive mutation - creates a new instance with modified properties
+                // instead of mutating the existing immutable ChapterLink. So we are swapping based on ChapterNumber 
+                novelDataBuffer.ChapterLinks[i] = novelDataBuffer.ChapterLinks[i] with { ChapterNumber = i + 1 };
+            }
+        }
+
         /// <summary>
         /// Determines whether SPA (client-side) navigation should be used for chapter-to-chapter transitions.
         /// Returns true when the user is authenticated, the site requires login, and a next-chapter button XPath is configured.
@@ -1481,13 +1529,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 && !string.IsNullOrEmpty(ScraperData.SiteConfig?.Selectors.NextChapterButton);
         }
 
-        protected virtual string NormalizeChapterTitle(string? rawTitle)
-        {
-            return rawTitle?.Trim() ?? string.Empty;
-        }
-
         private async Task ProcessChaptersWithSelenium(
-            List<ChapterLink> chapterLinks,
+            IList<ChapterLink> chapterLinks,
             List<ChapterDataBuffer> chapterDataBuffers,
             string tempImageDirectory)
         {
@@ -1561,7 +1604,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// </summary>
         private async Task ProcessChaptersWithSpaNavigation(
             IWebDriver driver,
-            List<ChapterLink> chapterLinks,
+            IList<ChapterLink> chapterLinks,
             List<ChapterDataBuffer> chapterDataBuffers,
             string tempImageDirectory)
         {
@@ -1724,11 +1767,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             this.ConcurrentRequestsLimit = concurrentRequestLimit;
         }
 
-        public void SetSemaphoreLimit(int concurrentRequestLimit)
-        {
-            _semaphoreSlim = new SemaphoreSlim(concurrentRequestLimit);
-        }
-
         private async Task<ChapterDataBuffer> GetChapterDataAsync(IWebDriver driver, ChapterLink chapterLink,
             string tempImageDirectory, int currentChapter = 0, int totalChapters = 0, bool skipNavigation = false)
         {
@@ -1854,7 +1892,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 return chapterDataBuffer;
             }
 
-            chapterDataBuffer.Pages = new List<PageData>();
+            chapterDataBuffer.SetPages(new List<PageData>());
             var counter = 0;
             Console.ForegroundColor = ConsoleColor.Cyan;
             foreach (var url in urls)
@@ -2033,81 +2071,48 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             return sb.ToString().Trim();
         }
 
-        /// <summary>
-        /// Extracts both chapter URLs and titles from an HTML document in a specified range.
-        /// This is typically used for paginated sites where chapters span multiple pages.
-        /// </summary>
-        protected virtual (List<string> Urls, List<string> Titles) GetChapterUrlsAndTitlesInRange(
-            HtmlDocument htmlDocument,
-            Uri? baseSiteUri,
-            int? startChapter = null,
-            int? endChapter = null)
+        protected sealed class SeleniumPageStep
         {
-            Logger.Info("Getting chapter URLs and titles from table of contents");
+            public SeleniumPageStepType Type { get; }
 
-            if (baseSiteUri == null)
+            public string XPath { get; }
+
+            public string? Description { get; }
+
+            public int? TimeoutSeconds { get; }
+
+            public Func<IWebDriver, WebDriverWait, Task>? CustomAction { get; }
+
+            private SeleniumPageStep(
+                SeleniumPageStepType type,
+                string xPath,
+                string? description,
+                int? timeoutSeconds,
+                Func<IWebDriver, WebDriverWait, Task>? customAction)
             {
-                Logger.Error("Base site URI is null; cannot build absolute chapter URLs.");
-                return (new List<string>(), new List<string>());
+                Type = type;
+                XPath = xPath;
+                Description = description;
+                TimeoutSeconds = timeoutSeconds;
+                CustomAction = customAction;
             }
 
-            try
-            {
-                var chapterLinks =
-                    htmlDocument.DocumentNode.SelectNodes(
-                        ScraperData.SiteConfig?.Selectors.TableOfContents.ChapterLinks);
-                if (chapterLinks == null || chapterLinks.Count == 0)
-                {
-                    Logger.Info("Chapter links Node Collection on table of contents page was null/empty.");
-                    return (new List<string>(), new List<string>());
-                }
+            public static SeleniumPageStep Click(string xPath, string? description = null,
+                int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.Click, xPath, description, timeoutSeconds, null);
 
-                var chapterUrls = new List<string>();
-                var chapterTitles = new List<string>();
+            public static SeleniumPageStep WaitForPresence(string xPath, string? description = null,
+                int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.WaitForPresence, xPath, description, timeoutSeconds, null);
 
-                var index = 0;
-                foreach (var link in chapterLinks)
-                {
-                    index++;
+            public static SeleniumPageStep WaitForClickable(string xPath, string? description = null,
+                int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.WaitForClickable, xPath, description, timeoutSeconds, null);
 
-                    if (index < startChapter)
-                    {
-                        continue;
-                    }
-
-                    if (index > endChapter)
-                    {
-                        break;
-                    }
-
-                    var href = link.Attributes["href"]?.Value;
-                    if (string.IsNullOrWhiteSpace(href))
-                    {
-                        continue;
-                    }
-
-                    var absoluteUrl = IsValidHttpUrl(href)
-                        ? href
-                        : new Uri(baseSiteUri, href.TrimStart('/')).ToString();
-
-                    chapterUrls.Add(absoluteUrl);
-
-                    var title = HtmlEntity.DeEntitize(link.InnerText ?? string.Empty).Trim();
-                    if (string.IsNullOrWhiteSpace(title))
-                    {
-                        title = $"Chapter {chapterUrls.Count}";
-                    }
-
-                    chapterTitles.Add(title);
-                }
-
-                return (chapterUrls, chapterTitles);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error getting chapter urls and titles from table of contents. {ex}");
-                return (new List<string>(), new List<string>());
-            }
+            public static SeleniumPageStep Custom(Func<IWebDriver, WebDriverWait, Task> customAction,
+                string? description = null, int? timeoutSeconds = null) =>
+                new SeleniumPageStep(SeleniumPageStepType.Custom, "(custom)", description, timeoutSeconds,
+                    customAction);
         }
     }
 }

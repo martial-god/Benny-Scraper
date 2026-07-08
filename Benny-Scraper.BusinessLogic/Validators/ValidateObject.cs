@@ -10,14 +10,14 @@ public class ValidateObject
     /// </summary>
     /// <param name="obj"></param>
     /// <returns></returns>
-    public List<ValidationResult> Validate(object obj)
+    public IReadOnlyList<ValidationResult> Validate(object obj)
     {
         RecursiveDataAnnotationValidator validator = new RecursiveDataAnnotationValidator();
         List<ValidationResult> validationErrors = new List<ValidationResult>();
 
         if (!validator.TryValidateObjectRecursive(obj, validationErrors))
         {
-            //Handle errors however you want
+            // Handle errors however you want
             foreach (var error in validationErrors)
             {
                 Console.WriteLine(error.ErrorMessage);

@@ -222,7 +222,7 @@ public class NovelProcessor(
 
                 if (buffer.Pages != null)
                 {
-                    chapter.Pages = buffer.Pages.Select(p => new Page { Url = p.Url, Image = null }).ToList();
+                    chapter.SetPages(buffer.Pages.Select(p => new Page { Url = p.Url }));
                 }
 
                 chapter.DateLastModified = DateTime.Now;
@@ -396,7 +396,7 @@ public class NovelProcessor(
 
         scraperStrategy.SetSessionAuthenticated(novelDataBuffer?.IsLoggedIn ?? false);
         IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chaptersToDownload);
-        newNovel.Chapters = CreateChapters(chapterDataBuffers, newNovel.Id);
+        newNovel.Chapters.ReplaceWith(CreateChapters(chapterDataBuffers, newNovel.Id));
 
         var userOutputDirectory = configuration.DetermineSaveLocation((bool)(scraperStrategy.GetSiteConfiguration()?.HasImagesForChapterContent));
         string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(newNovel.Title, outputDirectory = userOutputDirectory);
@@ -441,7 +441,7 @@ public class NovelProcessor(
         }
         else
         {
-            novel.SaveLocation = CreateEpub(novel, novel.Chapters, novelDataBuffer.ThumbnailImage, outputDirectory, filenameSuffix);
+            novel.SaveLocation = CreateEpub(novel, novel.Chapters, novelDataBuffer.ThumbnailImage?.ToArray(), outputDirectory, filenameSuffix);
             novel.FileType = NovelFileType.Epub;
         }
 
@@ -636,7 +636,11 @@ public class NovelProcessor(
     private async Task<Novel?> GetNovelFromDataBase(Guid id)
     {
         var novel = await novelService.GetByIdAsync(id);
-        novel?.Chapters = novel.Chapters.OrderBy(chapter => chapter.Number).ToList();
+        if (novel != null)
+        {
+            novel.Chapters.ReplaceWith(novel.Chapters.OrderBy(chapter => chapter.Number).ToList());
+        }
+
         return novel;
     }
 
@@ -693,7 +697,7 @@ public class NovelProcessor(
         if (newChapters.All(chapter => chapter?.Pages == null || chapter.Pages.Count == 0) && novel.FileType == NovelFileType.Epub)
         {
             var sortedChapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
-            novel.SaveLocation = CreateEpub(novel, sortedChapters, novelDataBuffer.ThumbnailImage, outputDirectory, filenameSuffix);
+            novel.SaveLocation = CreateEpub(novel, sortedChapters, novelDataBuffer.ThumbnailImage?.ToArray(), outputDirectory, filenameSuffix);
             await novelService.UpdateAndAddChaptersAsync(novel, newChapters);
             return;
         }
@@ -746,7 +750,7 @@ public class NovelProcessor(
         return true;
     }
 
-    private static List<ChapterLink> DetermineNewChaptersToScrape(string currentChapterUrl, ICollection<Chapter> savedChapters, Guid novelId, List<ChapterLink> bufferChapterLinks)
+    private static List<ChapterLink> DetermineNewChaptersToScrape(string currentChapterUrl, ICollection<Chapter> savedChapters, Guid novelId, IList<ChapterLink> bufferChapterLinks)
     {
         var indexOfLastChapter = bufferChapterLinks.FindIndex(cl => cl.Url == currentChapterUrl);
         if (indexOfLastChapter == -1 && savedChapters.Any())
@@ -905,20 +909,20 @@ public class NovelProcessor(
 
     private static List<Chapter> CreateChapters(IEnumerable<ChapterDataBuffer> chapterDataBuffers, Guid novelId)
     {
-        return chapterDataBuffers.Select(data => new Chapter
+        return chapterDataBuffers.Select(data =>
         {
-            NovelId = novelId,
-            Url = data.Url ?? string.Empty,
-            Content = HtmlEntity.DeEntitize(data.Content),
-            Title = HtmlEntity.DeEntitize(data.Title) ?? string.Empty,
-            Number = data.SequenceNumber,
-            Pages = data.Pages?.Select(p => new Page
+            var chapter = new Chapter
             {
-                Url = p.Url,
-                Image = null,
-            }).ToList(),
-            DateCreated = DateTime.Now,
-            DateLastModified = data.DateLastModified
+                NovelId = novelId,
+                Url = data.Url ?? string.Empty,
+                Content = HtmlEntity.DeEntitize(data.Content),
+                Title = HtmlEntity.DeEntitize(data.Title) ?? string.Empty,
+                Number = data.SequenceNumber,
+                DateCreated = DateTime.Now,
+                DateLastModified = data.DateLastModified
+            };
+            chapter.SetPages(data.Pages?.Select(p => new Page { Url = p.Url }));
+            return chapter;
         }).ToList();
     }
 

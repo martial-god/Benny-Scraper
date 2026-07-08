@@ -1,3 +1,4 @@
+using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
@@ -66,8 +67,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             SetCurrentChapterUrl(htmlDocument, novelDataBuffer); // buffer is passed by reference so this will update the novelDataBuffer object
 
             var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(_chaptersUri, true, pageToStopAt);
-            novelDataBuffer.ChapterLinks = chapterLinks;
-            novelDataBuffer.ChapterTitles = chapterLinks.Select(cl => cl.Title ?? string.Empty).ToList();
+            novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);
+            novelDataBuffer.ChapterTitles.ReplaceWith(chapterLinks.Select(cl => cl.Title ?? string.Empty));
             novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
 
 

@@ -16,7 +16,7 @@ public abstract class NovelBinInitializer : NovelDataInitializer
         NovelDataBuffer novelDataBuffer,
         HtmlDocument htmlDocument,
         ScraperData scraperData,
-        List<Attr> attributesToFetch)
+        IReadOnlyList<Attr> attributesToFetch)
     {
         foreach (var attribute in attributesToFetch)
         {

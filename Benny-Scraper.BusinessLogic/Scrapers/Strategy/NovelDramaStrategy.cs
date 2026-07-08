@@ -1,3 +1,4 @@
+using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
@@ -68,22 +69,6 @@ public class NovelDramaStrategy : ScraperStrategy
         throw new NotImplementedException();
     }
 
-    private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
-    {
-        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-
-        int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
-        var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
-
-        novelDataBuffer.ChapterLinks = chapterLinks;
-        novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl; // this needs to be updated as it is not the same as what was set in FetchNovelDataFromTableOfContentsAsync
-
-        // Sort chapters based on site configuration
-        SortChapters(novelDataBuffer);
-
-        return novelDataBuffer;
-    }
-
     protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {
         var novelDataBuffer = new NovelDataBuffer();
@@ -96,6 +81,22 @@ public class NovelDramaStrategy : ScraperStrategy
         {
             Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
         }
+
+        return novelDataBuffer;
+    }
+
+    private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
+    {
+        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+
+        int pageToStopAt = FetchLastTableOfContentsPageNumber(htmlDocument);
+        var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
+
+        novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);
+        novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl; // this needs to be updated as it is not the same as what was set in FetchNovelDataFromTableOfContentsAsync
+
+        // Sort chapters based on site configuration
+        SortChapters(novelDataBuffer);
 
         return novelDataBuffer;
     }

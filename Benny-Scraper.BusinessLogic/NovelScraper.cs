@@ -20,6 +20,27 @@ public class NovelScraper : INovelScraper
         AddSupportForWebsite();
     }
 
+    /// <summary>
+    /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Classes are added to the map in the constructor.
+    /// </summary>
+    public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
+    {
+        var baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
+
+        if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))
+        {
+            return _scraperStrategy;
+        }
+
+        Logger.Error($"No scraper strategy found for {baseUrl}");
+        return null;
+    }
+
+    public IReadOnlyList<string> GetSupportedSites()
+    {
+        return _websiteMap.Select(website => website.Key).ToList();
+    }
+
     private void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy)
     {
         _websiteMap.Add(siteName, scraperStrategy);
@@ -39,26 +60,5 @@ public class NovelScraper : INovelScraper
         AddSiteToMap("https://wanderinginn.com", new WanderingInnStrategy());
         AddSiteToMap("https://www.wuxiaworld.com", new WuxiaWorldStrategy());
         AddSiteToMap("https://www.royalroad.com", new RoyalRoadStrategy());
-    }
-
-    /// <summary>
-    /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Classes are added to the map in the constructor.
-    /// </summary>
-    public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
-    {
-        var baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
-
-        if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))
-        {
-            return _scraperStrategy;
-        }
-
-        Logger.Error($"No scraper strategy found for {baseUrl}");
-        return null;
-    }
-
-    public List<string> GetSupportedSites()
-    {
-        return _websiteMap.Select(website => website.Key).ToList();
     }
 }

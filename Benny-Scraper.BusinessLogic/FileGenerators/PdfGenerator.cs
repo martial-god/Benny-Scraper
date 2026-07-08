@@ -11,8 +11,8 @@ namespace BennyScraper.BusinessLogic.FileGenerators;
 
 public class PdfGenerator
 {
-    private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
     public const string PdfFileExtension = ".pdf";
+    private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
 
     public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration, string filenameSuffix = "")
     {
@@ -137,55 +137,6 @@ public class PdfGenerator
         return pdfDirectoryPath;
     }
 
-
-    private static string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
-    {
-        Directory.CreateDirectory(pdfDirectoryPath);
-
-        var document = new PdfDocument();
-
-        document.Info.Title = $"{novel.Title}";
-        document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
-        document.Info.Subject = novel.Genre;
-        document.Info.Keywords = novel.Genre;
-        document.Info.CreationDate = DateTime.Now;
-
-        var chapterDataBuffers = chapterDataBuffer as ChapterDataBuffer[] ?? chapterDataBuffer.ToArray();
-        foreach (var chapter in chapterDataBuffers)
-        {
-            if (chapter.Pages == null)
-            {
-                continue;
-            }
-
-            var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList(); // only Page from PageData has ImagePath as a member variable
-            Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
-
-            foreach (var imagePath in imagePaths)
-            {
-                using var image = Image.Load(imagePath);
-                using var imageStream = ConvertImageToStream(image);
-                using var img = XImage.FromStream(imageStream);
-                var page = document.AddPage();
-                page.Width = XUnit.FromPoint(img.PixelWidth);
-                page.Height = XUnit.FromPoint(img.PixelHeight);
-                var gfx = XGraphics.FromPdfPage(page);
-                gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
-                File.Delete(imagePath);
-            }
-        }
-
-        CommonHelper.DeleteTempFolder(chapterDataBuffers.First().TempDirectory);
-
-        var baseFilename = novel.Title;
-        var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{baseFilename} - {filenameSuffix}";
-        var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
-        var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
-        document.Save(pdfFilePath);
-        Logger.Debug($"PDF saved to {pdfFilePath}");
-        return pdfFilePath;
-    }
-
     /// <summary>
     /// Method that will update an existing pdf file with new chapters, does not work with single chapter pdfs
     /// </summary>
@@ -253,6 +204,54 @@ public class PdfGenerator
         File.Delete(tempPdfFilePath);
         Logger.Info("Pdf file updated");
         Console.WriteLine($"Pdf file updated at {pdfFilePath}");
+    }
+
+    private static string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
+    {
+        Directory.CreateDirectory(pdfDirectoryPath);
+
+        var document = new PdfDocument();
+
+        document.Info.Title = $"{novel.Title}";
+        document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
+        document.Info.Subject = novel.Genre;
+        document.Info.Keywords = novel.Genre;
+        document.Info.CreationDate = DateTime.Now;
+
+        var chapterDataBuffers = chapterDataBuffer as ChapterDataBuffer[] ?? chapterDataBuffer.ToArray();
+        foreach (var chapter in chapterDataBuffers)
+        {
+            if (chapter.Pages == null)
+            {
+                continue;
+            }
+
+            var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList(); // only Page from PageData has ImagePath as a member variable
+            Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
+
+            foreach (var imagePath in imagePaths)
+            {
+                using var image = Image.Load(imagePath);
+                using var imageStream = ConvertImageToStream(image);
+                using var img = XImage.FromStream(imageStream);
+                var page = document.AddPage();
+                page.Width = XUnit.FromPoint(img.PixelWidth);
+                page.Height = XUnit.FromPoint(img.PixelHeight);
+                var gfx = XGraphics.FromPdfPage(page);
+                gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
+                File.Delete(imagePath);
+            }
+        }
+
+        CommonHelper.DeleteTempFolder(chapterDataBuffers.First().TempDirectory);
+
+        var baseFilename = novel.Title;
+        var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{baseFilename} - {filenameSuffix}";
+        var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
+        var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
+        document.Save(pdfFilePath);
+        Logger.Debug($"PDF saved to {pdfFilePath}");
+        return pdfFilePath;
     }
 
     private static MemoryStream ConvertImageToStream(Image image)

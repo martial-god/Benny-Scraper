@@ -1,3 +1,4 @@
+using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
@@ -9,9 +10,9 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
     {
         public abstract class NovelFullInitializer : NovelDataInitializer
         {
-            //Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
-            //child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
-            //the implementation would require both.
+            // Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
+            // child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
+            // the implementation would require both.
             public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
             {
                 Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
@@ -74,23 +75,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
-        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
-        {
-            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-            var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
-
-            var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
-
-            novelDataBuffer.ChapterLinks = chapterLinks;
-            novelDataBuffer.ChapterTitles = chapterLinks.Select(cl => cl.Title ?? string.Empty).ToList();
-            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
-
-            // Sort chapters based on site configuration
-            SortChapters(novelDataBuffer);
-
-            return novelDataBuffer;
-        }
-
         protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
@@ -110,6 +94,23 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
         {
             throw new NotImplementedException();
+        }
+
+        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
+        {
+            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+            var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
+
+            var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
+
+            novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);
+            novelDataBuffer.ChapterTitles.ReplaceWith(chapterLinks.Select(cl => cl.Title ?? string.Empty));
+            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+
+            // Sort chapters based on site configuration
+            SortChapters(novelDataBuffer);
+
+            return novelDataBuffer;
         }
     }
 }

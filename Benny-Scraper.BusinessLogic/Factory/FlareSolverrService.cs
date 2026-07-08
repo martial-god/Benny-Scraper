@@ -13,7 +13,7 @@ namespace BennyScraper.BusinessLogic.Factory;
 /// Docker command to run FlareSolverr:
 /// docker run -d --name=flaresolverr -p 8191:8191 -e LOG_LEVEL=info ghcr.io/flaresolverr/flaresolverr:latest
 /// </summary>
-public class FlareSolverrService : IDisposable
+public sealed class FlareSolverrService : IDisposable
 {
     private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
     private readonly HttpClient _httpClient;
@@ -21,12 +21,12 @@ public class FlareSolverrService : IDisposable
     private bool _disposed;
 
     /// <summary>
-    /// Whether FlareSolverr is enabled and available.
+    /// Gets a value indicating whether FlareSolverr is enabled and available.
     /// </summary>
     public bool IsEnabled { get; private set; }
 
     /// <summary>
-    /// The user-agent returned by FlareSolverr after solving a challenge.
+    /// Gets the user-agent returned by FlareSolverr after solving a challenge.
     /// Use this for subsequent requests to the same site.
     /// </summary>
     public string? LastUserAgent { get; private set; }
@@ -200,6 +200,19 @@ public class FlareSolverrService : IDisposable
                responseContent.Contains("Just a moment...");
     }
 
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            GC.SuppressFinalize(this);
+            return;
+        }
+
+        _disposed = true;
+        _httpClient.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     private void ThrowIfDisposed()
     {
         if (_disposed)
@@ -207,123 +220,4 @@ public class FlareSolverrService : IDisposable
             throw new ObjectDisposedException(nameof(FlareSolverrService));
         }
     }
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        _httpClient.Dispose();
-    }
-}
-
-public class FlareSolverrRequest
-{
-    [JsonPropertyName("cmd")]
-    public string Cmd { get; set; } = "request.get";
-
-    [JsonPropertyName("url")]
-    public string Url { get; set; } = string.Empty;
-
-    [JsonPropertyName("maxTimeout")]
-    public int MaxTimeout { get; set; } = 60000;
-
-    [JsonPropertyName("session")]
-    public string? Session { get; set; }
-
-    [JsonPropertyName("session_ttl_minutes")]
-    public int? SessionTtlMinutes { get; set; }
-
-    [JsonPropertyName("cookies")]
-    public List<FlareSolverrCookie>? Cookies { get; set; }
-
-    [JsonPropertyName("returnOnlyCookies")]
-    public bool? ReturnOnlyCookies { get; set; }
-
-    [JsonPropertyName("proxy")]
-    public FlareSolverrProxy? Proxy { get; set; }
-}
-
-public class FlareSolverrProxy
-{
-    [JsonPropertyName("url")]
-    public string Url { get; set; } = string.Empty;
-}
-
-public class FlareSolverrResponse
-{
-    [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty;
-
-    [JsonPropertyName("message")]
-    public string Message { get; set; } = string.Empty;
-
-    [JsonPropertyName("startTimestamp")]
-    public long StartTimestamp { get; set; }
-
-    [JsonPropertyName("endTimestamp")]
-    public long EndTimestamp { get; set; }
-
-    [JsonPropertyName("version")]
-    public string Version { get; set; } = string.Empty;
-
-    [JsonPropertyName("solution")]
-    public FlareSolverrSolution? Solution { get; set; }
-}
-
-public class FlareSolverrSolution
-{
-    [JsonPropertyName("url")]
-    public string Url { get; set; } = string.Empty;
-
-    [JsonPropertyName("status")]
-    public int Status { get; set; }
-
-    [JsonPropertyName("headers")]
-    public Dictionary<string, string>? Headers { get; set; }
-
-    [JsonPropertyName("response")]
-    public string Response { get; set; } = string.Empty;
-
-    [JsonPropertyName("cookies")]
-    public List<FlareSolverrCookie>? Cookies { get; set; }
-
-    [JsonPropertyName("userAgent")]
-    public string UserAgent { get; set; } = string.Empty;
-}
-
-public class FlareSolverrCookie
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
-
-    [JsonPropertyName("value")]
-    public string Value { get; set; } = string.Empty;
-
-    [JsonPropertyName("domain")]
-    public string Domain { get; set; } = string.Empty;
-
-    [JsonPropertyName("path")]
-    public string? Path { get; set; }
-
-    [JsonPropertyName("expires")]
-    public double? Expires { get; set; }
-
-    [JsonPropertyName("size")]
-    public int? Size { get; set; }
-
-    [JsonPropertyName("httpOnly")]
-    public bool HttpOnly { get; set; }
-
-    [JsonPropertyName("secure")]
-    public bool Secure { get; set; }
-
-    [JsonPropertyName("session")]
-    public bool Session { get; set; }
-
-    [JsonPropertyName("sameSite")]
-    public string? SameSite { get; set; }
 }
