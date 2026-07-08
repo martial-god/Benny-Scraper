@@ -1,65 +1,85 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
-namespace Benny_Scraper.Models
+namespace BennyScraper.Models;
+
+/// <summary>
+/// One to many relationship between Novel and Chapter. Each novel has many chapters, and each chapter belongs to one novel.
+/// </summary>
+public sealed class Chapter
 {
-    /// <summary>
-    /// One to many relationship between Novel and Chapter. Each novel has many chapters, and each chapter belongs to one novel.
-    /// </summary>
-    public class Chapter
-    {
-        [Key]
-        public Guid Id { get; set; }
-        public Guid NovelId { get; set; }
-        public Novel Novel { get; set; }
-        [StringLength(255)]
-        public string? Title { get; set; }
-        public string Url { get; set; }
-        public string? Content { get; set; }
-        public float Number { get; set; } // number used to sort chapters
-        public DateTime DateCreated { get; set; }
-        public DateTime DateLastModified { get; set; }
-        public bool IsPartial { get; set; } // true if chapter contains teaser/preview content only
-        public virtual ICollection<Page>? Pages { get; set; } // New property for manga pages
-    }
+    [Key]
+    public Guid Id { get; set; }
 
-    public class ChapterDataBuffer : IDisposable
-    {
-        public string Url { get; set; }
-        public string? Content { get; set; }
-        public string Title { get; set; }
-        public float Number
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(Title))
-                    return 0f;
-                var digitMatch = Regex.Match(Title, @"[+-]?([0-9]*[.])?[0-9]+");
-                return (digitMatch.Success ? float.Parse(digitMatch.Groups[0].Value) : 0f);
-            }
-        }
-        public int SequenceNumber { get; set; } // using the Table of Contents order as the definitive order of chapters, this avoids issues with sorting by chapter title where titles contain numbers
-        public DateTime DateLastModified { get; set; }
-        public bool IsPartial { get; set; } // true if chapter contains teaser/preview content only
-        public ICollection<PageData>? Pages { get; set; }
-        public string TempDirectory { get; init; }
+    public Guid NovelId { get; set; }
 
-        public void Dispose()
+    public Novel Novel { get; set; } = null!;
+
+    [StringLength(255)]
+    public string? Title { get; set; }
+
+    public string Url { get; set; } = string.Empty;
+
+    public string? Content { get; set; }
+
+    public float Number { get; set; } // number used to sort chapters
+
+    public DateTime DateCreated { get; set; }
+
+    public DateTime DateLastModified { get; set; }
+
+    public bool IsPartial { get; set; } // true if chapter contains teaser/preview content only
+
+    public ICollection<Page>? Pages { get; set; } // New property for manga pages
+}
+
+public class ChapterDataBuffer : IDisposable
+{
+    public string Url { get; set; } = string.Empty;
+
+    public string? Content { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+
+    public float Number
+    {
+        get
         {
-            if (Pages != null)
+            if (string.IsNullOrEmpty(Title))
             {
-                foreach (var page in Pages)
-                {
-                    page.ImagePath = null;
-                }
+                return 0f;
             }
+
+            var digitMatch = Regex.Match(Title, @"[+-]?([0-9]*[.])?[0-9]+");
+            return (digitMatch.Success ? float.Parse(digitMatch.Groups[0].Value) : 0f);
         }
     }
 
-    public class PageData
-    {
-        public string Url { get; set; }
-        public string ImagePath { get; set; }
-    }
+    public int SequenceNumber { get; set; } // using the Table of Contents order as the definitive order of chapters, this avoids issues with sorting by chapter title where titles contain numbers
 
+    public DateTime DateLastModified { get; set; }
+
+    public bool IsPartial { get; set; } // true if chapter contains teaser/preview content only
+
+    public ICollection<PageData>? Pages { get; set; }
+
+    public string TempDirectory { get; init; } = string.Empty;
+
+    public void Dispose()
+    {
+        if (Pages != null)
+        {
+            foreach (var page in Pages)
+            {
+                page.ImagePath = null!;
+            }
+        }
+    }
+}
+
+public class PageData
+{
+    public string Url { get; set; } = string.Empty;
+
+    public string ImagePath { get; set; } = string.Empty;
 }

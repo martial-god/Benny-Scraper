@@ -1,11 +1,11 @@
-using Benny_Scraper.BusinessLogic;
-using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
+using BennyScraper.BusinessLogic;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Scrapers.Strategy;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
-namespace Benny_Scraper.Tests;
+namespace BennyScraper.Tests;
 
 /// <summary>
 /// Shared test plumbing. Two sources of truth:

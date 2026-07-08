@@ -1,8 +1,8 @@
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 /// <summary>
 /// Initializer for RoyalRoad site

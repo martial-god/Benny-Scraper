@@ -1,12 +1,14 @@
 using System.Net;
 using Polly;
 
-namespace Benny_Scraper.BusinessLogic.Factory;
+namespace BennyScraper.BusinessLogic.Factory;
 
 public interface IHttpClientFactory
 {
     HttpClient CreateClient();
+
     void AddCookie(Uri uri, Cookie cookie);
+
     void AddCookiesFromHeader(Uri uri, string cookieHeader);
 }
 
@@ -72,7 +74,9 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(HttpClientFactory));
+        }
     }
 
     /// <summary>
@@ -94,7 +98,9 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(cookieHeader))
+        {
             return;
+        }
 
         var cookiePairs = cookieHeader.Split(';');
         foreach (var pair in cookiePairs)
@@ -119,7 +125,11 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
         _handler.Dispose();
     }

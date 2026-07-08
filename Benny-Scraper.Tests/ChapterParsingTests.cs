@@ -2,7 +2,7 @@ using HtmlAgilityPack;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Benny_Scraper.Tests;
+namespace BennyScraper.Tests;
 
 /// <summary>
 /// Verifies a site's REAL chapter-content selector pulls the chapter text from a chapter page.
@@ -58,7 +58,9 @@ public class ChapterParsingTests
 public sealed class ChapterCase : IXunitSerializable
 {
     public string UrlPattern { get; set; } = "";
+
     public string Chapter { get; set; } = "";
+
     public string MustContain { get; set; } = "";
 
     public void Serialize(IXunitSerializationInfo info)

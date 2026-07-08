@@ -1,6 +1,6 @@
-﻿namespace Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
+namespace BennyScraper.BusinessLogic.FileGenerators.Interfaces;
 
-using Benny_Scraper.Models;
+using BennyScraper.Models;
 
 public interface IEpubGenerator
 {

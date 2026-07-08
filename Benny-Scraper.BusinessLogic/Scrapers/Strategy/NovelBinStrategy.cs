@@ -1,11 +1,11 @@
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 /// <summary>
 /// Initializer for NovelBin and NovLove sites
@@ -86,10 +86,15 @@ public class NovelBinStrategy : ScraperStrategy
                         {
                             stableCount++;
                             // If count hasn't changed for 3 consecutive checks, assume loading is complete
-                            if (stableCount < 3) continue;
+                            if (stableCount < 3)
+                            {
+                                continue;
+                            }
+
                             Logger.Info($"Chapter count stabilized at {currentCount} chapters");
                             break;
                         }
+
                         Logger.Info($"Chapters loading: {currentCount} found...");
                         stableCount = 0;
                         previousCount = currentCount;

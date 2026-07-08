@@ -1,10 +1,10 @@
-﻿using Benny_Scraper.Models;
+using BennyScraper.Models;
 
-namespace Benny_Scraper.DataAccess.Repository.IRepository
+namespace BennyScraper.DataAccess.Repository.IRepository;
+
+public interface IPageRepository : IRepository<Page>
 {
-    public interface IPageRepository : IRepository<Page>
-    {
-        void Update(Page page);
-        void AddRange(ICollection<Page> pages);
-    }
+    void Update(Page page);
+
+    void AddRange(ICollection<Page> pages);
 }

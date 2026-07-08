@@ -1,12 +1,12 @@
-using Benny_Scraper.BusinessLogic.Helper;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Helper;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using OpenQA.Selenium;
 using System.Diagnostics;
 using System.Globalization;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 /// <summary>
 /// Strategy for https://wuxiaworld.com/
@@ -48,7 +48,9 @@ public class WuxiaWorldStrategy : ScraperStrategy
     {
         Logger.Info($"Getting novel data for {GetType().Name}");
         if (ScraperData.SiteTableOfContents == null)
+        {
             throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
+        }
 
         SetBaseUri(ScraperData.SiteTableOfContents);
         var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
@@ -157,6 +159,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                                 Console.ResetColor();
                                 lastDisplayedSecond = currentSecond;
                             }
+
                             await Task.Delay(100);
                         }
 
@@ -185,6 +188,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                             Console.WriteLine("⚠ Time's up - continuing without login (premium chapters not accessible)");
                             Console.ResetColor();
                         }
+
                         await driver.Navigate().GoToUrlAsync(ScraperData.SiteTableOfContents.ToString());
                     }
 
@@ -268,7 +272,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                         premiumButton.Click();// close button back.
                         Logger.Info($"User balance - Karma: {karma:N0}, Spirit Stones: {spiritStones:N0}");
                     }
-                    
+
                     novelDataBuffer.IsLoggedIn = isLoggedIn;
                 },
                 reuseExistingDriver: true);

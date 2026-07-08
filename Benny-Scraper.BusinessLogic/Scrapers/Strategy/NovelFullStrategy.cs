@@ -1,9 +1,9 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using System.Diagnostics;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
     namespace Impl
     {
@@ -53,7 +53,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
             if (ScraperData.SiteTableOfContents == null)
+            {
                 throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
+            }
+
             SetBaseUri(ScraperData.SiteTableOfContents);
             var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
 

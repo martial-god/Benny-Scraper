@@ -1,10 +1,10 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using System.Collections.Specialized;
 using System.Web;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
     namespace Impl
     {
@@ -40,6 +40,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
         }
     }
+
     public class LightNovelWorldStrategy : ScraperStrategy
     {
         private Uri? _chaptersUri; // the url of the chapters pages are different from the table of contents page
@@ -117,7 +118,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             // Guard: Single page or no pagination
             if (paginationCount <= 1)
+            {
                 return 1;
+            }
 
             // Determine which node contains the last page number
             HtmlNode lastPageNode;

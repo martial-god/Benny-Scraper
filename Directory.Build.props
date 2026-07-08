@@ -11,12 +11,12 @@
     <AnalysisMode>All</AnalysisMode>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
-    <!-- Analyzers currently run as WARNINGS so the build stays green.
-         Flip both to true to enforce (build will then fail on outstanding findings). -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+    <!-- Warnings are errors: analyzer/style findings fail the build. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
 
-    <!-- NU1902 = moderate NuGet audit finding (log4net 2.0.15). Kept non-fatal. -->
+    <!-- NU1902 = moderate NuGet audit finding (log4net 2.0.15). Kept non-fatal (needs a package bump,
+         not a code fix); everything else is enforced. -->
     <WarningsNotAsErrors>NU1902</WarningsNotAsErrors>
 
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

@@ -1,8 +1,8 @@
-using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Factory;
-using Benny_Scraper.BusinessLogic.Factory.Interfaces;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Factory;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
@@ -11,7 +11,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 public abstract class TestStrategyInitializer : NovelDataInitializer
 {
@@ -143,6 +143,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             {
                 Console.WriteLine("✗ Cloudflare protection detected");
             }
+
             Console.ResetColor();
             return;
         }
@@ -176,10 +177,12 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 {
                     Console.WriteLine("  - Title");
                 }
+
                 if (_chapterLinksFailed)
                 {
                     Console.WriteLine("  - Chapter Links");
                 }
+
                 Console.WriteLine("\nYou must provide valid selectors for these fields to create a working configuration.");
                 Console.ResetColor();
 
@@ -511,6 +514,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     Console.WriteLine("⊘ Skipped");
                     Console.ResetColor();
                 }
+
                 return;
             }
 
@@ -526,7 +530,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     {
                         fieldVerified = true;
 
-                        if (!isRequired || success) continue;
+                        if (!isRequired || success)
+                        {
+                            continue;
+                        }
+
                         _requiredFieldsFailed = true;
 
                         if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
@@ -536,6 +544,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
                         break;
                     }
+
                 case "n":
                 case "no":
                 case "retry":
@@ -549,6 +558,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                         setSelectorAction(string.Empty);
                         continue;
                     }
+
                 default:
                     {
                         fieldVerified = true;
@@ -576,7 +586,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.Write("\nDoes the table of contents require Selenium to load this field? (y/n): ");
         var seleniumResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-        if (seleniumResponse != "y" && seleniumResponse != "yes") return;
+        if (seleniumResponse != "y" && seleniumResponse != "yes")
+        {
+            return;
+        }
+
         _config.TableOfContentsRequiresSelenium = true;
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("✓ Marked site as requiring Selenium for table of contents");
@@ -692,6 +706,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                         _config.Selectors.TableOfContents.ThumbnailUrlAttribute = string.Empty;
                         continue;
                     }
+
                 default:
                     // Default to accepting the result
                     fieldVerified = true;
@@ -895,7 +910,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         var status = Console.ReadLine()?.Trim();
         _config.CompletedStatus = string.IsNullOrEmpty(status) ? null : status.ToLowerInvariant();
 
-        if (string.IsNullOrEmpty(_config.CompletedStatus)) return;
+        if (string.IsNullOrEmpty(_config.CompletedStatus))
+        {
+            return;
+        }
+
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"✓ Completed status: '{_config.CompletedStatus}'");
         Console.ResetColor();
@@ -1045,6 +1064,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             {
                 Console.WriteLine("✗ Cloudflare protection detected");
             }
+
             Console.ResetColor();
             return;
         }
@@ -1149,6 +1169,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                         _config.Selectors.ChapterTitle = string.Empty;
                         continue;
                     }
+
                 default:
                     // Default to accepting the result
                     fieldVerified = true;
@@ -1164,7 +1185,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.Write("\nDoes the chapter content require Selenium to load this field? (y/n): ");
         var seleniumResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-        if (seleniumResponse != "y" && seleniumResponse != "yes") return;
+        if (seleniumResponse != "y" && seleniumResponse != "yes")
+        {
+            return;
+        }
+
         _config.ChapterContentRequiresSelenium = true;
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("✓ Marked site as requiring Selenium for chapter content");
@@ -1283,6 +1308,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                             var preview = text?.Length > 60 ? text.Substring(0, 60) + "..." : text;
                             Console.WriteLine($"  [{i + 1}] {preview}");
                         }
+
                         success = true;
                     }
                 }
@@ -1319,6 +1345,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                         _config.Selectors.ChapterContentImageUrlAttribute = string.Empty;
                         continue;
                     }
+
                 default:
                     // Default to accepting the result
                     fieldVerified = true;
@@ -1491,6 +1518,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"Mode: Selenium (Headless: {headless})");
             Console.ResetColor();
         }
+
         Console.WriteLine();
 
         HtmlDocument htmlDocument;
@@ -1537,6 +1565,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     {
                         Console.WriteLine("✗ Cloudflare protection detected - try using --use-selenium flag");
                     }
+
                     Console.ResetColor();
                     return false;
                 }
@@ -1789,7 +1818,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 Console.WriteLine($"  [{i + 1}] {value}");
             }
 
-            if (nodes.Count <= 5) return true;
+            if (nodes.Count <= 5)
+            {
+                return true;
+            }
+
             Console.WriteLine($"\nLast 5 chapters:");
             for (int i = Math.Max(0, nodes.Count - 5); i < nodes.Count; i++)
             {
@@ -1875,6 +1908,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     var src = nodes[i].GetAttributeValue("src", "(no src attribute)");
                     Console.WriteLine($"  [{i + 1}] {src}");
                 }
+
                 return true;
             }
 
@@ -1889,6 +1923,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 var preview = text?.Length > 80 ? text.Substring(0, 80) + "..." : text;
                 Console.WriteLine($"  [{i + 1}] {preview}");
             }
+
             Console.WriteLine("\nLast content element:");
             var lastText = nodes.Last().InnerText?.Trim();
             var lastPreview = lastText?.Length > 80 ? lastText.Substring(0, 80) + "..." : lastText;
@@ -1936,7 +1971,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             foreach (var linkNode in chapterLinkNodes.Take(10))
             {
                 var titleNode = linkNode.SelectSingleNode(xpath);
-                if (titleNode == null) continue;
+                if (titleNode == null)
+                {
+                    continue;
+                }
 
                 foundCount++;
                 var text = titleNode.InnerText?.Trim();
@@ -1965,9 +2003,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     {
                         Console.WriteLine($"  [{i + 1}] {absoluteNodes[i].InnerText?.Trim()}");
                     }
+
                     Console.ResetColor();
                     Console.WriteLine("  Note: ChapterTitleInToc expects a relative XPath (evaluated per chapter link)");
                 }
+
                 return false;
             }
 
@@ -2132,6 +2172,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 {
                     Logger.Warn($"[TEST] Cloudflare protection detected");
                 }
+
                 return (null, uri, statusCode, isCloudflareDetected);
             }
 
@@ -2139,10 +2180,17 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             htmlDocument.LoadHtml(content);
 
             var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
-            if (canonicalNode == null) return (htmlDocument, uri, statusCode, isCloudflareDetected);
+            if (canonicalNode == null)
+            {
+                return (htmlDocument, uri, statusCode, isCloudflareDetected);
+            }
+
             var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
             if (string.IsNullOrEmpty(canonicalUrl) || canonicalUrl == uri.ToString())
+            {
                 return (htmlDocument, uri, statusCode, isCloudflareDetected);
+            }
+
             Logger.Debug($"[TEST] Canonical URL detected: {canonicalUrl}");
             uri = new Uri(canonicalUrl);
 
@@ -2164,13 +2212,21 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     {
         if (!response.Headers.Contains("CF-RAY") &&
             !response.Headers.Contains("cf-ray") &&
-            !response.Headers.Contains("CF-Cache-Status")) return false;
+            !response.Headers.Contains("CF-Cache-Status"))
+        {
+            return false;
+        }
+
         if (statusCode is 403 or 503)
         {
             return true;
         }
 
-        if (string.IsNullOrEmpty(content)) return false;
+        if (string.IsNullOrEmpty(content))
+        {
+            return false;
+        }
+
         return content.Contains("cf-browser-verification") ||
                content.Contains("cf_chl_opt") ||
                content.Contains("Checking your browser") ||
@@ -2209,6 +2265,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             {
                 Console.WriteLine("✗ Cloudflare protection detected");
             }
+
             Console.ResetColor();
             return;
         }
@@ -2236,6 +2293,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelTitle}");
             Console.ResetColor();
         }
+
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Title",
             NovelDataInitializer.Attr.Title,
@@ -2250,6 +2308,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAuthor}");
             Console.ResetColor();
         }
+
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Author",
             NovelDataInitializer.Attr.Author,
@@ -2264,6 +2323,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelDescription}");
             Console.ResetColor();
         }
+
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Description",
             NovelDataInitializer.Attr.Description,
@@ -2278,6 +2338,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelGenres}");
             Console.ResetColor();
         }
+
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Genres",
             NovelDataInitializer.Attr.Genres,
@@ -2292,6 +2353,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelStatus}");
             Console.ResetColor();
         }
+
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Status",
             NovelDataInitializer.Attr.NovelStatus,
@@ -2306,6 +2368,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAlternativeNames}");
             Console.ResetColor();
         }
+
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Alternative Names",
             NovelDataInitializer.Attr.AlternativeNames,
@@ -2320,6 +2383,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelThumbnailUrl}");
             Console.ResetColor();
         }
+
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Thumbnail",
             NovelDataInitializer.Attr.ThumbnailUrl,
@@ -2335,6 +2399,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.ChapterLinks}");
             Console.ResetColor();
         }
+
         validationResults.Add(ValidateChapterLinks("Chapter Links", htmlDocument, siteConfig.Selectors.TableOfContents.ChapterLinks));
 
         Console.WriteLine($"\n{new string('=', 70)}");
@@ -2354,6 +2419,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"⚠ Some selectors failed validation ({successCount}/{totalCount} passed)");
         }
+
         Console.ResetColor();
         Console.WriteLine($"\n{new string('=', 70)}\n");
     }

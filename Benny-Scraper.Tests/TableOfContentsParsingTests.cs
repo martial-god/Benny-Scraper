@@ -1,10 +1,10 @@
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using Xunit;
 using Xunit.Abstractions;
-using Attr = Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl.NovelDataInitializer.Attr;
+using Attr = BennyScraper.BusinessLogic.Scrapers.Strategy.Impl.NovelDataInitializer.Attr;
 
-namespace Benny_Scraper.Tests;
+namespace BennyScraper.Tests;
 
 /// <summary>
 /// Verifies a site's REAL selector config (from appsettings.json) extracts the title, author and
@@ -77,9 +77,13 @@ public class TableOfContentsParsingTests
 public sealed class TocCase : IXunitSerializable
 {
     public string UrlPattern { get; set; } = "";
+
     public string Toc { get; set; } = "";
+
     public string ExpectedTitle { get; set; } = "";
+
     public string ExpectedAuthor { get; set; } = "";
+
     public int ExpectedChapterCount { get; set; }
 
     public void Serialize(IXunitSerializationInfo info)

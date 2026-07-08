@@ -1,23 +1,20 @@
-﻿using Benny_Scraper.BusinessLogic.Services.Interface;
-using Benny_Scraper.DataAccess.Repository.IRepository;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Services.Interface;
+using BennyScraper.DataAccess.Repository.IRepository;
+using BennyScraper.Models;
 
-namespace Benny_Scraper.BusinessLogic.Services
+namespace BennyScraper.BusinessLogic.Services;
+
+public class ChapterService : IChapterService
 {
-    public class ChapterService : IChapterService
+    private readonly IUnitOfWork _unitOfWork;
+
+    public ChapterService(IUnitOfWork unitOfWork)
     {
-        #region Dependency Injection
-        private readonly IUnitOfWork _unitOfWork;
+        _unitOfWork = unitOfWork;
+    }
 
-        public ChapterService(IUnitOfWork unitOfWork)
-        {
-            _unitOfWork = unitOfWork;
-        }
-        #endregion
-
-        public async Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId)
-        {
-            return await _unitOfWork.Chapter.GetLastSavedChapterAsyncByNovelId(novelId);
-        }
+    public async Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId)
+    {
+        return await _unitOfWork.Chapter.GetLastSavedChapterAsyncByNovelId(novelId);
     }
 }

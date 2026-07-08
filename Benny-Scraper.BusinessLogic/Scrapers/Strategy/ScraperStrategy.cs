@@ -1,9 +1,9 @@
-using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Factory;
-using Benny_Scraper.BusinessLogic.Factory.Interfaces;
-using Benny_Scraper.BusinessLogic.Helper;
-using Benny_Scraper.BusinessLogic.Utilities;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Factory;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
+using BennyScraper.BusinessLogic.Helper;
+using BennyScraper.BusinessLogic.Utilities;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using NLog;
 using OpenQA.Selenium;
@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 using System.Web;
 using Cookie = System.Net.Cookie;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
     namespace Impl
     {
@@ -172,7 +172,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         if (urlNode == null ||
                             urlNode.Attributes
                                 [scraperData.SiteConfig?.Selectors.TableOfContents.ThumbnailUrlAttribute] == null)
+                        {
                             break;
+                        }
 
                         var url = urlNode
                             .Attributes[scraperData.SiteConfig?.Selectors.TableOfContents.ThumbnailUrlAttribute].Value;
@@ -210,7 +212,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             // Guard: Check if node exists and has href attribute
                             if (lastTableOfContentsPageNode == null ||
                                 lastTableOfContentsPageNode.Attributes["href"] == null)
+                            {
                                 break;
+                            }
 
                             novelDataBuffer.LastTableOfContentsPageUrl =
                                 lastTableOfContentsPageNode.Attributes["href"].Value;
@@ -226,6 +230,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             Console.ResetColor();
                             throw;
                         }
+
                     case Attr.ChapterUrls:
                         var chapterLinkNodes =
                             htmlDocument.DocumentNode.SelectNodes(scraperData.SiteConfig?.Selectors.TableOfContents
@@ -296,7 +301,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig?.Selectors.TableOfContents.LatestChapterLink);
 
                         if (latestChapterNode == null)
+                        {
                             return;
+                        }
 
                         // Extract chapter URL if href attribute exists
                         if (latestChapterNode.Attributes["href"] != null)
@@ -383,7 +390,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
     public abstract class ScraperStrategy
     {
         protected readonly ScraperData ScraperData = new ScraperData();
+
         private int ConcurrentRequestsLimit { get; set; } = 2;
+
         protected bool RequiresLogin { get; private set; }
 
         private const int DefaultMinimumParagraphThreshold = 5;
@@ -408,9 +417,13 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         protected sealed class SeleniumPageStep
         {
             public SeleniumPageStepType Type { get; }
+
             public string XPath { get; }
+
             public string? Description { get; }
+
             public int? TimeoutSeconds { get; }
+
             public Func<IWebDriver, WebDriverWait, Task>? CustomAction { get; }
 
             private SeleniumPageStep(
@@ -577,7 +590,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             RequiresLogin = withLogin;
 
             // Show informative message for sites with premium chapters
-            if (!withLogin || ScraperData.SiteConfig?.HasPremiumChapters != true) return;
+            if (!withLogin || ScraperData.SiteConfig?.HasPremiumChapters != true)
+            {
+                return;
+            }
+
             var loginMessages = new[] { $"Login Enabled for {ScraperData.SiteConfig.Name}" };
             CommonHelper.DrawBox(loginMessages, ConsoleColor.Cyan);
             Console.WriteLine("A browser window will open for manual login.\n");
@@ -696,7 +713,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     var href = chapterLinkNode.Attributes["href"]?.Value;
                     if (string.IsNullOrEmpty(href))
+                    {
                         continue;
+                    }
 
                     var url = IsValidHttpUrl(href)
                         ? href
@@ -706,7 +725,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     var title = HtmlEntity.DeEntitize(chapterLinkNode.InnerText?.Trim());
                     if (string.IsNullOrWhiteSpace(title))
+                    {
                         title = $"Chapter {chapterLinks.Count + 1}";
+                    }
 
                     chapterTitles.Add(title);
                     chapterLinks.Add(new ChapterLink { Url = url, Title = title });
@@ -814,7 +835,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                                    System.Threading.Interlocked.Increment(ref _userAgentIndex) % _userAgents.Count];
 
             if (ScraperData.BaseUri == new Uri("https://www.lightnovelworld.com/"))
+            {
                 userAgent = _userAgents[0];
+            }
 
             // Add realistic browser headers to bypass Cloudflare
             requestMessage.Headers.Add("User-Agent", userAgent);
@@ -832,7 +855,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             requestMessage.Headers.Add("Cache-Control", "max-age=0");
 
             if (ScraperData.BaseUri != null)
+            {
                 requestMessage.Headers.Add("Referer", ScraperData.BaseUri.ToString());
+            }
 
             requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"),
                 TimeSpan.FromSeconds(10));
@@ -945,7 +970,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             if (_globalBackoffMs > 0)
+            {
                 _globalBackoffMs = Math.Max(0, _globalBackoffMs / 2);
+            }
 
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
@@ -996,7 +1023,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 requestMessage.Headers.Add("Sec-Fetch-Site", "cross-site");
 
                 if (ScraperData.BaseUri != null)
+                {
                     requestMessage.Headers.Add("Referer", ScraperData.BaseUri.ToString());
+                }
 
                 using var response =
                     await client.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
@@ -1019,8 +1048,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             throw new HttpRequestException($"Failed to download image from {uri}.");
         }
-
-        #region Url Helpers
 
         public bool IsValidHttpUrl(string url)
         {
@@ -1053,7 +1080,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             // if the url is relative, then combine it with the base uri
             if (!uriResult.IsAbsoluteUri)
+            {
                 uriResult = new Uri(baseUri, uriResult);
+            }
 
             if (result && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
             {
@@ -1062,14 +1091,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 {
                     var pageNumber = pageNumberFromQuery["page"];
                     if (int.TryParse(pageNumber, out int page))
+                    {
                         return page;
+                    }
                 }
             }
 
             return -1;
         }
 
-        #endregion
 
         /// <summary>
         /// Gets the chapter urls from the table of contents page that requires pagination to get chapters.
@@ -1102,17 +1132,26 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     var (htmlDocument, _) = await LoadHtmlAsync(new Uri(pageUrl));
 
                     var linkNodes = htmlDocument.DocumentNode.SelectNodes(tocSelector?.ChapterLinks);
-                    if (linkNodes == null) continue;
+                    if (linkNodes == null)
+                    {
+                        continue;
+                    }
 
                     foreach (var node in linkNodes)
                     {
                         var href = node.GetAttributeValue("href", string.Empty);
-                        if (string.IsNullOrWhiteSpace(href)) continue;
+                        if (string.IsNullOrWhiteSpace(href))
+                        {
+                            continue;
+                        }
+
                         var url = IsValidHttpUrl(href) ? href : new Uri(ScraperData.BaseUri!, href).ToString();
 
                         var title = HtmlEntity.DeEntitize(node.InnerText).Trim();
                         if (string.IsNullOrWhiteSpace(title))
+                        {
                             title = $"Chapter {chapterLinks.Count + 1}";
+                        }
 
                         var premiumSelectors = tocSelector?.PremiumChapterSelectors;
                         var isPremium = ScraperData.SiteConfig?.HasPremiumChapters == true
@@ -1124,7 +1163,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                             : null;
                         var cost = 0;
                         if (costNode != null && int.TryParse(costNode.InnerText.Trim(), out var parsedCost))
+                        {
                             cost = parsedCost;
+                        }
 
                         chapterLinks.Add(new ChapterLink
                         {
@@ -1140,7 +1181,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     }
 
                     if (!getAllChapters && !isPageNew)
+                    {
                         break;
+                    }
                 }
                 catch (HttpRequestException e)
                 {
@@ -1185,7 +1228,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                         }
 
                         if (ScraperData.SiteConfig!.HasImagesForChapterContent)
+                        {
                             tempImageDirectory = CommonHelper.CreateTempDirectory();
+                        }
 
                         try
                         {
@@ -1218,7 +1263,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error($"Error while getting chapters data. {ex}");
-                if (string.IsNullOrEmpty(tempImageDirectory)) throw;
+                if (string.IsNullOrEmpty(tempImageDirectory))
+                {
+                    throw;
+                }
+
                 Directory.Delete(tempImageDirectory, true);
                 Logger.Info("Finished deleting temp directory");
                 throw;
@@ -1304,7 +1353,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                                 case SeleniumPageStepType.Custom:
                                     {
                                         if (step.CustomAction == null)
+                                        {
                                             throw new InvalidOperationException("Custom step requires CustomAction");
+                                        }
 
                                         var msg = "[Selenium] Custom: " + (step.Description ?? "(custom action)");
                                         Logger.Debug(msg);
@@ -1435,8 +1486,6 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             return rawTitle?.Trim() ?? string.Empty;
         }
 
-        #region Private Methods
-
         private async Task ProcessChaptersWithSelenium(
             List<ChapterLink> chapterLinks,
             List<ChapterDataBuffer> chapterDataBuffers,
@@ -1457,7 +1506,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             if (ScraperData.SiteConfig!.HasImagesForChapterContent)
+            {
                 tempImageDirectory = CommonHelper.CreateTempDirectory();
+            }
 
             try
             {
@@ -1661,9 +1712,14 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
         private void SetConcurrentRequestLimit(int concurrentRequestLimit)
         {
             if (concurrentRequestLimit < 1)
+            {
                 throw new ArgumentException("Concurrent request limit must be greater than 0");
+            }
+
             if (concurrentRequestLimit > Environment.ProcessorCount)
+            {
                 concurrentRequestLimit = Environment.ProcessorCount;
+            }
 
             this.ConcurrentRequestsLimit = concurrentRequestLimit;
         }
@@ -1714,7 +1770,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             if (!skipNavigation)
+            {
                 await driver.Navigate().GoToUrlAsync(chapterLink.Url);
+            }
+
             try
             {
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
@@ -1746,8 +1805,10 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             }
 
             if (totalChapters > 0)
+            {
                 Console.Write(
                     $"\r{new string(' ', 100)}\rLoading chapter {currentChapter}/{totalChapters}, waiting for {waitTarget} - ({stopwatch.ElapsedMilliseconds} ms)");
+            }
 
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(driver.PageSource);
@@ -1759,11 +1820,15 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
             var contentNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig?.Selectors.ChapterContent);
 
             if (ScraperData.SiteConfig!.HasImagesForChapterContent)
+            {
                 chapterDataBuffer = await AddImagePagesContentToChapterDataBuffer(chapterDataBuffer, contentNodes,
                     stopwatch, tempImageDirectory);
+            }
             else
+            {
                 chapterDataBuffer =
                     AddTextContentToChapterDataBuffer(htmlDocument, chapterDataBuffer, contentNodes, chapterLink.Url);
+            }
 
             return chapterDataBuffer;
         }
@@ -1805,6 +1870,7 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     ImagePath = imagePath
                 });
             }
+
             Console.ResetColor();
 
             return chapterDataBuffer;
@@ -1913,7 +1979,11 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
         private static string ExtractWuxiaWorldParagraphText(HtmlNode? pNode)
         {
-            if (pNode == null) return string.Empty;
+            if (pNode == null)
+            {
+                return string.Empty;
+            }
+
             var clone = pNode.CloneNode(true);
 
             // Remove the inline comment-count chip (and any other aria-hidden UI fragments).
@@ -1928,24 +1998,34 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
             // Walk text nodes in DOM order. This naturally merges punctuation-only spans correctly.
             var textNodes = clone.SelectNodes(".//text()");
-            if (textNodes == null) return string.Empty;
+            if (textNodes == null)
+            {
+                return string.Empty;
+            }
 
             var sb = new StringBuilder();
             foreach (var textNode in textNodes)
             {
                 var chunk = HtmlEntity.DeEntitize(textNode.InnerText);
                 if (string.IsNullOrWhiteSpace(chunk))
+                {
                     continue;
+                }
 
                 // Normalize internal whitespace.
                 chunk = Regex.Replace(chunk, @"\s+", " ").Trim();
-                if (chunk.Length == 0) continue;
+                if (chunk.Length == 0)
+                {
+                    continue;
+                }
 
                 // Avoid inserting spaces before punctuation.
                 var startsWithPunct = chunk.Length > 0 && ".,;:!?)]}".IndexOf(chunk[0]) >= 0;
 
                 if (sb.Length > 0 && !startsWithPunct && sb[^1] != ' ')
+                {
                     sb.Append(' ');
+                }
 
                 sb.Append(chunk);
             }
@@ -1991,13 +2071,20 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                     index++;
 
                     if (index < startChapter)
+                    {
                         continue;
+                    }
+
                     if (index > endChapter)
+                    {
                         break;
+                    }
 
                     var href = link.Attributes["href"]?.Value;
                     if (string.IsNullOrWhiteSpace(href))
+                    {
                         continue;
+                    }
 
                     var absoluteUrl = IsValidHttpUrl(href)
                         ? href
@@ -2007,7 +2094,9 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
 
                     var title = HtmlEntity.DeEntitize(link.InnerText ?? string.Empty).Trim();
                     if (string.IsNullOrWhiteSpace(title))
+                    {
                         title = $"Chapter {chapterUrls.Count}";
+                    }
 
                     chapterTitles.Add(title);
                 }
@@ -2020,7 +2109,5 @@ namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
                 return (new List<string>(), new List<string>());
             }
         }
-
-        #endregion
     }
 }

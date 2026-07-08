@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using NLog;
 
-namespace Benny_Scraper.BusinessLogic.Factory;
+namespace BennyScraper.BusinessLogic.Factory;
 
 /// <summary>
 /// Client for FlareSolverr proxy service to bypass Cloudflare protection.
@@ -58,6 +58,7 @@ public class FlareSolverrService : IDisposable
             {
                 Logger.Info("FlareSolverr is available and healthy");
             }
+
             return IsEnabled;
         }
         catch (Exception ex)
@@ -145,7 +146,9 @@ public class FlareSolverrService : IDisposable
     public static string GetCookieHeader(FlareSolverrResponse response)
     {
         if (response.Solution?.Cookies == null || response.Solution.Cookies.Count == 0)
+        {
             return string.Empty;
+        }
 
         return string.Join("; ", response.Solution.Cookies.Select(c => $"{c.Name}={c.Value}"));
     }
@@ -156,7 +159,9 @@ public class FlareSolverrService : IDisposable
     public static IEnumerable<Cookie> GetCookies(FlareSolverrResponse response)
     {
         if (response.Solution?.Cookies == null)
+        {
             yield break;
+        }
 
         foreach (var cookie in response.Solution.Cookies)
         {
@@ -177,10 +182,14 @@ public class FlareSolverrService : IDisposable
     {
         // Cloudflare typically returns 403 or 503 with challenge pages
         if (statusCode != HttpStatusCode.Forbidden && statusCode != HttpStatusCode.ServiceUnavailable)
+        {
             return false;
+        }
 
         if (string.IsNullOrEmpty(responseContent))
+        {
             return false;
+        }
 
         // Check for common Cloudflare challenge indicators
         return responseContent.Contains("cf-browser-verification") ||
@@ -194,18 +203,22 @@ public class FlareSolverrService : IDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(FlareSolverrService));
+        }
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
         _httpClient.Dispose();
     }
 }
-
-#region FlareSolverr Request/Response Models
 
 public class FlareSolverrRequest
 {
@@ -314,5 +327,3 @@ public class FlareSolverrCookie
     [JsonPropertyName("sameSite")]
     public string? SameSite { get; set; }
 }
-
-#endregion

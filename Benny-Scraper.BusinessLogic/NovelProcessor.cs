@@ -1,22 +1,22 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Factory.Interfaces;
-using Benny_Scraper.BusinessLogic.FileGenerators;
-using Benny_Scraper.BusinessLogic.FileGenerators.Interfaces;
-using Benny_Scraper.BusinessLogic.Helper;
-using Benny_Scraper.BusinessLogic.Interfaces;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
-using Benny_Scraper.BusinessLogic.Services.Interface;
-using Benny_Scraper.BusinessLogic.Utilities;
-using Benny_Scraper.BusinessLogic.Validators;
-using Benny_Scraper.DataAccess.Repository.IRepository;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
+using BennyScraper.BusinessLogic.FileGenerators;
+using BennyScraper.BusinessLogic.FileGenerators.Interfaces;
+using BennyScraper.BusinessLogic.Helper;
+using BennyScraper.BusinessLogic.Interfaces;
+using BennyScraper.BusinessLogic.Scrapers.Strategy;
+using BennyScraper.BusinessLogic.Services.Interface;
+using BennyScraper.BusinessLogic.Utilities;
+using BennyScraper.BusinessLogic.Validators;
+using BennyScraper.DataAccess.Repository.IRepository;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
 using NLog;
 using System.Reflection;
-using Configuration = Benny_Scraper.Models.Configuration;
+using Configuration = BennyScraper.Models.Configuration;
 
-namespace Benny_Scraper.BusinessLogic;
+namespace BennyScraper.BusinessLogic;
 
 public class NovelProcessor(
     INovelService novelService,
@@ -38,7 +38,6 @@ public class NovelProcessor(
 
     public async Task ProcessNovelAsync(Uri novelTableOfContentsUri, int? beginChapter = null, int? endChapter = null, bool withLogin = false)
     {
-
         if (!IsThereConfigurationForSite(novelTableOfContentsUri))
         {
             throw new Exception($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. Skipping this novel..");
@@ -56,6 +55,7 @@ public class NovelProcessor(
             Logger.Error($"No scraper strategy found for {novelTableOfContentsUri}. Skipping this novel..");
             return;
         }
+
         scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
 
         // Enable FlareSolverr if configured (for Cloudflare bypass)
@@ -66,9 +66,13 @@ public class NovelProcessor(
         }
 
         if (siteConfig.HasPremiumChapters)
+        {
             scraperStrategy.SetLoginPreference(withLogin);
+        }
         else
+        {
             Console.WriteLine("This site does not have premium chapters, login option will be ignored.");
+        }
 
         if (novel == null)
         {
@@ -98,7 +102,6 @@ public class NovelProcessor(
             Console.ResetColor();
             await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraperStrategy, configuration, beginChapter, endChapter);
         }
-
     }
 
     public async Task<RetryResult> RetryFailedChaptersAsync(Guid novelId, bool withLogin = false)
@@ -203,16 +206,25 @@ public class NovelProcessor(
         foreach (var buffer in chapterDataBuffers)
         {
             var chapter = failedChapters.FirstOrDefault(ch => ch.Url == buffer.Url);
-            if (chapter == null) continue;
+            if (chapter == null)
+            {
+                continue;
+            }
 
             var newContent = HtmlEntity.DeEntitize(buffer.Content);
             if (!string.IsNullOrEmpty(newContent) && newContent != "No content found")
             {
                 chapter.Content = newContent;
                 if (!string.IsNullOrEmpty(buffer.Title))
+                {
                     chapter.Title = HtmlEntity.DeEntitize(buffer.Title);
+                }
+
                 if (buffer.Pages != null)
+                {
                     chapter.Pages = buffer.Pages.Select(p => new Page { Url = p.Url, Image = null }).ToList();
+                }
+
                 chapter.DateLastModified = DateTime.Now;
                 succeeded++;
                 recoveredChapters.Add(chapter);
@@ -245,6 +257,7 @@ public class NovelProcessor(
             {
                 Console.WriteLine($"  \u2713 #{ch.Number} - {ch.Title} ({ch.Url})");
             }
+
             Console.ResetColor();
         }
 
@@ -257,6 +270,7 @@ public class NovelProcessor(
             {
                 Console.WriteLine($"  \u2717 #{ch.Number} - {ch.Title} ({ch.Url})");
             }
+
             Console.ResetColor();
         }
 
@@ -322,7 +336,6 @@ public class NovelProcessor(
         return new RetryResult(failedChapters.Count, succeeded, stillFailed);
     }
 
-    #region Private Methods
     private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration, int? beginChapter = null, int? endChapter = null)
     {
         using var novelDataBuffer = await scraperStrategy.ScrapeAsync();
@@ -399,7 +412,9 @@ public class NovelProcessor(
             novel = newNovel;
         }
         else
+        {
             Logger.Info($"Novel {novel.Title} found with url {novelTableOfContentsUri} is in database, updating it now. Novel Id: {novel.Id}");
+        }
 
         var filenameSuffix = GenerateFilenameSuffix(selectedRange, detectedVolumeName);
 
@@ -418,6 +433,7 @@ public class NovelProcessor(
                 novel.FileType = Enum.TryParse(configuration.DefaultMangaFileExtension.ToString(), out NovelFileType convertedType)
                     ? convertedType : NovelFileType.Cbz; // check to see if converting by name works, if not default to cbz
             }
+
             foreach (var chapterDataBuffer in chapterDataBuffers)
             {
                 chapterDataBuffer.Dispose();
@@ -428,6 +444,7 @@ public class NovelProcessor(
             novel.SaveLocation = CreateEpub(novel, novel.Chapters, novelDataBuffer.ThumbnailImage, outputDirectory, filenameSuffix);
             novel.FileType = NovelFileType.Epub;
         }
+
         await novelService.UpdateAsync(novel);
     }
 
@@ -536,8 +553,15 @@ public class NovelProcessor(
 
     private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration, int? beginChapter = null, int? endChapter = null)
     {
-        if (novel == null) throw new ArgumentNullException(nameof(novel));
-        if (ShouldSkipPartialDownloadUpdate(novel, novelTableOfContentsUri, beginChapter, endChapter)) return;
+        if (novel == null)
+        {
+            throw new ArgumentNullException(nameof(novel));
+        }
+
+        if (ShouldSkipPartialDownloadUpdate(novel, novelTableOfContentsUri, beginChapter, endChapter))
+        {
+            return;
+        }
 
         using var novelDataBuffer = await scraperStrategy.ScrapeAsync();
 
@@ -632,7 +656,9 @@ public class NovelProcessor(
     private static string GenerateFilenameSuffix(SelectedChapterRange? chapterRange, string? detectedVolumeName)
     {
         if (chapterRange == null)
+        {
             return string.Empty;
+        }
 
         return !string.IsNullOrEmpty(detectedVolumeName)
             ? detectedVolumeName
@@ -650,9 +676,14 @@ public class NovelProcessor(
         novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title ?? string.Empty;
         novel.CurrentChapterUrl = novel.Chapters.LastOrDefault()?.Url ?? string.Empty;
         if (!string.IsNullOrEmpty(novelDataBuffer.NovelUrl))
+        {
             novel.Url = novelDataBuffer.NovelUrl;
+        }
+
         if (novelDataBuffer.Genres.Count != 0)
+        {
             novel.Genre = string.Join(", ", novelDataBuffer.Genres);
+        }
     }
 
     private async Task HandleFileTypeUpdatesAsync(Novel novel, NovelDataBuffer novelDataBuffer, List<ChapterDataBuffer> chapterDataBuffers, List<Chapter> newChapters, Configuration configuration, string userOutputDirectory, string filenameSuffix = "")
@@ -668,20 +699,31 @@ public class NovelProcessor(
         }
 
         if (string.IsNullOrEmpty(novel.SaveLocation)) // assume that if the save location is null, then the novel is a pdf and was added before the cbz feature was added
+        {
             novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
+        }
+
         if (novel.FileType == NovelFileType.Pdf)
         {
             if (novel.SavedFileIsSplit)
+            {
                 pdfGenerator.CreatePdfByChapter(novel, chapterDataBuffers, novel.SaveLocation);
+            }
             else
+            {
                 pdfGenerator.UpdatePdf(novel, chapterDataBuffers, configuration);
+            }
         }
         else
+        {
             comicBookArchiveGenerator.UpdateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration);
+        }
+
         foreach (var chapterDataBuffer in chapterDataBuffers)
         {
             chapterDataBuffer.Dispose();
         }
+
         await novelService.UpdateAndAddChaptersAsync(novel, newChapters);
     }
 
@@ -692,9 +734,14 @@ public class NovelProcessor(
             Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
             return true;
         }
+
         var lastChapter = novel.Chapters.OrderBy(chapter => chapter.Number).LastOrDefault();
         if (lastChapter == null || lastChapter.Url != novelDataBuffer.CurrentChapterUrl ||
-            lastChapter.Title != novelDataBuffer.MostRecentChapterTitle) return false;
+            lastChapter.Title != novelDataBuffer.MostRecentChapterTitle)
+        {
+            return false;
+        }
+
         Logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
         return true;
     }
@@ -703,9 +750,14 @@ public class NovelProcessor(
     {
         var indexOfLastChapter = bufferChapterLinks.FindIndex(cl => cl.Url == currentChapterUrl);
         if (indexOfLastChapter == -1 && savedChapters.Any())
+        {
             indexOfLastChapter = bufferChapterLinks.FindIndex(cl => cl.Url == savedChapters.Last().Url);
+        }
+
         if (indexOfLastChapter != -1)
+        {
             return bufferChapterLinks.Skip(indexOfLastChapter + 1).ToList();
+        }
 
         Logger.Error($"A case where the last chapter is not in the database and the current chapter is not in the database has been found. Novel Id: {novelId}");
         var getDllLocation = Assembly.GetExecutingAssembly().Location;
@@ -728,7 +780,9 @@ public class NovelProcessor(
         // Only block partial downloads if NO chapter range is specified
         // If a range is specified, the overlap check above already validated it's a continuation
         if (!novel.IsPartialDownload || beginChapter.HasValue || endChapter.HasValue)
+        {
             return false;
+        }
 
         Logger.Info($"Skipping update for novel {novel.Title} (ID: {novel.Id}) - This is a partial download (volume/chapter range)");
         Console.WriteLine();
@@ -743,6 +797,7 @@ public class NovelProcessor(
             var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
             Console.WriteLine($"  Chapter Ranges:  {string.Join(", ", ranges)}");
         }
+
         Console.ResetColor();
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.White;
@@ -904,7 +959,9 @@ public class NovelProcessor(
             var detectedVolume = TryDetectVolumeNumber(title, volumePatterns);
 
             if (!detectedVolume.HasValue)
+            {
                 continue;
+            }
 
             // First volume detected
             if (!currentVolumeNumber.HasValue)
@@ -916,7 +973,9 @@ public class NovelProcessor(
 
             // Same volume, continue
             if (detectedVolume.Value == currentVolumeNumber.Value)
+            {
                 continue;
+            }
 
             // New volume detected, save previous volume
             volumes.Add(new VolumeRange
@@ -950,10 +1009,14 @@ public class NovelProcessor(
         {
             var match = System.Text.RegularExpressions.Regex.Match(title, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (!match.Success || match.Groups.Count <= 1)
+            {
                 continue;
+            }
 
             if (!int.TryParse(match.Groups[1].Value, out var volNum))
+            {
                 continue;
+            }
 
             return volNum;
         }
@@ -964,8 +1027,9 @@ public class NovelProcessor(
     private class VolumeRange
     {
         public int Begin { get; set; }
+
         public int End { get; set; }
+
         public string Name { get; set; }
     }
-    #endregion
 }

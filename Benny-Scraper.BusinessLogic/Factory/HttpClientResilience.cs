@@ -2,7 +2,7 @@ using System.Net;
 using Polly;
 using Polly.Retry;
 
-namespace Benny_Scraper.BusinessLogic.Factory;
+namespace BennyScraper.BusinessLogic.Factory;
 
 public static class HttpClientResilience
 {

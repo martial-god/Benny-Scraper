@@ -1,9 +1,9 @@
-﻿using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using System.Globalization;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 public abstract class NovelDramaInitializer : NovelDataInitializer
 {

@@ -1,8 +1,8 @@
-﻿using Benny_Scraper.DataAccess.Data;
-using Benny_Scraper.DataAccess.Repository.IRepository;
-using Benny_Scraper.Models;
+using BennyScraper.DataAccess.Data;
+using BennyScraper.DataAccess.Repository.IRepository;
+using BennyScraper.Models;
 
-namespace Benny_Scraper.DataAccess.Repository;
+namespace BennyScraper.DataAccess.Repository;
 
 public class ConfigurationRepository : Repository<Configuration>, IConfigurationRepository
 {

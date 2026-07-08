@@ -1,83 +1,84 @@
-﻿using Benny_Scraper.DataAccess.Data;
-using Benny_Scraper.Models;
+using BennyScraper.DataAccess.Data;
+using BennyScraper.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace Benny_Scraper.DataAccess.DbInitializer
+namespace BennyScraper.DataAccess.DbInitializer;
+
+public class DbInitializer
 {
-    public class DbInitializer
+    private readonly Database _db;
+
+    public DbInitializer(Database db)
     {
-        private readonly Database _db;
+        _db = db;
+    }
 
-        public DbInitializer(Database db)
+    /// <summary>
+    /// Initializes the database. Will allow us to not need to call update-databse in the package manager console.
+    /// If there are migrations, apply them.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public bool Initialize()
+    {
+        bool changesMade = false;
+        // apply Migrations if they are not applied
+        try
         {
-            _db = db;
+            if (_db.Database.GetPendingMigrations().Any())
+            {
+                _db.Database.Migrate();
+                changesMade = true;
+            }
+
+            if (SeedData().Result)
+            {
+                changesMade = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
         }
 
-        /// <summary>
-        /// Initializes the database. Will allow us to not need to call update-databse in the package manager console.
-        /// If there are migrations, apply them
-        /// </summary>
-        /// <exception cref="Exception"></exception>
-        public bool Initialize()
-        {
-            bool changesMade = false;
-            // apply Migrations if they are not applied
-            try
-            {
-                if (_db.Database.GetPendingMigrations().Any())
-                {
-                    _db.Database.Migrate();
-                    changesMade = true;
-                }
+        return changesMade;
+    }
 
-                if (SeedData().Result)
-                {
-                    changesMade = true;
-                }
-            }
-            catch (Exception ex)
+    public async Task<bool> SeedData()
+    {
+        bool dataSeeded = false;
+        using var transaction = _db.Database.BeginTransaction();
+        try
+        {
+            if (!_db.Configurations.Any())
             {
-                throw new Exception(ex.Message);
+                var defaultConfig = new Configuration
+                {
+                    Name = "Default",
+                    AutoUpdate = false,
+                    ConcurrencyLimit = 2,
+                    SaveLocation = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BennyScrapedNovels"),
+                    NovelSaveLocation = string.Empty,
+                    MangaSaveLocation = string.Empty,
+                    LogLocation = string.Empty,
+                    DatabaseLocation = string.Empty,
+                    DatabaseFileName = "BennyTestDb.db",
+                    SaveAsSingleFile = true,
+                    DefaultMangaFileExtension = FileExtension.Pdf,
+                    DefaultLogLevel = LogLevel.Info,
+                    FontType = "Arial"
+                };
+                _db.Configurations.Add(defaultConfig);
+                _db.SaveChanges();
+                await transaction.CommitAsync();
+                dataSeeded = true;
             }
-            return changesMade;
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw new Exception("An error occurred while seeding the database: " + ex.Message, ex);
         }
 
-        public async Task<bool> SeedData()
-        {
-            bool dataSeeded = false;
-            using var transaction = _db.Database.BeginTransaction();
-            try
-            {
-                if (!_db.Configurations.Any())
-                {
-                    var defaultConfig = new Configuration
-                    {
-                        Name = "Default",
-                        AutoUpdate = false,
-                        ConcurrencyLimit = 2,
-                        SaveLocation = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BennyScrapedNovels"),
-                        NovelSaveLocation = string.Empty,
-                        MangaSaveLocation = string.Empty,
-                        LogLocation = string.Empty,
-                        DatabaseLocation = string.Empty,
-                        DatabaseFileName = "BennyTestDb.db",
-                        SaveAsSingleFile = true,
-                        DefaultMangaFileExtension = FileExtension.Pdf,
-                        DefaultLogLevel = LogLevel.Info,
-                        FontType = "Arial"
-                    };
-                    _db.Configurations.Add(defaultConfig);
-                    _db.SaveChanges();
-                    await transaction.CommitAsync();
-                    dataSeeded = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                throw new Exception("An error occurred while seeding the database: " + ex.Message, ex);
-            }
-            return dataSeeded;
-        }
+        return dataSeeded;
     }
 }

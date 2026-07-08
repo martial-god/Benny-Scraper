@@ -1,10 +1,10 @@
-using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Scrapers.Strategy;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using Xunit;
 
-namespace Benny_Scraper.Tests;
+namespace BennyScraper.Tests;
 
 /// <summary>
 /// Chapter order is decided in the strategy from the site's chapterSortOrder, then numbered 1..n.
@@ -14,8 +14,8 @@ namespace Benny_Scraper.Tests;
 public class ChapterOrderingTests
 {
     [Theory]
-    [InlineData(ChapterSortOrder.Ascending,  "oldest", "middle", "newest")]
-    [InlineData(ChapterSortOrder.None,       "oldest", "middle", "newest")]
+    [InlineData(ChapterSortOrder.Ascending, "oldest", "middle", "newest")]
+    [InlineData(ChapterSortOrder.None, "oldest", "middle", "newest")]
     [InlineData(ChapterSortOrder.Descending, "newest", "middle", "oldest")]
     public void SortChapters_AlwaysYieldsOldestToNewest(
         ChapterSortOrder pageOrder, string topOfPage, string middleOfPage, string bottomOfPage)

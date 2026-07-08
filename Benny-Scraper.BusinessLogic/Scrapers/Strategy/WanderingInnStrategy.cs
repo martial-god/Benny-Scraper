@@ -1,9 +1,9 @@
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 using System.Diagnostics;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy;
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 public abstract class WanderingInnInitializer : NovelDataInitializer
 {
@@ -11,6 +11,7 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
     private const string DefaultTitle = "The Wandering Inn";
     private const string DefaultDescription =
         "\"No killing Goblins.\"\nSo reads the sign outside of The Wandering Inn, a small building run by a young woman named Erin Solstice. She serves pasta with sausage, blue fruit juice, and dead acid flies on request. And she comes from another world. Ours.\r\n\r\nIt's a bad day when Erin finds herself transported to a fantastical world and nearly gets eaten by a Dragon. She doesn't belong in a place where monster attacks are a fact of life, and where Humans are one species among many. But she must adapt to her new life. Or die.\r\n\r\nIn a dangerous world where magic is real and people can level up and gain classes, Erin Solstice must battle somewhat evil Goblins, deadly Rock Crabs, and hungry [Necromancers]. She is no warrior, no mage. Erin Solstice runs an inn.\nShe's an [Innkeeper].";
+
     private const string DefaultThumbnailUrl = "https://wanderinginn.com/wp-content/uploads/2023/06/book1-768x1229-1-187x300.png";
 
     public static async Task FetchNovelContentAsync(
@@ -29,7 +30,9 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
 
 
         if (novelDataBuffer.Description == null || novelDataBuffer.Description.Count == 0)
+        {
             novelDataBuffer.Description = new List<string> { DefaultDescription };
+        }
 
         if (string.IsNullOrWhiteSpace(novelDataBuffer.ThumbnailUrl))
         {
@@ -54,6 +57,7 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
                 ? novelDataBuffer.ChapterLinks.Last().Url
                 : string.Empty;
         }
+
         novelDataBuffer.Title = DefaultTitle;
         novelDataBuffer.Author = DefaultAuthor;
     }
@@ -65,7 +69,9 @@ public class WanderingInnStrategy : ScraperStrategy
     {
         Logger.Info($"Getting novel data for {GetType().Name}");
         if (ScraperData.SiteTableOfContents == null)
+        {
             throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
+        }
 
         SetBaseUri(ScraperData.SiteTableOfContents);
         var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);

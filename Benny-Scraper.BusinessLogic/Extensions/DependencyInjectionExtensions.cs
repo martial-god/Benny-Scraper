@@ -1,9 +1,9 @@
 using Autofac;
-using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Factory;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Factory;
 using Polly;
 
-namespace Benny_Scraper.BusinessLogic.Extensions;
+namespace BennyScraper.BusinessLogic.Extensions;
 
 public static class DependencyInjectionExtensions
 {
