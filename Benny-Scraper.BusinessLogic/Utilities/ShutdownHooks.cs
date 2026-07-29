@@ -15,6 +15,7 @@ public static class ShutdownHooks
     /// <summary>
     /// Safe to call multiple times; disposal will only happen once.
     /// </summary>
+    /// <param name="driverFactory">The driver factory whose Selenium drivers should be disposed on shutdown.</param>
     public static void Register(IDriverFactory driverFactory)
     {
         ArgumentNullException.ThrowIfNull(driverFactory);

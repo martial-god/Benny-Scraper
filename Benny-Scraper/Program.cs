@@ -119,7 +119,7 @@ internal class Program
         {
             // Uri help https://www.dotnetperls.com/uri#:~:text=URI%20stands%20for%20Universal%20Resource,strings%20starting%20with%20%22http.%22
             Console.WriteLine("\nEnter the site url (or 'exit' to quit): ");
-            var siteUrl = Console.ReadLine().Trim();
+            var siteUrl = Console.ReadLine()?.Trim() ?? string.Empty;
             var input = siteUrl.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             if (string.IsNullOrWhiteSpace(siteUrl))
@@ -128,17 +128,17 @@ internal class Program
                 continue;
             }
 
-            if (siteUrl.ToLowerInvariant() == "exit")
+            if (string.Equals(siteUrl, "exit", StringComparison.OrdinalIgnoreCase))
             {
                 isApplicationRunning = false;
                 continue;
             }
 
             // Check if user wants to test site connectivity
-            if (input.Length >= 2 && input[0].ToLowerInvariant() == "test")
+            if (input.Length >= 2 && string.Equals(input[0], "test", StringComparison.OrdinalIgnoreCase))
             {
                 var testUrl = input[1];
-                if (Uri.TryCreate(testUrl, UriKind.Absolute, out Uri testUri))
+                if (Uri.TryCreate(testUrl, UriKind.Absolute, out var testUri))
                 {
                     await TestSiteConnectivityAsync(testUri);
                 }
@@ -504,9 +504,9 @@ internal class Program
         }
 
         var paginatedNovels = novels.Skip((page - 1) * itemsPerPage).Take(itemsPerPage);
-        var totalPages = (int)Math.Ceiling((double)novels.Count() / itemsPerPage);
+        var totalPages = (int)Math.Ceiling((double)novels.Count / itemsPerPage);
 
-        var maxNoLength = novels.Count().ToString().Length + 3;  // "3" accounts for ")."
+        var maxNoLength = novels.Count.ToString().Length + 3;  // "3" accounts for ")."
         var maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
         var maxChapterLength = novels.Max(novel => novel.CurrentChapter?.Length ?? 0);  // New line for max chapter length
         var maxFileTypeLength = novels.Max(novel => novel.FileType.ToString().Length + 3); // +3 for " []"
@@ -549,7 +549,7 @@ internal class Program
 
 
         Console.WriteLine();
-        Console.WriteLine($"Total: {novels.Count()}   Novels Completed: {novels.Count(novel => novel.LastChapter == true)}");
+        Console.WriteLine($"Total: {novels.Count}   Novels Completed: {novels.Count(novel => novel.LastChapter == true)}");
 
         if (totalPages == 1)
         {
@@ -694,7 +694,7 @@ internal class Program
             if (novel != null)
             {
                 Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
-                var chapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
+                var chapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters).ToList();
                 var safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
                 var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
                 Directory.CreateDirectory(documentsFolder);
@@ -1767,7 +1767,7 @@ internal class Program
     }
 
     /// <summary>
-    /// Loads the configuration for the application from appsettings.json. The configuration is used to configure the application's services, and will be 
+    /// Loads the configuration for the application from appsettings.json. The configuration is used to configure the application's services, and will be
     /// handed to the Autofac container builder in Startup.cs, which will register the appsettings as classes I have defined.
     /// </summary>
     /// <returns>The loaded configuration object.</returns>

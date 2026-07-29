@@ -4,17 +4,8 @@ using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.Services;
 
-public class ChapterService : IChapterService
+public class ChapterService(IUnitOfWork unitOfWork) : IChapterService
 {
-    private readonly IUnitOfWork _unitOfWork;
-
-    public ChapterService(IUnitOfWork unitOfWork)
-    {
-        _unitOfWork = unitOfWork;
-    }
-
-    public async Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId)
-    {
-        return await _unitOfWork.Chapter.GetLastSavedChapterAsyncByNovelId(novelId);
-    }
+    public async Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId) =>
+        await unitOfWork.Chapter.GetLastSavedChapterAsyncByNovelId(novelId);
 }

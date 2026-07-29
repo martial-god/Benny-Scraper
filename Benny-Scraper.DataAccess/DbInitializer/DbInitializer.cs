@@ -13,15 +13,9 @@ public class DbInitializer
         _db = db;
     }
 
-    /// <summary>
-    /// Initializes the database. Will allow us to not need to call update-databse in the package manager console.
-    /// If there are migrations, apply them.
-    /// </summary>
-    /// <exception cref="Exception"></exception>
     public bool Initialize()
     {
         bool changesMade = false;
-        // apply Migrations if they are not applied
         try
         {
             if (_db.Database.GetPendingMigrations().Any())
@@ -37,16 +31,16 @@ public class DbInitializer
         }
         catch (Exception ex)
         {
-            throw new Exception(ex.Message);
+            throw new InvalidOperationException(ex.Message, ex);
         }
 
         return changesMade;
     }
 
-    public async Task<bool> SeedData()
+    private async Task<bool> SeedData()
     {
         bool dataSeeded = false;
-        using var transaction = _db.Database.BeginTransaction();
+        using var transaction = await _db.Database.BeginTransactionAsync().ConfigureAwait(false);
         try
         {
             if (!_db.Configurations.Any())
@@ -68,15 +62,15 @@ public class DbInitializer
                     FontType = "Arial"
                 };
                 _db.Configurations.Add(defaultConfig);
-                _db.SaveChanges();
-                await transaction.CommitAsync();
+                await _db.SaveChangesAsync().ConfigureAwait(false);
+                await transaction.CommitAsync().ConfigureAwait(false);
                 dataSeeded = true;
             }
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
-            throw new Exception("An error occurred while seeding the database: " + ex.Message, ex);
+            await transaction.RollbackAsync().ConfigureAwait(false);
+            throw new InvalidOperationException("An error occurred while seeding the database: " + ex.Message, ex);
         }
 
         return dataSeeded;

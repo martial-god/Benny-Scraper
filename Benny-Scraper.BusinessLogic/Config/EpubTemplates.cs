@@ -2,25 +2,25 @@ namespace BennyScraper.BusinessLogic.Config;
 
 public class EpubTemplates
 {
-    public string ContentOpf { get; set; }
+    public string ContentOpf { get; set; } = string.Empty;
 
-    public string ContainerXml { get; set; }
+    public string ContainerXml { get; set; } = string.Empty;
 
-    public string TocNcx { get; set; }
+    public string TocNcx { get; set; } = string.Empty;
 
-    public string TocXhtml { get; set; }
+    public string TocXhtml { get; set; } = string.Empty;
 
-    public string NavXhtml { get; set; }
+    public string NavXhtml { get; set; } = string.Empty;
 
-    public string ChapterContent { get; set; }
+    public string ChapterContent { get; set; } = string.Empty;
 
-    public string ChapterCss { get; set; }
+    public string ChapterCss { get; set; } = string.Empty;
 
-    public string NavCss { get; set; }
+    public string NavCss { get; set; } = string.Empty;
 
-    public string TocCss { get; set; }
+    public string TocCss { get; set; } = string.Empty;
 
-    public XmlSelectors XmlSelectors { get; set; }
+    public XmlSelectors XmlSelectors { get; set; } = new XmlSelectors();
 
-    public string IntroContent { get; set; }
+    public string IntroContent { get; set; } = string.Empty;
 }

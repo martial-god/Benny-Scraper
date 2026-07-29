@@ -1,9 +1,9 @@
-using CommandLine;
 using System.ComponentModel.DataAnnotations;
+using CommandLine;
 
 namespace BennyScraper;
 
-public class CommandLineOptions
+internal sealed class CommandLineOptions
 {
     [Option('l', "list", Required = false, HelpText = "List all novels in database. Options include -P, --page [INT] | -I, --items-per-page [INT] | -S, --search [STRING]")]
     public bool List { get; set; }

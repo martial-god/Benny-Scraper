@@ -25,6 +25,10 @@ dotnet_diagnostic.IDE0011.severity = error
 # IDE0072 — "Add missing cases to pattern" — applies to switch expressions and switch statements with pattern matching
 dotnet_diagnostic.IDE0072.severity = warning # Add missing cases to pattern
 
+# ------- Code style: prefer explicit type for public members --------
+# CA1024 — "Use properties where appropriate" — applies to public methods that have no
+dotnet_diagnostic.CA1024.severity = none
+
 
 # -------- Code style: file-scoped namespaces, var, etc. --------
 csharp_style_namespace_declarations = file_scoped:warning
@@ -91,6 +95,20 @@ dotnet_diagnostic.CA2234.severity = none
 #   Renaming ripples through IConfigurationRepository/ConfigurationRepository, DI registrations,
 #   and appsettings.json binding; out of scope for this pass.
 dotnet_diagnostic.CA1724.severity = none
+# CA1303 — Do not pass literals as localized parameters. This app has no localization
+#   and never will; forcing every Console.Write*/exception message through a resource
+#   table is pure noise here.
+dotnet_diagnostic.CA1303.severity = none
+# CA1031 — Do not catch general exception types. Many of these are intentional
+#   best-effort cleanup/dispose paths (driver teardown, temp-file deletion) where any
+#   failure should be logged and swallowed, not rethrown as a specific type.
+dotnet_diagnostic.CA1031.severity = none
+# CA1308 — Normalize strings to uppercase. This rule exists for security-sensitive
+#   string comparisons; most hits here are cosmetic casing (file extensions, display
+#   text) where uppercasing would be actively wrong (e.g. ".CBZ" instead of ".cbz").
+dotnet_diagnostic.CA1308.severity = none
+
+dotnet_diagnostic.CA1862.severity = none
 
 # -------- Security analyzer category --------
 dotnet_analyzer_diagnostic.category-Security.severity = error
@@ -121,6 +139,25 @@ dotnet_naming_style.underscore_camel.capitalization = camel_case
 # ===================================================================
 [Benny-Scraper.BusinessLogic/Scrapers/Strategy/*.cs]
 dotnet_diagnostic.SA1402.severity = none
+dotnet_diagnostic.SA1403.severity = none
+dotnet_diagnostic.SA1201.severity = none
+
+# ReSharper: "Expression is always true/false according to nullable reference types'
+# annotations" — false positive. HtmlAgilityPack 1.12.4 ships no net8.0+ lib asset, so
+# this net10.0 project actually references lib/net7.0/HtmlAgilityPack.dll, whose
+# SelectSingleNode/SelectNodes are declared non-nullable (the `?` only exists under
+# #if NET8_0_OR_GREATER in source, which never got compiled into a shipped binary).
+# The methods still return null at runtime on no match; keep the null checks.
+resharper_condition_is_always_true_or_false_according_to_nullable_api_contract_highlighting = none
+
+# ===================================================================
+# CommandLineOptions: properties are populated by reflection by the
+# CommandLine library (CommandLineParser), never via a constructor or
+# object initializer, so `required`/nullable annotations don't fit the
+# way this type is actually instantiated.
+# ===================================================================
+[Benny-Scraper/CommandlineOptions.cs]
+dotnet_diagnostic.CS8618.severity = none
 
 # ===================================================================
 # XML / Project files

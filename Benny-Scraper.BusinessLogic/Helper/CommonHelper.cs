@@ -1,5 +1,6 @@
-using BennyScraper.Models;
 using System.Globalization;
+using BennyScraper.BusinessLogic.Extensions;
+using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.Helper;
 
@@ -15,21 +16,12 @@ public static class CommonHelper
     public static string SanitizeFileName(string fileName, bool capitalize = false, CultureInfo? culture = null)
     {
         var invalidChars = Path.GetInvalidFileNameChars();
-        string sanitized = new string(fileName.Where(ch => !invalidChars.Contains(ch)).ToArray());
-
-        if (capitalize)
-        {
-            culture ??= CultureInfo.CurrentCulture;
-            TextInfo textInfo = culture.TextInfo;
-            sanitized = textInfo.ToTitleCase(sanitized.ToLowerInvariant());
-        }
-
-        return sanitized;
+        return new string(fileName.Where(ch => !invalidChars.Contains(ch)).ToArray()).ToTitleCase();
     }
 
     public static void DeleteTempFolder(string tempFile)
     {
-        string directory = string.Empty;
+        string? directory;
 
         if (string.IsNullOrEmpty(tempFile))
         {
@@ -38,31 +30,25 @@ public static class CommonHelper
 
         FileAttributes attr = File.GetAttributes(tempFile);
 
-        if (!attr.HasFlag(FileAttributes.Directory))
+        directory = !attr.HasFlag(FileAttributes.Directory) ? Path.GetDirectoryName(tempFile) : tempFile;
+
+        if (!Directory.Exists(directory))
         {
-            directory = Path.GetDirectoryName(tempFile);
-        }
-        else
-        {
-            directory = tempFile;
+            return;
         }
 
-        if (Directory.Exists(directory))
+        try
         {
-            try
-            {
-                Directory.Delete(directory, true);
-                Console.WriteLine($"Deleted temp folder {directory}");
-            }
-            catch (Exception ex)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Failed to delete temp folder {directory}. Reason: {ex.Message}");
-                Console.ResetColor();
-            }
+            Directory.Delete(directory, true);
+            Console.WriteLine($"Deleted temp folder {directory}");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Failed to delete temp folder {directory}. Reason: {ex.Message}");
+            Console.ResetColor();
         }
     }
-
 
     public static string GetOutputDirectoryForTitle(string title, string? outputDirectory = null)
     {
@@ -77,9 +63,9 @@ public static class CommonHelper
     }
 
     /// <summary>
-    /// Creates a temporary file in the user's temp directory
+    /// Creates a temporary file in the user's temp directory.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>The full path of the newly created temporary directory.</returns>
     public static string CreateTempDirectory()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -98,10 +84,12 @@ public static class CommonHelper
     /// <param name="color">The console color to use for the box and text.</param>
     /// <example>
     /// var messages = new[] { "Warning!", "", "This is important information." };
-    /// CommonHelper.DrawBox(messages, ConsoleColor.Red);
+    /// CommonHelper.DrawBox(messages, ConsoleColor.Red);.
     /// </example>
     public static void DrawBox(string[] messages, ConsoleColor color)
     {
+        ArgumentNullException.ThrowIfNull(messages);
+
         var maxLength = messages.Max(m => m.Length);
         var boxWidth = maxLength + 4; // 2 spaces padding on each side
 
@@ -120,7 +108,6 @@ public static class CommonHelper
 
         // Bottom border
         Console.WriteLine("╚" + new string('═', boxWidth) + "╝\n");
-
         Console.ForegroundColor = originalColor;
     }
 }

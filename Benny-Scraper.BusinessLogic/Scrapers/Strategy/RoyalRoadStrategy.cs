@@ -5,26 +5,8 @@ using HtmlAgilityPack;
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 /// <summary>
-/// Initializer for RoyalRoad site
-/// </summary>
-public abstract class RoyalRoadInitializer : NovelDataInitializer
-{
-    public static async Task FetchNovelContentAsync(
-        NovelDataBuffer novelDataBuffer,
-        HtmlDocument htmlDocument,
-        ScraperData scraperData,
-        IReadOnlyList<Attr> attributesToFetch)
-    {
-        foreach (var attribute in attributesToFetch)
-        {
-            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
-        }
-    }
-}
-
-/// <summary>
-/// Scraping strategy for royalroad.com
-/// HTTP-based scraper, no Selenium required
+/// Scraping strategy for royalroad.com.
+/// HTTP-based scraper, no Selenium required.
 /// </summary>
 public class RoyalRoadStrategy : ScraperStrategy
 {
@@ -32,11 +14,11 @@ public class RoyalRoadStrategy : ScraperStrategy
     {
         Logger.Info($"Getting novel data for {GetType().Name}");
         SetBaseUri(ScraperData.SiteTableOfContents);
-        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
+        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
 
         try
         {
-            var novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
+            var novelDataBuffer = await BuildNovelDataAsync(htmlDocument).ConfigureAwait(false);
             novelDataBuffer.NovelUrl = uri.ToString();
 
             return novelDataBuffer;
@@ -69,7 +51,7 @@ public class RoyalRoadStrategy : ScraperStrategy
                 NovelDataInitializer.Attr.ChapterUrls
             };
 
-            await RoyalRoadInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch);
+            await RoyalRoadInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch).ConfigureAwait(false);
 
             return novelDataBuffer;
         }
@@ -83,11 +65,31 @@ public class RoyalRoadStrategy : ScraperStrategy
 
     private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
     {
-        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument).ConfigureAwait(false);
         SortChapters(novelDataBuffer);
 
         Logger.Info($"Found {novelDataBuffer.ChapterLinks.Count} chapters");
 
         return novelDataBuffer;
+    }
+}
+
+/// <summary>
+/// Initializer for RoyalRoad site.
+/// </summary>
+public abstract class RoyalRoadInitializer : NovelDataInitializer
+{
+    public static async Task FetchNovelContentAsync(
+        NovelDataBuffer novelDataBuffer,
+        HtmlDocument htmlDocument,
+        ScraperData scraperData,
+        IReadOnlyList<Attr> attributesToFetch)
+    {
+        ArgumentNullException.ThrowIfNull(attributesToFetch);
+
+        foreach (var attribute in attributesToFetch)
+        {
+            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
+        }
     }
 }

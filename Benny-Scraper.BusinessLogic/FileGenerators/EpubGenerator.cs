@@ -1,3 +1,9 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Xml;
 using BennyScraper.BusinessLogic.Config;
 using BennyScraper.BusinessLogic.FileGenerators.Interfaces;
 using BennyScraper.BusinessLogic.Helper;
@@ -5,37 +11,37 @@ using BennyScraper.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Options;
 using NLog;
-using System.Diagnostics;
-using System.IO.Compression;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Xml;
 
 namespace BennyScraper.BusinessLogic.FileGenerators;
 
 /// <summary>
 /// Generates an epub file from a novel and its chapters. Using Epub Version 3.2 https://en.wikipedia.org/wiki/EPUB#Open_Container_Format_3.2
-/// Validation for files can be done at https://validator.w3.org/check
+/// Validation for files can be done at https://validator.w3.org/check.
 /// </summary>
 public class EpubGenerator : IEpubGenerator
 {
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly EpubTemplates _epubTemplates;
-    private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-
-    public bool UseCalibre { get; set; } = false;
 
     public EpubGenerator(IOptions<EpubTemplates> epubTemplates)
     {
+        ArgumentNullException.ThrowIfNull(epubTemplates);
+
         _epubTemplates = epubTemplates.Value;
     }
 
-    public void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage)
+    public bool UseCalibre { get; set; }
+
+    public void CreateEpub(Novel novel, ICollection<Chapter> chapters, string outputFilePath, byte[]? coverImage)
     {
-        Logger.Info("Creating epub file. Novel: {0}, Chapters: {1}, OutputFilePath: {2}", novel.Title, chapters.Count(), outputFilePath);
+        ArgumentNullException.ThrowIfNull(novel);
+        ArgumentNullException.ThrowIfNull(chapters);
+
+        _logger.Info(CultureInfo.InvariantCulture, "Creating epub file. Novel: {0}, Chapters: {1}, OutputFilePath: {2}", novel.Title, chapters.Count, outputFilePath);
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Logger.Info("Temp directory: {0}", tempDirectory);
+        _logger.Info(CultureInfo.InvariantCulture, "Temp directory: {0}", tempDirectory);
         Directory.CreateDirectory(tempDirectory);
-        Logger.Info("Temp directory created");
+        _logger.Info("Temp directory created");
 
         try
         {
@@ -48,27 +54,30 @@ public class EpubGenerator : IEpubGenerator
             var textDirectory = Path.Combine(oebpsDirectory, "Text");
             var cssDirectory = Path.Combine(oebpsDirectory, "css");
             var imagesDirectory = Path.Combine(oebpsDirectory, "Images");
-            Logger.Info("Creating directories: {0}, {1}, {2}, {3}, {4}", metaInfDirectory, oebpsDirectory, textDirectory, cssDirectory, imagesDirectory);
+            _logger.Info(CultureInfo.InvariantCulture, "Creating directories: {0}, {1}, {2}, {3}, {4}", metaInfDirectory, oebpsDirectory, textDirectory, cssDirectory, imagesDirectory);
             Directory.CreateDirectory(metaInfDirectory);
             Directory.CreateDirectory(oebpsDirectory);
             Directory.CreateDirectory(textDirectory);
             Directory.CreateDirectory(cssDirectory);
             Directory.CreateDirectory(imagesDirectory);
-            Logger.Info("Directories created");
+            _logger.Info("Directories created");
 
             var containerXml = new XmlDocument();
             containerXml.LoadXml(_epubTemplates.ContainerXml);
-            Logger.Info("Saving container.xml");
+            _logger.Info("Saving container.xml");
             containerXml.Save(Path.Combine(metaInfDirectory, "container.xml"));
-            Logger.Info("container.xml saved");
+            _logger.Info("container.xml saved");
 
             var manifestItems = string.Empty;
             var spineItems = string.Empty;
             var subjectItems = string.Empty;
 
-            foreach (var tag in novel.Genre.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (novel.Genre != null)
             {
-                subjectItems += $"<dc:subject>{System.Security.SecurityElement.Escape(tag)}</dc:subject>";
+                foreach (var tag in novel.Genre.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    subjectItems += $"<dc:subject>{System.Security.SecurityElement.Escape(tag)}</dc:subject>";
+                }
             }
 
             // save cover image
@@ -77,9 +86,9 @@ public class EpubGenerator : IEpubGenerator
 
             if (coverImage != null)
             {
-                Logger.Info("Saving cover image to {0}", coverImageFilePath);
+                _logger.Info(CultureInfo.InvariantCulture, "Saving cover image to {0}", coverImageFilePath);
                 File.WriteAllBytes(coverImageFilePath, coverImage);
-                Logger.Info("Cover image saved");
+                _logger.Info("Cover image saved");
             }
 
             // create intro page
@@ -91,21 +100,21 @@ public class EpubGenerator : IEpubGenerator
             var introFileName = $"000{chapterIndex}_intro.xhtml";
             var introFilePath = Path.Combine(textDirectory, introFileName);
 
-            var introContent = string.Format(_epubTemplates.IntroContent, introTitle, introImage, System.Security.SecurityElement.Escape(introDescription), System.Security.SecurityElement.Escape(novel.Url));
+            var introContent = string.Format(CultureInfo.InvariantCulture, _epubTemplates.IntroContent, introTitle, introImage, System.Security.SecurityElement.Escape(introDescription), System.Security.SecurityElement.Escape(novel.Url));
             File.WriteAllText(introFilePath, introContent);
 
             manifestItems += $"<item id=\"intro\" href=\"Text/{introFileName}\" media-type=\"application/xhtml+xml\"/>";
             spineItems += $"<itemref idref=\"intro\"/>";
 
             chapterIndex++;
-            Logger.Info("Creating chapters and adding to manifest and spine");
+            _logger.Info("Creating chapters and adding to manifest and spine");
             foreach (var chapter in chapters)
             {
-                var safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
+                var safeChapterTitleName = Regex.Replace(chapter.Title ?? string.Empty, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
                 var chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
                 var chapterFilePath = Path.Combine(textDirectory, chapterFileName);
 
-                var chapterContent = BuildXhtmlContent(chapter.Title, chapter.Content, chapter.Url);
+                var chapterContent = BuildXhtmlContent(chapter.Title ?? string.Empty, chapter.Content ?? string.Empty, chapter.Url);
                 File.WriteAllText(chapterFilePath, chapterContent);
 
                 manifestItems += $"<item id=\"chapter{chapterIndex}\" href=\"Text/{chapterFileName}\" media-type=\"application/xhtml+xml\"/>";
@@ -114,7 +123,7 @@ public class EpubGenerator : IEpubGenerator
                 chapterIndex++;
             }
 
-            Logger.Info("Chapters created and added to manifest and spine");
+            _logger.Info("Chapters created and added to manifest and spine");
 
             // Add cover to manifest only if image was provided
             var coverMeta = string.Empty;
@@ -130,13 +139,13 @@ public class EpubGenerator : IEpubGenerator
             manifestItems += "<item id=\"css_nav\" href=\"css/nav.css\" media-type=\"text/css\"/>";
             manifestItems += "<item id=\"css_toc\" href=\"css/toc.css\" media-type=\"text/css\"/>";
 
-            string updatedContentOpf = string.Format(_epubTemplates.ContentOpf, Regex.Replace(novel.Title, @"[^a-zA-Z0-9\s_.]+", "", RegexOptions.Compiled), System.Security.SecurityElement.Escape(novel.Author), System.Security.SecurityElement.Escape(novel.Author), subjectItems, manifestItems, spineItems, coverMeta, coverManifest);
+            string updatedContentOpf = string.Format(CultureInfo.InvariantCulture, _epubTemplates.ContentOpf, Regex.Replace(novel.Title, @"[^a-zA-Z0-9\s_.]+", string.Empty, RegexOptions.Compiled), System.Security.SecurityElement.Escape(novel.Author), System.Security.SecurityElement.Escape(novel.Author), subjectItems, manifestItems, spineItems, coverMeta, coverManifest);
 
             XmlDocument contentOpf = new XmlDocument();
             contentOpf.LoadXml(updatedContentOpf);
-            Logger.Info("Saving content.opf");
+            _logger.Info("Saving content.opf");
             contentOpf.Save(Path.Combine(oebpsDirectory, "content.opf"));
-            Logger.Info("content.opf saved");
+            _logger.Info("content.opf saved");
 
             // Create nav.xhtml
             var navXhtml = new XmlDocument();
@@ -154,13 +163,13 @@ public class EpubGenerator : IEpubGenerator
             chapterIndex = 1;
             foreach (var chapter in chapters)
             {
-                var safeChapterTitleName = Regex.Replace(chapter.Title, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
+                var safeChapterTitleName = Regex.Replace(chapter.Title ?? string.Empty, "[^a-zA-Z0-9_.]+", "_", RegexOptions.Compiled);
                 var chapterFileName = $"000{chapterIndex}_{safeChapterTitleName}.xhtml";
 
                 var navItem = navXhtml.CreateElement("li");
                 var navLink = navXhtml.CreateElement("a");
                 navLink.SetAttribute("href", $"Text/{chapterFileName}");
-                navLink.InnerText = chapter.Title;
+                navLink.InnerText = chapter.Title ?? "No Chapter Title";
                 navItem.AppendChild(navLink);
                 navList?.AppendChild(navItem);
 
@@ -168,14 +177,14 @@ public class EpubGenerator : IEpubGenerator
             }
 
             navXhtml.Save(Path.Combine(oebpsDirectory, "nav.xhtml"));
-            Logger.Info("nav.xhtml saved");
+            _logger.Info("nav.xhtml saved");
 
             // Add CSS files
             File.WriteAllText(Path.Combine(cssDirectory, "chapter.css"), _epubTemplates.ChapterCss);
             File.WriteAllText(Path.Combine(cssDirectory, "nav.css"), _epubTemplates.NavCss);
             File.WriteAllText(Path.Combine(cssDirectory, "toc.css"), _epubTemplates.TocCss);
 
-            Logger.Info("Compressing everything into an epub file");
+            _logger.Info("Compressing everything into an epub file");
 
             // Compress everything into an epub file
             using (var fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
@@ -196,18 +205,18 @@ public class EpubGenerator : IEpubGenerator
                 }
             }
 
-            Logger.Info("Epub file created at: {0}", outputFilePath);
+            _logger.Info(CultureInfo.InvariantCulture, "Epub file created at: {0}", outputFilePath);
         }
         catch (Exception ex)
         {
-            Logger.Fatal($"Error when generating Epub for Novel: {novel.Title} Novel Id: {novel.Id}. {ex}");
+            _logger.Fatal($"Error when generating Epub for Novel: {novel.Title} Novel Id: {novel.Id}. {ex}");
         }
         finally
         {
-            Logger.Info($"Deleting temporary directory: {tempDirectory}");
-            // Delete temporary directory
+            _logger.Info($"Deleting temporary directory: {tempDirectory}");
+
             Directory.Delete(tempDirectory, true);
-            Logger.Info($"Deleted temporary directory: {tempDirectory}\n");
+            _logger.Info($"Deleted temporary directory: {tempDirectory}\n");
 
             // Display completion summary in a formatted box
             Console.WriteLine();
@@ -217,14 +226,14 @@ public class EpubGenerator : IEpubGenerator
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine($"  Novel:          {novel.Title}");
             Console.WriteLine($"  Novel ID:       {novel.Id}");
-            if (novel.ChapterRanges.Any())
+            if (novel.ChapterRanges.Count != 0)
             {
                 var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
                 var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
                 Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
             }
 
-            Console.WriteLine($"  Total Chapters: {chapters.Count()}");
+            Console.WriteLine($"  Total Chapters: {chapters.Count}");
             Console.WriteLine($"  Saved to:       {outputFilePath}");
             Console.ResetColor();
 
@@ -255,7 +264,7 @@ public class EpubGenerator : IEpubGenerator
             try
             {
                 var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
-                Logger.Debug($"Calibre command executed with code: {result}");
+                _logger.Debug($"Calibre command executed with code: {result}");
 
                 if (result == "0")
                 {
@@ -269,23 +278,17 @@ public class EpubGenerator : IEpubGenerator
             }
 
             Console.WriteLine();
-            Logger.Debug($"EPUB generation complete - Novel: {novel.Title}, Chapters: {chapters.Count()}, Location: {outputFilePath}");
+            _logger.Debug($"EPUB generation complete - Novel: {novel.Title}, Chapters: {chapters.Count}, Location: {outputFilePath}");
         }
     }
 
-    static void OutputHandler(object sendingProcess, DataReceivedEventArgs outLine)
+    private static void AddDirectoryToZip(ZipOutputStream zipStream, string sourceDirectory, string targetDirectory, string baseDirectory)
     {
-        // Do what you want with the output (write to console/log/StringBuilder)
-        Console.WriteLine(outLine.Data);
-    }
-
-    private void AddDirectoryToZip(ZipOutputStream zipStream, string sourceDirectory, string targetDirectory, string baseDirectory)
-    {
-        DirectoryInfo diSource = new DirectoryInfo(sourceDirectory);
+        var diSource = new DirectoryInfo(sourceDirectory);
 
         foreach (var fileInfo in diSource.GetFiles())
         {
-            var entryName = Path.Combine(targetDirectory, fileInfo.Name).Replace("\\", "/");
+            var entryName = Path.Combine(targetDirectory, fileInfo.Name).Replace("\\", "/", StringComparison.Ordinal);
             var entry = new ZipEntry(entryName);
             entry.CompressionMethod = CompressionMethod.Deflated;
             zipStream.PutNextEntry(entry);
@@ -307,24 +310,24 @@ public class EpubGenerator : IEpubGenerator
         var xhtmlContentBuilder = new StringBuilder();
 
         xhtmlContentBuilder.AppendLine("<div>");
-        xhtmlContentBuilder.AppendFormat("<h2>{0}</h2>", safeTitle);
+        xhtmlContentBuilder.AppendFormat(CultureInfo.InvariantCulture, "<h2>{0}</h2>", safeTitle);
 
         var paragraphs = content?.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (paragraphs == null || paragraphs.Length == 0)
         {
-            xhtmlContentBuilder.AppendFormat("<p>{0} {1}</p>", "Error getting chapter content from ", url);
+            xhtmlContentBuilder.AppendFormat(CultureInfo.InvariantCulture, "<p>{0} {1}</p>", "Error getting chapter content from ", url);
             xhtmlContentBuilder.AppendLine("</div>");
 
-            return string.Format(_epubTemplates.ChapterContent, safeTitle, xhtmlContentBuilder.ToString());
+            return string.Format(CultureInfo.InvariantCulture, _epubTemplates.ChapterContent, safeTitle, xhtmlContentBuilder.ToString());
         }
 
         foreach (string paragraph in paragraphs)
         {
-            xhtmlContentBuilder.AppendFormat("<p>{0}</p>", System.Security.SecurityElement.Escape(paragraph.Trim()));
+            xhtmlContentBuilder.AppendFormat(CultureInfo.InvariantCulture, "<p>{0}</p>", System.Security.SecurityElement.Escape(paragraph.Trim()));
         }
 
         xhtmlContentBuilder.AppendLine("</div>");
 
-        return string.Format(_epubTemplates.ChapterContent, title, xhtmlContentBuilder.ToString());
+        return string.Format(CultureInfo.InvariantCulture, _epubTemplates.ChapterContent, title, xhtmlContentBuilder.ToString());
     }
 }

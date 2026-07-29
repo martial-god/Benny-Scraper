@@ -1,6 +1,7 @@
 using Autofac;
 using BennyScraper.BusinessLogic.Config;
 using BennyScraper.BusinessLogic.Factory;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using Polly;
 
 namespace BennyScraper.BusinessLogic.Extensions;

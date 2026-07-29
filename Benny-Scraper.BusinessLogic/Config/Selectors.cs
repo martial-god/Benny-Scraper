@@ -5,7 +5,7 @@ public sealed class Selectors
     /// <summary>
     /// Gets the table of contents specific selectors (chapter links, pagination, novel meta on TOC, premium info).
     /// </summary>
-    public TableOfContentsSelectors TableOfContents { get; init; }
+    public TableOfContentsSelectors TableOfContents { get; init; } = new TableOfContentsSelectors();
 
     /// <summary>
     /// Gets the dictionary mapping currency names to XPath selectors for user balance in the global navigation bar.
@@ -19,7 +19,7 @@ public sealed class Selectors
     /// {
     ///   "Karma": "//svg[@data-testid='YinYangIcon']/following-sibling::p/text()",
     ///   "SpiritStones": "//svg[@width='21' and @height='20']/following-sibling::p/text()"
-    /// }
+    /// }.
     /// </summary>
     public Dictionary<string, string> UserCurrencyBalances { get; } = new Dictionary<string, string>();
 

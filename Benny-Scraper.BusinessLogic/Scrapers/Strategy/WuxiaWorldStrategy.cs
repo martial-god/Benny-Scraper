@@ -1,48 +1,19 @@
+using System.Diagnostics;
+using System.Globalization;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
 using OpenQA.Selenium;
-using System.Diagnostics;
-using System.Globalization;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
-
-/// <summary>
-/// Strategy for https://wuxiaworld.com/
-/// </summary>
-public abstract class WuxiaworldInitializer : NovelDataInitializer
-{
-    public static async Task FetchNovelContentAsync(
-        NovelDataBuffer novelDataBuffer,
-        HtmlDocument htmlDocument,
-        ScraperData scraperData,
-        ScraperStrategy scraperStrategy,
-        IReadOnlyList<Attr> attributesToFetch)
-    {
-        Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
-
-        foreach (var attribute in attributesToFetch)
-        {
-            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
-        }
-
-        if (attributesToFetch.Contains(Attr.ChapterUrls))
-        {
-            scraperStrategy.SortChapters(novelDataBuffer);
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.Count != 0
-                ? novelDataBuffer.ChapterLinks.First().Url
-                : string.Empty;
-        }
-    }
-}
 
 public class WuxiaWorldStrategy : ScraperStrategy
 {
     /// <summary>
-    /// This particular scraper requires Selenium for the Chapter Urls and Nowel Imge Thumbnail
+    /// This particular scraper requires Selenium for the Chapter Urls and Nowel Imge Thumbnail.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>The populated <see cref="NovelDataBuffer"/> containing the novel's metadata and chapter links.</returns>
     /// <exception cref="ArgumentNullException"></exception>
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
@@ -53,11 +24,11 @@ public class WuxiaWorldStrategy : ScraperStrategy
         }
 
         SetBaseUri(ScraperData.SiteTableOfContents);
-        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
+        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
 
         try
         {
-            var novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
+            var novelDataBuffer = await BuildNovelDataAsync(htmlDocument).ConfigureAwait(false);
             novelDataBuffer.NovelUrl = uri.ToString();
 
             return novelDataBuffer;
@@ -90,9 +61,9 @@ public class WuxiaWorldStrategy : ScraperStrategy
                 NovelDataInitializer.Attr.ChapterUrls,
             };
 
-            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetchUsingHttp);
+            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetchUsingHttp).ConfigureAwait(false);
 
-            var chapterLinksXPath = ScraperData.SiteConfig!.Selectors.TableOfContents.ChapterLinks;
+            var chapterLinksXPath = ScraperData.SiteConfig.Selectors.TableOfContents.ChapterLinks ?? string.Empty;
 
             var (htmlDocumentUsingSeleniumAsync, _) = await GetHtmlDocumentUsingSeleniumAsync(
                 url: ScraperData.SiteTableOfContents.ToString(),
@@ -104,8 +75,8 @@ public class WuxiaWorldStrategy : ScraperStrategy
                 isHeadless: !RequiresLogin,
                 preWaitAction: async (driver, wait) =>
                 {
-                    var baseUrl = ScraperData.BaseUri!.GetLeftPart(UriPartial.Authority);
-                    await Task.Delay(500);
+                    var baseUrl = ScraperData.BaseUri.GetLeftPart(UriPartial.Authority);
+                    await Task.Delay(500).ConfigureAwait(false);
                     var isLoggedIn = false;
 
                     if (RequiresLogin)
@@ -160,7 +131,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                                 lastDisplayedSecond = currentSecond;
                             }
 
-                            await Task.Delay(100);
+                            await Task.Delay(100).ConfigureAwait(false);
                         }
 
                         if (redirectDetected)
@@ -189,7 +160,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
                             Console.ResetColor();
                         }
 
-                        await driver.Navigate().GoToUrlAsync(ScraperData.SiteTableOfContents.ToString());
+                        await driver.Navigate().GoToUrlAsync(ScraperData.SiteTableOfContents.ToString()).ConfigureAwait(false);
                     }
 
                     const string chaptersTabXPath = "//div[@role='tablist']//button[@role='tab'][.//span[normalize-space()='Chapters']]";
@@ -230,31 +201,33 @@ public class WuxiaWorldStrategy : ScraperStrategy
                     if (isLoggedIn)
                     {
                         var buttonToOpenBalancesXpath =
-                            ScraperData.SiteConfig.Selectors.UserCurrencyBalances?["buttonToOpenBalances"];
+                            ScraperData.SiteConfig.Selectors.UserCurrencyBalances?["buttonToOpenBalances"] ?? string.Empty;
                         var premiumButton = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                             .ElementToBeClickable(By.XPath(buttonToOpenBalancesXpath)));
                         premiumButton.Click();
 
-                        await Task.Delay(500);
+                        await Task.Delay(500).ConfigureAwait(false);
                         wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                             .ElementExists(By.XPath("//ul[@role='menu']")));
 
                         var menuElement = driver.FindElement(By.XPath("//ul[@role='menu']"));
 
                         var karmaBalanceXpath =
-                            ScraperData.SiteConfig.Selectors.UserCurrencyBalances?[ScraperData.SiteConfig.PremiumInfo!.CurrencyName.ToLower()];
+                            ScraperData.SiteConfig.Selectors.UserCurrencyBalances?[ScraperData.SiteConfig.PremiumInfo!.CurrencyName.ToLowerCase()] ?? string.Empty;
                         var spiritStoneBalanceXpath =
-                            ScraperData.SiteConfig.Selectors.UserCurrencyBalances?["spiritStones"];
+                            ScraperData.SiteConfig.Selectors.UserCurrencyBalances?["spiritStones"] ?? string.Empty;
 
                         var karmaValue = menuElement.FindElement(By.XPath(karmaBalanceXpath)).Text ?? "-1";
                         var spiritStoneValue = menuElement.FindElement(By.XPath(spiritStoneBalanceXpath)).Text ?? "-1";
                         int.TryParse(
                             karmaValue,
                             NumberStyles.Integer | NumberStyles.AllowThousands,
-                            CultureInfo.InvariantCulture, out var karma);
+                            CultureInfo.InvariantCulture,
+                            out var karma);
                         int.TryParse(
                             spiritStoneValue,
-                            NumberStyles.Integer | NumberStyles.AllowThousands, CultureInfo.InvariantCulture,
+                            NumberStyles.Integer | NumberStyles.AllowThousands,
+                            CultureInfo.InvariantCulture,
                             out var spiritStones);
                         novelDataBuffer.UserPremiumCurrencies.ReplaceWith(
                         [
@@ -275,9 +248,9 @@ public class WuxiaWorldStrategy : ScraperStrategy
 
                     novelDataBuffer.IsLoggedIn = isLoggedIn;
                 },
-                reuseExistingDriver: true);
+                reuseExistingDriver: true).ConfigureAwait(false);
 
-            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocumentUsingSeleniumAsync!, ScraperData, this, attributesToFetchUsingSelenium);
+            await WuxiaworldInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocumentUsingSeleniumAsync!, ScraperData, this, attributesToFetchUsingSelenium).ConfigureAwait(false);
 
             return novelDataBuffer;
         }
@@ -296,7 +269,41 @@ public class WuxiaWorldStrategy : ScraperStrategy
 
     private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
     {
-        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument).ConfigureAwait(false);
         return novelDataBuffer;
+    }
+}
+
+/// <summary>
+/// Strategy for https://wuxiaworld.com/.
+/// </summary>
+public abstract class WuxiaworldInitializer : NovelDataInitializer
+{
+    public static async Task FetchNovelContentAsync(
+        NovelDataBuffer novelDataBuffer,
+        HtmlDocument htmlDocument,
+        ScraperData scraperData,
+        ScraperStrategy scraperStrategy,
+        IReadOnlyList<Attr> attributesToFetch)
+    {
+        ArgumentNullException.ThrowIfNull(novelDataBuffer);
+        ArgumentNullException.ThrowIfNull(scraperData);
+        ArgumentNullException.ThrowIfNull(scraperStrategy);
+        ArgumentNullException.ThrowIfNull(attributesToFetch);
+
+        Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
+
+        foreach (var attribute in attributesToFetch)
+        {
+            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
+        }
+
+        if (attributesToFetch.Contains(Attr.ChapterUrls))
+        {
+            scraperStrategy.SortChapters(novelDataBuffer);
+            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.Count != 0
+                ? novelDataBuffer.ChapterLinks.First().Url
+                : string.Empty;
+        }
     }
 }

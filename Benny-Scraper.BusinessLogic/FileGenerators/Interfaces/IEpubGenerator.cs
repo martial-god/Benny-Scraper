@@ -4,5 +4,5 @@ using BennyScraper.Models;
 
 public interface IEpubGenerator
 {
-    void CreateEpub(Novel novel, IEnumerable<Chapter> chapters, string outputFilePath, byte[]? coverImage);
+    void CreateEpub(Novel novel, ICollection<Chapter> chapters, string outputFilePath, byte[]? coverImage);
 }

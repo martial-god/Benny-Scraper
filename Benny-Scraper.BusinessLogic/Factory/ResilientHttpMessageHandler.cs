@@ -7,15 +7,17 @@ internal sealed class ResilientHttpMessageHandler : DelegatingHandler
     private readonly ResiliencePipeline<HttpResponseMessage> _pipeline;
 
     public ResilientHttpMessageHandler(HttpMessageHandler innerHandler, ResiliencePipeline<HttpResponseMessage> pipeline)
-        : base(new NonDisposingDelegatingHandler(innerHandler))
     {
+        NonDisposingDelegatingHandler? wrappedHandler = null;
+        wrappedHandler = new NonDisposingDelegatingHandler(innerHandler);
+        InnerHandler = wrappedHandler;
         _pipeline = pipeline;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         return _pipeline.ExecuteAsync(
-            async ct => await base.SendAsync(await CloneRequestMessageAsync(request, ct), ct),
+            async ct => await base.SendAsync(await CloneRequestMessageAsync(request, ct).ConfigureAwait(false), ct).ConfigureAwait(false),
             cancellationToken).AsTask();
     }
 
@@ -40,7 +42,7 @@ internal sealed class ResilientHttpMessageHandler : DelegatingHandler
         if (request.Content != null)
         {
             var memoryStream = new MemoryStream();
-            await request.Content.CopyToAsync(memoryStream, cancellationToken);
+            await request.Content.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
             memoryStream.Position = 0;
 
             var contentClone = new StreamContent(memoryStream);

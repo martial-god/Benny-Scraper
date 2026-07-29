@@ -4,45 +4,6 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-/// <summary>
-/// Strategy for https://mangakatana.com/
-/// </summary>
-public abstract class MangaKatanaInitializer : NovelDataInitializer
-{
-    public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
-    {
-        var attributesToFetch = new List<Attr>()
-        {
-            Attr.Title,
-            Attr.Author,
-            Attr.NovelStatus,
-            Attr.Genres,
-            Attr.AlternativeNames,
-            Attr.Description,
-            Attr.ThumbnailUrl,
-            Attr.CurrentChapter
-        };
-
-        foreach (var attribute in attributesToFetch)
-        {
-            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
-        }
-
-        scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
-        scraperStrategy.SortChapters(novelDataBuffer);
-
-        if (novelDataBuffer.ChapterLinks.Any())
-        {
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.First().Url;
-        }
-
-        if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
-        {
-            novelDataBuffer.MostRecentChapterTitle = novelDataBuffer.MostRecentChapterTitle.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).First(); // remove new line and everything after
-        }
-    }
-}
-
 public class MangaKatanaStrategy : ScraperStrategy
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
@@ -50,11 +11,11 @@ public class MangaKatanaStrategy : ScraperStrategy
         Logger.Info($"Getting novel data for {this.GetType().Name}");
         SetBaseUri(ScraperData.SiteTableOfContents);
 
-        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
+        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
 
         try
         {
-            NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
+            NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument).ConfigureAwait(false);
             novelDataBuffer.NovelUrl = uri.ToString();
 
             return novelDataBuffer;
@@ -71,7 +32,7 @@ public class MangaKatanaStrategy : ScraperStrategy
         var novelDataBuffer = new NovelDataBuffer();
         try
         {
-            await Task.WhenAll(MangaKatanaInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this));
+            await Task.WhenAll(MangaKatanaInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this)).ConfigureAwait(false);
             return novelDataBuffer;
         }
         catch (Exception e)
@@ -89,7 +50,49 @@ public class MangaKatanaStrategy : ScraperStrategy
 
     private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
     {
-        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument).ConfigureAwait(false);
         return novelDataBuffer;
+    }
+}
+
+/// <summary>
+/// Strategy for https://mangakatana.com/.
+/// </summary>
+public abstract class MangaKatanaInitializer : NovelDataInitializer
+{
+    public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
+    {
+        ArgumentNullException.ThrowIfNull(novelDataBuffer);
+        ArgumentNullException.ThrowIfNull(scraperStrategy);
+
+        var attributesToFetch = new List<Attr>()
+        {
+            Attr.Title,
+            Attr.Author,
+            Attr.NovelStatus,
+            Attr.Genres,
+            Attr.AlternativeNames,
+            Attr.Description,
+            Attr.ThumbnailUrl,
+            Attr.CurrentChapter
+        };
+
+        foreach (var attribute in attributesToFetch)
+        {
+            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
+        }
+
+        scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
+        scraperStrategy.SortChapters(novelDataBuffer);
+
+        if (novelDataBuffer.ChapterLinks.Any())
+        {
+            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.First().Url;
+        }
+
+        if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
+        {
+            novelDataBuffer.MostRecentChapterTitle = novelDataBuffer.MostRecentChapterTitle.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).First(); // remove new line and everything after
+        }
     }
 }

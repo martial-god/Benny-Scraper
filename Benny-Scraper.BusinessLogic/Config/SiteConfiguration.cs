@@ -19,12 +19,12 @@ public class SiteConfiguration
     /// <summary>
     /// Gets or sets the human-readable site name. Used for logs and display.
     /// </summary>
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the substring used to match <see cref="Uri.Host"/> (e.g. "novelfull.com").
     /// </summary>
-    public string UrlPattern { get; set; }
+    public string UrlPattern { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets a value indicating whether this site config is enabled without deleting it.
@@ -109,7 +109,7 @@ public class SiteConfiguration
     /// <summary>
     /// Gets the XPath selectors and attribute names specific to this site.
     /// </summary>
-    public Selectors Selectors { get; init; }
+    public Selectors Selectors { get; init; } = new Selectors();
 
     public PremiumInfo? PremiumInfo { get; set; }
 

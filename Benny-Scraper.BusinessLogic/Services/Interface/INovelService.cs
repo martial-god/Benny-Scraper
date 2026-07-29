@@ -16,9 +16,9 @@ public interface INovelService
 
     public Task<IEnumerable<Novel>> GetAllAsync();
 
-    public Task UpdateAsync(Novel? novel);
+    public Task UpdateAsync(Novel novel);
 
-    public Task UpdateAndAddChaptersAsync(Novel? novel, IEnumerable<Chapter> chapters);
+    public Task UpdateAndAddChaptersAsync(Novel novel, IEnumerable<Chapter> chapters);
 
     public Task RemoveAllAsync();
 

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.Models;
 using NLog;
@@ -5,147 +7,26 @@ using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 using SixLabors.ImageSharp;
-using System.Diagnostics;
 
 namespace BennyScraper.BusinessLogic.FileGenerators;
 
-public class PdfGenerator
+internal static class PdfGenerator
 {
     public const string PdfFileExtension = ".pdf";
-    private static readonly NLog.ILogger Logger = LogManager.GetCurrentClassLogger();
-
-    public (string, bool) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration, string filenameSuffix = "")
-    {
-        string pdfSaveLocation;
-        var isPdfSplit = false;
-        Logger.Info("Creating PDFs for {0}", novel.Title);
-        var totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter =>
-        {
-            Debug.Assert(chapter.Pages != null, "chapter.Pages != null");
-            return chapter.Pages;
-        }).Count();
-        var totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || !chapter.Pages.Any());
-        var missingChapterUrls = novel.Chapters.Where(chapter => chapter.Pages == null).Select(chapter => chapter.Url);
-
-        Logger.Info(new string('=', 50));
-        Console.ForegroundColor = ConsoleColor.Blue;
-        if (configuration.SaveAsSingleFile)
-        {
-            pdfSaveLocation = CreateSinglePdf(novel, chapterDataBuffers, outputDirectory, filenameSuffix);
-        }
-        else
-        {
-            pdfSaveLocation = CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory, filenameSuffix);
-            isPdfSplit = true;
-        }
-
-        // Display completion summary in a formatted box
-        Console.WriteLine();
-        var pdfMessages = new[] { "PDF GENERATION COMPLETE!" };
-        CommonHelper.DrawBox(pdfMessages, ConsoleColor.Green);
-        Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"  Novel:          {novel.Title}");
-        Console.WriteLine($"  Novel ID:       {novel.Id}");
-        if (novel.ChapterRanges.Any())
-        {
-            var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
-            var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
-            Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
-        }
-
-        Console.WriteLine($"  Total Chapters: {novel.Chapters.Count}");
-        Console.WriteLine($"  Total Pages:    {totalPages}");
-        Console.WriteLine($"  Saved to:       {outputDirectory}");
-        Console.ResetColor();
-
-        if (totalMissingChapters > 0)
-        {
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"  ⚠ Warning: {totalMissingChapters} chapters had no pages");
-            Console.WriteLine($"  Missing URLs: {string.Join(", ", missingChapterUrls)}");
-            Console.ResetColor();
-        }
-
-        Console.WriteLine();
-        Console.WriteLine(new string('─', 78));
-        Console.WriteLine();
-
-        // Try to add to Calibre
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine("Adding to Calibre database...");
-        Console.ResetColor();
-        var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
-        Logger.Debug($"Calibre command executed with code: {result}");
-
-        if (result == "0")
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("✓ Successfully added to Calibre");
-            Console.ResetColor();
-        }
-
-        Console.WriteLine();
-        Logger.Debug($"PDF generation complete - Novel: {novel.Title}, Chapters: {novel.Chapters.Count}, Pages: {totalPages}, Location: {outputDirectory}");
-        return (pdfSaveLocation, isPdfSplit);
-    }
-
-    public string CreatePdfByChapter(Novel? novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
-    {
-        Directory.CreateDirectory(pdfDirectoryPath);
-
-        foreach (var chapter in chapterDataBuffer)
-        {
-            if (chapter.Pages == null)
-            {
-                continue;
-            }
-
-            var totalPages = chapter.Pages.Count();
-            Console.WriteLine($"Total images in chapter {chapter.Title}: {totalPages}");
-
-            var document = new PdfDocument();
-
-            document.Info.Title = $"{novel.Title} - {chapter.Title}";
-            document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
-            document.Info.Subject = novel.Genre;
-            document.Info.Keywords = novel.Genre;
-            document.Info.CreationDate = DateTime.Now;
-
-            foreach (var pageData in chapter.Pages)
-            {
-                using var image = SixLabors.ImageSharp.Image.Load(pageData.ImagePath);
-                var pdfPage = document.AddPage();
-                pdfPage.Width = XUnit.FromPoint(image.Width);
-                pdfPage.Height = XUnit.FromPoint(image.Height);
-
-                var gfx = XGraphics.FromPdfPage(pdfPage);
-
-                using var imageStream = ConvertImageToStream(image);
-                using var xImage = XImage.FromStream(imageStream);
-                gfx.DrawImage(xImage, 0, 0, pdfPage.Width.Point, pdfPage.Height.Point);
-            }
-
-            var baseFilename = $"{novel.Title} - {chapter.Title}";
-            var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{novel.Title} - {filenameSuffix} - {chapter.Title}";
-            var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
-            var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
-            document.Save(pdfFilePath);
-        }
-
-        return pdfDirectoryPath;
-    }
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     /// <summary>
-    /// Method that will update an existing pdf file with new chapters, does not work with single chapter pdfs
+    /// Method that will update an existing pdf file with new chapters, does not work with single chapter pdfs.
     /// </summary>
-    /// <param name="novel"></param>
-    /// <param name="chapterDataBuffer"></param>
-    /// <param name="configuration"></param>
-    /// <exception cref="ArgumentException"></exception>
-    public void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Models.Configuration configuration)
+    /// <param name="novel">The novel whose existing pdf file is being updated.</param>
+    /// <param name="chapterDataBuffer">The new chapter data, including page image paths, to append to the pdf.</param>
+    /// <param name="configuration">The configuration for the pdf generation.</param>
+    /// <exception cref="ArgumentException">The path to the pdf file is not a pdf file. </exception>
+    public static void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Models.Configuration configuration)
     {
+        ArgumentNullException.ThrowIfNull(novel);
+        ArgumentNullException.ThrowIfNull(chapterDataBuffer);
+
         var pdfFilePath = novel.SaveLocation;
         if (Path.GetExtension(pdfFilePath) != PdfFileExtension)
         {
@@ -161,7 +42,7 @@ public class PdfGenerator
 
         var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
 
-        Logger.Info("Updating Pdf file: " + pdfFilePath);
+        _logger.Info("Updating Pdf file: " + pdfFilePath);
         var chapterDataBuffers = chapterDataBuffer as ChapterDataBuffer[] ?? chapterDataBuffer.ToArray();
         using (var pdfFile = File.OpenRead(pdfFilePath))
         {
@@ -199,22 +80,152 @@ public class PdfGenerator
 
         CommonHelper.DeleteTempFolder(chapterDataBuffers.First().TempDirectory);
 
-        Logger.Info($"Saving Pdf to {pdfFilePath}");
+        _logger.Info($"Saving Pdf to {pdfFilePath}");
         File.Copy(tempPdfFilePath, pdfFilePath, true);
         File.Delete(tempPdfFilePath);
-        Logger.Info("Pdf file updated");
+        _logger.Info("Pdf file updated");
         Console.WriteLine($"Pdf file updated at {pdfFilePath}");
+    }
+
+    public static string CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
+    {
+        ArgumentNullException.ThrowIfNull(novel);
+        ArgumentNullException.ThrowIfNull(chapterDataBuffer);
+
+        Directory.CreateDirectory(pdfDirectoryPath);
+
+        foreach (var chapter in chapterDataBuffer)
+        {
+            if (chapter.Pages == null)
+            {
+                continue;
+            }
+
+            var totalPages = chapter.Pages.Count;
+            Console.WriteLine($"Total images in chapter {chapter.Title}: {totalPages}");
+
+            using var document = new PdfDocument();
+
+            document.Info.Title = $"{novel.Title} - {chapter.Title}";
+            document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : string.Empty;
+            document.Info.Subject = novel.Genre ??= string.Empty;
+            document.Info.Keywords = novel.Genre;
+            document.Info.CreationDate = DateTime.Now;
+
+            foreach (var pageData in chapter.Pages)
+            {
+                using var image = SixLabors.ImageSharp.Image.Load(pageData.ImagePath);
+                var pdfPage = document.AddPage();
+                pdfPage.Width = XUnit.FromPoint(image.Width);
+                pdfPage.Height = XUnit.FromPoint(image.Height);
+
+                var gfx = XGraphics.FromPdfPage(pdfPage);
+
+                using var imageStream = ConvertImageToStream(image);
+                using var xImage = XImage.FromStream(imageStream);
+                gfx.DrawImage(xImage, 0, 0, pdfPage.Width.Point, pdfPage.Height.Point);
+            }
+
+            var baseFilename = $"{novel.Title} - {chapter.Title}";
+            var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{novel.Title} - {filenameSuffix} - {chapter.Title}";
+            var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
+            var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
+            document.Save(pdfFilePath);
+        }
+
+        return pdfDirectoryPath;
+    }
+
+    public static (string SaveLocation, bool IsFileSplit) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration, string filenameSuffix = "")
+    {
+        ArgumentNullException.ThrowIfNull(novel);
+        ArgumentNullException.ThrowIfNull(chapterDataBuffers);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        string pdfSaveLocation;
+        var isPdfSplit = false;
+        _logger.Info(CultureInfo.InvariantCulture, "Creating PDFs for {0}", novel.Title);
+        var totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).SelectMany(chapter =>
+        {
+            Debug.Assert(chapter.Pages != null, "chapter.Pages != null");
+            return chapter.Pages;
+        }).Count();
+        var totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || chapter.Pages.Count == 0);
+        var missingChapterUrls = novel.Chapters.Where(chapter => chapter.Pages == null).Select(chapter => chapter.Url);
+
+        _logger.Info(new string('=', 50));
+        Console.ForegroundColor = ConsoleColor.Blue;
+        if (configuration.SaveAsSingleFile)
+        {
+            pdfSaveLocation = CreateSinglePdf(novel, chapterDataBuffers, outputDirectory, filenameSuffix);
+        }
+        else
+        {
+            pdfSaveLocation = CreatePdfByChapter(novel, chapterDataBuffers, outputDirectory, filenameSuffix);
+            isPdfSplit = true;
+        }
+
+        // Display completion summary in a formatted box
+        Console.WriteLine();
+        var pdfMessages = new[] { "PDF GENERATION COMPLETE!" };
+        CommonHelper.DrawBox(pdfMessages, ConsoleColor.Green);
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"  Novel:          {novel.Title}");
+        Console.WriteLine($"  Novel ID:       {novel.Id}");
+        if (novel.ChapterRanges.Count != 0)
+        {
+            var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
+            var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
+            Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
+        }
+
+        Console.WriteLine($"  Total Chapters: {novel.Chapters.Count}");
+        Console.WriteLine($"  Total Pages:    {totalPages}");
+        Console.WriteLine($"  Saved to:       {outputDirectory}");
+        Console.ResetColor();
+
+        if (totalMissingChapters > 0)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"  ⚠ Warning: {totalMissingChapters} chapters had no pages");
+            Console.WriteLine($"  Missing URLs: {string.Join(", ", missingChapterUrls)}");
+            Console.ResetColor();
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(new string('─', 78));
+        Console.WriteLine();
+
+        // Try to add to Calibre
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("Adding to Calibre database...");
+        Console.ResetColor();
+        var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputDirectory}\" --series \"{novel.Title}\"");
+        _logger.Debug($"Calibre command executed with code: {result}");
+
+        if (result == "0")
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("✓ Successfully added to Calibre");
+            Console.ResetColor();
+        }
+
+        Console.WriteLine();
+        _logger.Debug($"PDF generation complete - Novel: {novel.Title}, Chapters: {novel.Chapters.Count}, Pages: {totalPages}, Location: {outputDirectory}");
+        return (pdfSaveLocation, isPdfSplit);
     }
 
     private static string CreateSinglePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
     {
         Directory.CreateDirectory(pdfDirectoryPath);
 
-        var document = new PdfDocument();
+        using var document = new PdfDocument();
 
         document.Info.Title = $"{novel.Title}";
-        document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : null;
-        document.Info.Subject = novel.Genre;
+        document.Info.Author = !string.IsNullOrEmpty(novel.Author) ? novel.Author : string.Empty;
+        document.Info.Subject = novel.Genre ??= string.Empty;
         document.Info.Keywords = novel.Genre;
         document.Info.CreationDate = DateTime.Now;
 
@@ -243,14 +254,14 @@ public class PdfGenerator
             }
         }
 
-        CommonHelper.DeleteTempFolder(chapterDataBuffers.First().TempDirectory);
+        CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
 
         var baseFilename = novel.Title;
         var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{baseFilename} - {filenameSuffix}";
         var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
         var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
         document.Save(pdfFilePath);
-        Logger.Debug($"PDF saved to {pdfFilePath}");
+        _logger.Debug($"PDF saved to {pdfFilePath}");
         return pdfFilePath;
     }
 

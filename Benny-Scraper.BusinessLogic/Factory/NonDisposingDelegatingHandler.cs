@@ -1,13 +1,6 @@
 namespace BennyScraper.BusinessLogic.Factory;
 
-internal sealed class NonDisposingDelegatingHandler : DelegatingHandler
+internal sealed class NonDisposingDelegatingHandler(HttpMessageHandler innerHandler) : DelegatingHandler(innerHandler)
 {
-    public NonDisposingDelegatingHandler(HttpMessageHandler innerHandler)
-        : base(innerHandler)
-    {
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-    }
+    protected override void Dispose(bool disposing) => base.Dispose(false);
 }

@@ -8,26 +8,8 @@ using SeleniumExtras.WaitHelpers;
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
 /// <summary>
-/// Initializer for NovelBin and NovLove sites
-/// </summary>
-public abstract class NovelBinInitializer : NovelDataInitializer
-{
-    public static async Task FetchNovelContentAsync(
-        NovelDataBuffer novelDataBuffer,
-        HtmlDocument htmlDocument,
-        ScraperData scraperData,
-        IReadOnlyList<Attr> attributesToFetch)
-    {
-        foreach (var attribute in attributesToFetch)
-        {
-            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
-        }
-    }
-}
-
-/// <summary>
 /// Scraping strategy for novelbin.me and novlove.com
-/// Handles Cloudflare protection and dynamic chapter list loading via Selenium
+/// Handles Cloudflare protection and dynamic chapter list loading via Selenium.
 /// </summary>
 public class NovelBinStrategy : ScraperStrategy
 {
@@ -36,24 +18,22 @@ public class NovelBinStrategy : ScraperStrategy
         Logger.Info($"Getting novel data for {GetType().Name}");
         SetBaseUri(ScraperData.SiteTableOfContents);
 
-        var chapterLinksXPath = ScraperData.SiteConfig?.Selectors.TableOfContents.ChapterLinks;
+        var chapterLinksXPath = ScraperData.SiteConfig.Selectors.TableOfContents.ChapterLinks;
 
         var (htmlDocument, _) = await GetHtmlDocumentUsingSeleniumAsync(
             url: ScraperData.SiteTableOfContents.ToString(),
-            requiredXPath: chapterLinksXPath,
+            requiredXPath: chapterLinksXPath ?? string.Empty,
             objectToLookFor: "Chapter Links",
             isAllowedToFail: false,
             timeoutSeconds: 60,
             isHeadless: false,
-            reuseExistingDriver: true,
             preWaitAction: async (driver, wait) =>
             {
                 try
                 {
                     Logger.Info("Attempting to click 'Chapter List' tab...");
                     var chapterTab = wait.Until(ExpectedConditions.ElementToBeClickable(
-                        By.XPath("//a[@id='tab-chapters-title'][@role='tab']")
-                    ));
+                        By.XPath("//a[@id='tab-chapters-title'][@role='tab']")));
                     chapterTab.Click();
 
                     Logger.Info("Successfully clicked 'Chapter List' tab");
@@ -61,8 +41,7 @@ public class NovelBinStrategy : ScraperStrategy
                     try
                     {
                         wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(
-                            By.XPath("//ul[@class='list-chapter']/li/a")
-                        ));
+                            By.XPath("//ul[@class='list-chapter']/li/a")));
                         Logger.Info("Initial chapter links are visible");
                     }
                     catch (WebDriverTimeoutException)
@@ -77,7 +56,7 @@ public class NovelBinStrategy : ScraperStrategy
 
                     for (var i = 0; i < maxWaitIterations; i++)
                     {
-                        await Task.Delay(1000);
+                        await Task.Delay(1000).ConfigureAwait(false);
 
                         var currentChapters = driver.FindElements(By.XPath("//ul[@class='list-chapter']/li/a"));
                         var currentCount = currentChapters.Count;
@@ -85,6 +64,7 @@ public class NovelBinStrategy : ScraperStrategy
                         if (currentCount == previousCount)
                         {
                             stableCount++;
+
                             // If count hasn't changed for 3 consecutive checks, assume loading is complete
                             if (stableCount < 3)
                             {
@@ -110,8 +90,8 @@ public class NovelBinStrategy : ScraperStrategy
                 {
                     Logger.Warn($"Unexpected error while clicking chapter tab: {ex.Message}");
                 }
-            }
-        );
+            },
+            reuseExistingDriver: true).ConfigureAwait(false);
 
         if (htmlDocument == null)
         {
@@ -119,7 +99,7 @@ public class NovelBinStrategy : ScraperStrategy
             return new NovelDataBuffer();
         }
 
-        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
+        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument).ConfigureAwait(false);
         novelDataBuffer.NovelUrl = ScraperData.SiteTableOfContents.ToString();
         ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, ScraperData);
         SortChapters(novelDataBuffer);
@@ -151,8 +131,28 @@ public class NovelBinStrategy : ScraperStrategy
             NovelDataInitializer.Attr.CurrentChapter
         };
 
-        await NovelBinInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch);
+        await NovelBinInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch).ConfigureAwait(false);
 
         return novelDataBuffer;
+    }
+}
+
+/// <summary>
+/// Initializer for NovelBin and NovLove sites.
+/// </summary>
+public abstract class NovelBinInitializer : NovelDataInitializer
+{
+    public static async Task FetchNovelContentAsync(
+        NovelDataBuffer novelDataBuffer,
+        HtmlDocument htmlDocument,
+        ScraperData scraperData,
+        IReadOnlyList<Attr> attributesToFetch)
+    {
+        ArgumentNullException.ThrowIfNull(attributesToFetch);
+
+        foreach (var attribute in attributesToFetch)
+        {
+            await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
+        }
     }
 }

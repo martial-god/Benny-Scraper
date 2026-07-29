@@ -2,15 +2,15 @@ namespace BennyScraper.BusinessLogic.Config;
 
 public class NovelScraperSettings
 {
-    public string UserAgent { get; set; }
+    public string UserAgent { get; set; } = string.Empty;
 
     public int HttpTimeout { get; set; }
 
     public HttpResilienceSettings HttpResilience { get; set; } = new();
 
-    public SeleniumSettings SeleniumSettings { get; set; }
+    public SeleniumSettings SeleniumSettings { get; set; } = new();
 
-    public FlareSolverrSettings FlareSolverrSettings { get; set; }
+    public FlareSolverrSettings FlareSolverrSettings { get; set; } = new();
 
-    public IList<SiteConfiguration> SiteConfigurations { get; init; }
+    public IList<SiteConfiguration> SiteConfigurations { get; init; } = new List<SiteConfiguration>();
 }

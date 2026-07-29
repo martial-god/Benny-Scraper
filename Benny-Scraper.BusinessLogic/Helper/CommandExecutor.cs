@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace BennyScraper.BusinessLogic.Helper;
@@ -7,13 +8,15 @@ public static class CommandExecutor
 {
     public static string ExecuteCommand(string command)
     {
-        Process process = new Process();
-        ProcessStartInfo startInfo = new ProcessStartInfo();
-        startInfo.UseShellExecute = false;
-        startInfo.CreateNoWindow = true;
-        startInfo.RedirectStandardOutput = true;
-        startInfo.RedirectStandardError = true;
-        startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+        using var process = new Process();
+        var startInfo = new ProcessStartInfo
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            WindowStyle = ProcessWindowStyle.Hidden
+        };
 
         // Detect OS and configure process start info accordingly
         if (IsWindows())
@@ -21,13 +24,13 @@ public static class CommandExecutor
             startInfo.FileName = "cmd.exe";
             startInfo.Arguments = $"/c {command}";
         }
-        else if (IsMacOS() | IsLinux())
+        else if (IsMacOS() || IsLinux())
         {
-            string shellPath = GetDefaultShell();
+            var shellPath = GetDefaultShell();
 
             if (string.IsNullOrEmpty(shellPath))
             {
-                throw new Exception("Unable to determine default shell.");
+                throw new PlatformNotSupportedException("Unable to determine default shell.");
             }
 
             startInfo.FileName = shellPath;
@@ -35,7 +38,7 @@ public static class CommandExecutor
         }
         else
         {
-            throw new Exception("Unsupported OS platform.");
+            throw new PlatformNotSupportedException("Unsupported OS platform.");
         }
 
         process.StartInfo = startInfo;
@@ -48,7 +51,7 @@ public static class CommandExecutor
         process.BeginErrorReadLine();
         process.WaitForExit();
 
-        return process.ExitCode.ToString();
+        return process.ExitCode.ToString(CultureInfo.InvariantCulture);
     }
 
     private static bool IsWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -57,32 +60,26 @@ public static class CommandExecutor
 
     private static bool IsLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
-    private static string GetDefaultShell()
+    private static string? GetDefaultShell()
     {
-        var shellPath = Environment.GetEnvironmentVariable("SHELL");
+        string? shellPath = Environment.GetEnvironmentVariable("SHELL");
 
         if (string.IsNullOrEmpty(shellPath))
         {
             return null;
         }
 
-        if (shellPath.EndsWith("/zsh"))
+        if (shellPath.EndsWith("/zsh", StringComparison.OrdinalIgnoreCase))
         {
             return "/bin/zsh";
         }
-        else if (shellPath.EndsWith("/bash"))
-        {
-            return "/bin/bash";
-        }
-        else
-        {
-            return null;
-        }
+
+        return shellPath.EndsWith("/bash", StringComparison.OrdinalIgnoreCase) ? "/bin/bash" : null;
     }
 
     private static void OutputHandler(object sendingProcess, DataReceivedEventArgs outLine)
     {
-        if (!String.IsNullOrEmpty(outLine.Data))
+        if (!string.IsNullOrEmpty(outLine.Data))
         {
             Console.WriteLine(outLine.Data);
         }

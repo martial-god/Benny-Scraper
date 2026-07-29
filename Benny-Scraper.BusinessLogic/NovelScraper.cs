@@ -12,7 +12,7 @@ namespace BennyScraper.BusinessLogic;
 public class NovelScraper : INovelScraper
 {
     private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-    private ScraperStrategy _scraperStrategy;
+    private ScraperStrategy? _scraperStrategy;
     private readonly Dictionary<string, ScraperStrategy> _websiteMap = new();
 
     public NovelScraper()
@@ -23,8 +23,13 @@ public class NovelScraper : INovelScraper
     /// <summary>
     /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Classes are added to the map in the constructor.
     /// </summary>
+    /// <param name="novelTableOfContentsUri">The table of contents URI whose host is used to look up the matching strategy.</param>
+    /// <param name="siteConfig">The site configuration associated with the novel's host.</param>
+    /// <returns>The matching <see cref="ScraperStrategy"/>, or null if no strategy is registered for the host.</returns>
     public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
     {
+        ArgumentNullException.ThrowIfNull(novelTableOfContentsUri);
+
         var baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
 
         if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))

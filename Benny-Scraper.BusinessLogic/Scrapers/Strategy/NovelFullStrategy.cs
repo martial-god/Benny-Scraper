@@ -1,11 +1,77 @@
+using System.Diagnostics;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
-using System.Diagnostics;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
+    public class NovelFullStrategy : ScraperStrategy
+    {
+        public override async Task<NovelDataBuffer> ScrapeAsync()
+        {
+            Logger.Info($"Getting novel data for {this.GetType().Name}");
+            if (ScraperData.SiteTableOfContents == null)
+            {
+                throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
+            }
+
+            SetBaseUri(ScraperData.SiteTableOfContents);
+            var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
+
+            try
+            {
+                var novelDataBuffer = await BuildNovelDataAsync(htmlDocument).ConfigureAwait(false);
+                novelDataBuffer.NovelUrl = uri.ToString();
+
+                return novelDataBuffer;
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Error while getting novel data. {e}");
+                throw;
+            }
+        }
+
+        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
+        {
+            var novelDataBuffer = new NovelDataBuffer();
+            try
+            {
+                await NovelFullInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData).ConfigureAwait(false);
+                return novelDataBuffer;
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
+            }
+
+            return novelDataBuffer;
+        }
+
+        protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        {
+            throw new NotImplementedException();
+        }
+
+        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
+        {
+            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument).ConfigureAwait(false);
+            var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
+
+            var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt).ConfigureAwait(false);
+
+            novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);
+            novelDataBuffer.ChapterTitles.ReplaceWith(chapterLinks.Select(cl => cl.Title ?? string.Empty));
+            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
+
+            // Sort chapters based on site configuration
+            SortChapters(novelDataBuffer);
+
+            return novelDataBuffer;
+        }
+    }
+
     namespace Impl
     {
         public abstract class NovelFullInitializer : NovelDataInitializer
@@ -15,6 +81,9 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             // the implementation would require both.
             public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
             {
+                ArgumentNullException.ThrowIfNull(novelDataBuffer);
+                ArgumentNullException.ThrowIfNull(scraperData);
+
                 Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
                 var attributesToFetch = new List<Attr>()
                 {
@@ -34,7 +103,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
                 foreach (var attribute in attributesToFetch)
                 {
-                    await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData);
+                    await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
                 }
 
                 var fullCurrentChapterUrl = new Uri(scraperData.SiteTableOfContents, novelDataBuffer.CurrentChapterUrl?.TrimStart('/')).ToString();
@@ -45,72 +114,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 novelDataBuffer.LastTableOfContentsPageUrl = fullCurrentChapterUrl;
                 novelDataBuffer.LastTableOfContentsPageUrl = fullLastTableOfContentUrl;
             }
-        }
-    }
-
-    public class NovelFullStrategy : ScraperStrategy
-    {
-        public override async Task<NovelDataBuffer> ScrapeAsync()
-        {
-            Logger.Info($"Getting novel data for {this.GetType().Name}");
-            if (ScraperData.SiteTableOfContents == null)
-            {
-                throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
-            }
-
-            SetBaseUri(ScraperData.SiteTableOfContents);
-            var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents);
-
-            try
-            {
-                var novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
-                novelDataBuffer.NovelUrl = uri.ToString();
-
-                return novelDataBuffer;
-            }
-            catch (Exception e)
-            {
-                Logger.Error($"Error while getting novel data. {e}");
-                throw;
-            }
-        }
-
-        protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
-        {
-            var novelDataBuffer = new NovelDataBuffer();
-            try
-            {
-                await NovelFullInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData);
-                return novelDataBuffer;
-            }
-            catch (Exception e)
-            {
-                Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
-            }
-
-            return novelDataBuffer;
-        }
-
-        protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
-        {
-            throw new NotImplementedException();
-        }
-
-        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
-        {
-            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-            var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
-
-            var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt);
-
-            novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);
-            novelDataBuffer.ChapterTitles.ReplaceWith(chapterLinks.Select(cl => cl.Title ?? string.Empty));
-            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsUrl;
-
-            // Sort chapters based on site configuration
-            SortChapters(novelDataBuffer);
-
-            return novelDataBuffer;
         }
     }
 }

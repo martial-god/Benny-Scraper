@@ -8,5 +8,5 @@ public interface IChapterRepository : IRepository<Chapter>
 
     void AddRange(ICollection<Chapter> chapters);
 
-    Task<Chapter> GetLastSavedChapterAsyncByNovelId(Guid novelId);
+    Chapter GetLastSavedChapterAsyncByNovelId(Guid novelId);
 }
