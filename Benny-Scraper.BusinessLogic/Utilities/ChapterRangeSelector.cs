@@ -6,10 +6,10 @@ using NLog;
 
 namespace BennyScraper.BusinessLogic.Utilities;
 
-public class ChapterRangeSelector
+public static class ChapterRangeSelector
 {
-    private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-    private const int DefaultMaxDisplay = 20;
+    private const int _defaultMaxDisplayCount = 20;
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     /// <summary>
     /// Displays the selected chapter range for CLI mode.
@@ -53,7 +53,7 @@ public class ChapterRangeSelector
 
         if (selectedPremium.Count == 0)
         {
-            Logger.Debug("No premium chapters in selected range");
+            _logger.Debug("No premium chapters in selected range");
             return;
         }
 
@@ -71,7 +71,7 @@ public class ChapterRangeSelector
                 : premiumChapter.Title;
 
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"  [{chapterIndex,4}] [Premium {premiumChapter.PremiumInfo.Cost} {currency}] {title}");
+            Console.WriteLine($"  [{chapterIndex,4}] [Premium {premiumChapter.PremiumInfo!.Cost} {currency}] {title}");
             Console.ResetColor();
         }
 
@@ -105,7 +105,7 @@ public class ChapterRangeSelector
             Console.ResetColor();
             Console.Write("\nPress Enter to continue with teasers: ");
             Console.ReadLine();
-            Logger.Info("User acknowledged premium chapters will be teasers (not logged in)");
+            _logger.Info("User acknowledged premium chapters will be teasers (not logged in)");
         }
         else
         {
@@ -138,12 +138,52 @@ public class ChapterRangeSelector
             var premiumChoice = Console.ReadLine()?.Trim();
             if (string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase))
             {
-                Logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
+                _logger.Info("User confirmed proceeding with premium chapters (unlock flow not implemented)");
                 return;
             }
 
-            Logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
+            _logger.Info("User did not confirm premium unlock; proceeding without unlocking premium chapters");
         }
+    }
+
+    /// <summary>
+    /// Gets a chapter range from command line options, validating it against the total chapter count.
+    /// </summary>
+    /// <param name="totalChapters">The total number of chapters available for the novel.</param>
+    /// <param name="begin">The requested starting chapter number; defaults to 1 if not specified.</param>
+    /// <param name="end">The requested ending chapter number; defaults to <paramref name="totalChapters"/> if not specified.</param>
+    /// <returns>The validated chapter range built from the requested begin and end values.</returns>
+    public static SelectedChapterRange GetRangeFromOptions(int totalChapters, int? begin, int? end)
+    {
+        var startChapter = begin ?? 1;
+        var endChapter = end ?? totalChapters;
+
+        _logger.Debug($"Creating chapter range from CLI options: Begin={startChapter}, End={endChapter}, Total={totalChapters}");
+
+        if (!ValidateRange(startChapter, endChapter, totalChapters))
+        {
+            var errorMessages = new[] { "Invalid Chapter Range" };
+            CommonHelper.DrawBox(errorMessages, ConsoleColor.Red);
+
+            Console.WriteLine($"\nYour chapter range selection is out of bounds:");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"  Requested: Chapters {startChapter}-{endChapter}");
+            Console.WriteLine($"  Available: Chapters 1-{totalChapters} ({totalChapters} total chapters)");
+            Console.ResetColor();
+            Console.WriteLine($"\nPlease adjust your chapter range using:");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"  -B {Math.Min(startChapter, totalChapters)} -E {totalChapters}  # Download from chapter {Math.Min(startChapter, totalChapters)} to end");
+            Console.WriteLine($"  -E {totalChapters}                    # Download first {totalChapters} chapters");
+            Console.WriteLine($"  (no options)              # Download all chapters interactively");
+            Console.ResetColor();
+
+            _logger.Error($"Invalid chapter range: {startChapter}-{endChapter}. Total chapters: {totalChapters}. Exiting.");
+            Environment.Exit(1);
+        }
+
+        var range = new SelectedChapterRange(startChapter, endChapter);
+        _logger.Debug($"Chapter range created: {range}");
+        return range;
     }
 
     /// <summary>
@@ -153,7 +193,7 @@ public class ChapterRangeSelector
     /// <param name="userCurrencies">The user's premium currency balances, used to display premium chapter costs; null if not available.</param>
     /// <param name="isLoggedIn">Whether the user is currently authenticated with the site.</param>
     /// <returns>The chapter range selected by the user, or null if all chapters should be downloaded.</returns>
-    public SelectedChapterRange? PromptUserForRange(IList<ChapterLink> chapterLinks, IList<UserPremiumCurrency>? userCurrencies, bool isLoggedIn)
+    public static SelectedChapterRange? PromptUserForRange(IList<ChapterLink> chapterLinks, IList<UserPremiumCurrency>? userCurrencies, bool isLoggedIn)
     {
         ArgumentNullException.ThrowIfNull(chapterLinks);
 
@@ -172,7 +212,7 @@ public class ChapterRangeSelector
 
         if (response != "y" && response != "yes")
         {
-            Logger.Debug("User declined chapter range selection, proceeding with all chapters");
+            _logger.Debug("User declined chapter range selection, proceeding with all chapters");
             return null;
         }
 
@@ -191,14 +231,14 @@ public class ChapterRangeSelector
         if (string.IsNullOrWhiteSpace(input))
         {
             Console.WriteLine("User pressed Enter, downloading all chapters");
-            Logger.Debug("User pressed Enter, downloading all chapters");
+            _logger.Debug("User pressed Enter, downloading all chapters");
             return null;
         }
 
         var selectedChapters = ParseFlexibleInput(input, totalChapters);
         if (selectedChapters.Count == 0)
         {
-            Logger.Warn("No valid chapters selected");
+            _logger.Warn("No valid chapters selected");
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("No valid chapters selected. Downloading all chapters.");
             Console.ResetColor();
@@ -209,11 +249,11 @@ public class ChapterRangeSelector
         var end = selectedChapters.Max();
         var range = new SelectedChapterRange(begin, end);
 
-        Logger.Info($"User selected {selectedChapters.Count} chapters, range: {range}");
+        _logger.Info($"User selected {selectedChapters.Count} chapters, range: {range}");
 
         if (!ConfirmRange(range, chapterTitles, selectedChapters))
         {
-            Logger.Info("User cancelled range selection");
+            _logger.Info("User cancelled range selection");
             Console.WriteLine("Range selection cancelled. Downloading all chapters.");
             return null;
         }
@@ -252,7 +292,7 @@ public class ChapterRangeSelector
                 Console.ResetColor();
                 Console.Write("\nPress Enter to continue with teasers: ");
                 Console.ReadLine();
-                Logger.Info("User acknowledged premium chapters will be teasers (not logged in)");
+                _logger.Info("User acknowledged premium chapters will be teasers (not logged in)");
             }
             else
             {
@@ -283,7 +323,7 @@ public class ChapterRangeSelector
                 Console.Write("\nType 'continue' to proceed with premium chapters, or press Enter to proceed without unlocking (they will remain teasers): ");
 
                 var premiumChoice = Console.ReadLine()?.Trim();
-                Logger.Info(string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase)
+                _logger.Info(string.Equals(premiumChoice, "continue", StringComparison.OrdinalIgnoreCase)
                     ? "User confirmed proceeding with premium chapters (unlock flow not implemented)"
                     : "User did not confirm premium unlock; proceeding without unlocking premium chapters");
             }
@@ -292,48 +332,22 @@ public class ChapterRangeSelector
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine($"\nChapter range {range} confirmed.");
         Console.ResetColor();
-        Logger.Debug($"Chapter range confirmed: {range}");
+        _logger.Debug($"Chapter range confirmed: {range}");
         return range;
     }
 
     /// <summary>
-    /// Gets a chapter range from command line options, validating it against the total chapter count.
+    /// Validates that the range is within bounds.
     /// </summary>
-    /// <param name="totalChapters">The total number of chapters available for the novel.</param>
-    /// <param name="begin">The requested starting chapter number; defaults to 1 if not specified.</param>
-    /// <param name="end">The requested ending chapter number; defaults to <paramref name="totalChapters"/> if not specified.</param>
-    /// <returns>The validated chapter range built from the requested begin and end values.</returns>
-    public SelectedChapterRange GetRangeFromOptions(int totalChapters, int? begin, int? end)
+    /// <param name="begin">The requested starting chapter number.</param>
+    /// <param name="end">The requested ending chapter number.</param>
+    /// <param name="totalChapters">The total number of chapters available.</param>
+    /// <returns>True if the range is within bounds and begin does not exceed end; otherwise, false.</returns>
+    private static bool ValidateRange(int begin, int end, int totalChapters)
     {
-        var startChapter = begin ?? 1;
-        var endChapter = end ?? totalChapters;
-
-        Logger.Debug($"Creating chapter range from CLI options: Begin={startChapter}, End={endChapter}, Total={totalChapters}");
-
-        if (!ValidateRange(startChapter, endChapter, totalChapters))
-        {
-            var errorMessages = new[] { "Invalid Chapter Range" };
-            CommonHelper.DrawBox(errorMessages, ConsoleColor.Red);
-
-            Console.WriteLine($"\nYour chapter range selection is out of bounds:");
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"  Requested: Chapters {startChapter}-{endChapter}");
-            Console.WriteLine($"  Available: Chapters 1-{totalChapters} ({totalChapters} total chapters)");
-            Console.ResetColor();
-            Console.WriteLine($"\nPlease adjust your chapter range using:");
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"  -B {Math.Min(startChapter, totalChapters)} -E {totalChapters}  # Download from chapter {Math.Min(startChapter, totalChapters)} to end");
-            Console.WriteLine($"  -E {totalChapters}                    # Download first {totalChapters} chapters");
-            Console.WriteLine($"  (no options)              # Download all chapters interactively");
-            Console.ResetColor();
-
-            Logger.Error($"Invalid chapter range: {startChapter}-{endChapter}. Total chapters: {totalChapters}. Exiting.");
-            Environment.Exit(1);
-        }
-
-        var range = new SelectedChapterRange(startChapter, endChapter);
-        Logger.Debug($"Chapter range created: {range}");
-        return range;
+        return begin >= 1 && begin <= totalChapters &&
+               end >= 1 && end <= totalChapters &&
+               begin <= end;
     }
 
     /// <summary>
@@ -344,11 +358,11 @@ public class ChapterRangeSelector
     /// <returns>The sorted, de-duplicated list of chapter numbers described by <paramref name="input"/>.</returns>
     private static List<int> ParseFlexibleInput(string input, int totalChapters)
     {
-        Logger.Debug($"Parsing flexible input: '{input}', Total chapters: {totalChapters}");
+        _logger.Debug($"Parsing flexible input: '{input}', Total chapters: {totalChapters}");
 
         if (string.IsNullOrWhiteSpace(input) || input.Trim().ToLowerCase() == "all")
         {
-            Logger.Info("Input is 'all' or empty, returning all chapters");
+            _logger.Info("Input is 'all' or empty, returning all chapters");
             return Enumerable.Range(1, totalChapters).ToList();
         }
 
@@ -371,7 +385,7 @@ public class ChapterRangeSelector
 
                 if (rangeStart < 1 || rangeEnd > totalChapters || rangeStart > rangeEnd)
                 {
-                    Logger.Warn($"Invalid range: {rangeStart}-{rangeEnd}");
+                    _logger.Warn($"Invalid range: {rangeStart}-{rangeEnd}");
                     continue;
                 }
 
@@ -380,7 +394,7 @@ public class ChapterRangeSelector
                     chapters.Add(i);
                 }
 
-                Logger.Debug($"Added range {rangeStart}-{rangeEnd}");
+                _logger.Debug($"Added range {rangeStart}-{rangeEnd}");
                 continue;
             }
 
@@ -391,16 +405,16 @@ public class ChapterRangeSelector
 
             if (singleChapter < 1 || singleChapter > totalChapters)
             {
-                Logger.Warn($"Invalid chapter number: {singleChapter}");
+                _logger.Warn($"Invalid chapter number: {singleChapter}");
                 continue;
             }
 
             chapters.Add(singleChapter);
-            Logger.Debug($"Added chapter {singleChapter}");
+            _logger.Debug($"Added chapter {singleChapter}");
         }
 
         var result = chapters.OrderBy(c => c).ToList();
-        Logger.Info($"Parsed {result.Count} chapters from flexible input");
+        _logger.Info($"Parsed {result.Count} chapters from flexible input");
         return result;
     }
 
@@ -410,9 +424,9 @@ public class ChapterRangeSelector
     /// <param name="chapterLinks">The full list of chapter links to display.</param>
     /// <param name="totalChapters">The total number of chapters available.</param>
     /// <param name="maxDisplay">The maximum number of chapters to display before truncating the list.</param>
-    private static void DisplayChapterList(IList<ChapterLink> chapterLinks, int totalChapters, int maxDisplay = DefaultMaxDisplay)
+    private static void DisplayChapterList(IList<ChapterLink> chapterLinks, int totalChapters, int maxDisplay = _defaultMaxDisplayCount)
     {
-        Logger.Debug($"Displaying chapter list. Total: {totalChapters}, MaxDisplay: {maxDisplay}");
+        _logger.Debug($"Displaying chapter list. Total: {totalChapters}, MaxDisplay: {maxDisplay}");
         Console.WriteLine($"\nAvailable Chapters (1-{totalChapters}):\n");
 
         if (totalChapters <= maxDisplay)
@@ -453,7 +467,7 @@ public class ChapterRangeSelector
             return;
         }
 
-        Logger.Info("User requested full chapter list");
+        _logger.Info("User requested full chapter list");
         Console.WriteLine("\nAll Chapters:\n");
         for (var i = 0; i < chapterLinks.Count; i++)
         {
@@ -466,7 +480,7 @@ public class ChapterRangeSelector
     private static string FormatChapterLine(int index, ChapterLink link)
     {
         var currency = link.PremiumInfo?.CurrencyName ?? "Credits";
-        var premiumTag = link.PremiumInfo.IsPremium
+        var premiumTag = link.PremiumInfo!.IsPremium
             ? $"[Premium {link.PremiumInfo.Cost} {currency}]"
             : "[Free]";
         var title = string.IsNullOrWhiteSpace(link.Title) ? $"Chapter {index + 1}" : link.Title;
@@ -499,9 +513,8 @@ public class ChapterRangeSelector
         }
 
         return string.Join(", ", premiumGroups.Select(g =>
-            $"{g.Count.ToString("N0", CultureInfo.InvariantCulture)} premium, total {g.Sum(cl => cl.PremiumInfo.Cost).ToString("N0", CultureInfo.InvariantCulture)} {g.Key}"));
+            $"{g.Count().ToString("N0", CultureInfo.InvariantCulture)} premium, total {g.Sum(cl => cl.PremiumInfo.Cost).ToString("N0", CultureInfo.InvariantCulture)} {g.Key}"));
     }
-
 
     /// <summary>
     /// Shows confirmation of the selected range.
@@ -510,7 +523,7 @@ public class ChapterRangeSelector
     /// <param name="chapterTitles">The list of chapter titles used to display the first and last chapter in the range.</param>
     /// <param name="selectedChapters">The individual chapter numbers the user selected, if the selection was non-contiguous.</param>
     /// <returns>True if the user confirmed the range; otherwise, false.</returns>
-    private bool ConfirmRange(SelectedChapterRange range, List<string> chapterTitles, List<int>? selectedChapters = null)
+    private static bool ConfirmRange(SelectedChapterRange range, List<string> chapterTitles, List<int>? selectedChapters = null)
     {
         Console.WriteLine("\nSelected Range:");
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -543,21 +556,7 @@ public class ChapterRangeSelector
         var response = Console.ReadLine()?.Trim().ToLowerCase();
 
         var isConfirmed = string.IsNullOrEmpty(response) || response == "y" || response == "yes";
-        Logger.Debug($"Range confirmation: {(isConfirmed ? "accepted" : "declined")}");
+        _logger.Debug($"Range confirmation: {(isConfirmed ? "accepted" : "declined")}");
         return isConfirmed;
-    }
-
-    /// <summary>
-    /// Validates that the range is within bounds.
-    /// </summary>
-    /// <param name="begin">The requested starting chapter number.</param>
-    /// <param name="end">The requested ending chapter number.</param>
-    /// <param name="totalChapters">The total number of chapters available.</param>
-    /// <returns>True if the range is within bounds and begin does not exceed end; otherwise, false.</returns>
-    private bool ValidateRange(int begin, int end, int totalChapters)
-    {
-        return begin >= 1 && begin <= totalChapters &&
-               end >= 1 && end <= totalChapters &&
-               begin <= end;
     }
 }

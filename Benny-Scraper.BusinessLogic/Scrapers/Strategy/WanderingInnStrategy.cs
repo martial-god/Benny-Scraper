@@ -60,15 +60,10 @@ public class WanderingInnStrategy : ScraperStrategy
         return novelDataBuffer;
     }
 
-    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
-    {
-        throw new NotImplementedException();
-    }
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument) => throw new NotImplementedException();
 
-    protected override string NormalizeChapterTitle(string? rawTitle)
-    {
-        return base.NormalizeChapterTitle(rawTitle).Replace("- The Wandering Inn", string.Empty, StringComparison.Ordinal).Trim();
-    }
+    protected override string NormalizeChapterTitle(string? rawTitle) =>
+        base.NormalizeChapterTitle(rawTitle).Replace("- The Wandering Inn", string.Empty, StringComparison.Ordinal).Trim();
 
     private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
     {
@@ -79,12 +74,12 @@ public class WanderingInnStrategy : ScraperStrategy
 
 public abstract class WanderingInnInitializer : NovelDataInitializer
 {
-    private const string DefaultAuthor = "Pirate Aba";
-    private const string DefaultTitle = "The Wandering Inn";
-    private const string DefaultDescription =
-        "\"No killing Goblins.\"\nSo reads the sign outside of The Wandering Inn, a small building run by a young woman named Erin Solstice. She serves pasta with sausage, blue fruit juice, and dead acid flies on request. And she comes from another world. Ours.\r\n\r\nIt's a bad day when Erin finds herself transported to a fantastical world and nearly gets eaten by a Dragon. She doesn't belong in a place where monster attacks are a fact of life, and where Humans are one species among many. But she must adapt to her new life. Or die.\r\n\r\nIn a dangerous world where magic is real and people can level up and gain classes, Erin Solstice must battle somewhat evil Goblins, deadly Rock Crabs, and hungry [Necromancers]. She is no warrior, no mage. Erin Solstice runs an inn.\nShe's an [Innkeeper].";
+    private const string _defaultAuthor = "Pirate Aba";
+    private const string _defaultTitle = "The Wandering Inn";
+    private const string _defaultDescription =
+        """\"No killing Goblins.\"\nSo reads the sign outside of The Wandering Inn, a small building run by a young woman named Erin Solstice. She serves pasta with sausage, blue fruit juice, and dead acid flies on request. And she comes from another world. Ours.\r\n\r\nIt's a bad day when Erin finds herself transported to a fantastical world and nearly gets eaten by a Dragon. She doesn't belong in a place where monster attacks are a fact of life, and where Humans are one species among many. But she must adapt to her new life. Or die.\r\n\r\nIn a dangerous world where magic is real and people can level up and gain classes, Erin Solstice must battle somewhat evil Goblins, deadly Rock Crabs, and hungry [Necromancers]. She is no warrior, no mage. Erin Solstice runs an inn.\nShe's an [Innkeeper].""";
 
-    private const string DefaultThumbnailUrl = "https://wanderinginn.com/wp-content/uploads/2023/06/book1-768x1229-1-187x300.png";
+    private const string _defaultThumbnailUrl = "https://wanderinginn.com/wp-content/uploads/2023/06/book1-768x1229-1-187x300.png";
 
     public static async Task FetchNovelContentAsync(
         NovelDataBuffer novelDataBuffer,
@@ -105,22 +100,22 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
             await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
         }
 
-
         if (novelDataBuffer.Description.Count == 0)
         {
-            novelDataBuffer.Description.ReplaceWith([DefaultDescription]);
+            novelDataBuffer.Description.ReplaceWith(new List<string> { _defaultDescription });
         }
 
         if (string.IsNullOrWhiteSpace(novelDataBuffer.ThumbnailUrl))
         {
-            novelDataBuffer.ThumbnailUrl = DefaultThumbnailUrl;
+            novelDataBuffer.ThumbnailUrl = _defaultThumbnailUrl;
             try
             {
                 using var client = scraperData.HttpClientFactory?.CreateClient() ?? new HttpClient();
-                novelDataBuffer.SetThumbnailImage(await client.GetByteArrayAsync(DefaultThumbnailUrl).ConfigureAwait(false));
+                novelDataBuffer.SetThumbnailImage(await client.GetByteArrayAsync(_defaultThumbnailUrl).ConfigureAwait(false));
             }
-            catch (Exception)
+            catch
             {
+                // Ignore
             }
         }
 
@@ -135,7 +130,7 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
                 : string.Empty;
         }
 
-        novelDataBuffer.Title = DefaultTitle;
-        novelDataBuffer.Author = DefaultAuthor;
+        novelDataBuffer.Title = _defaultTitle;
+        novelDataBuffer.Author = _defaultAuthor;
     }
 }

@@ -1,30 +1,22 @@
-
 using BennyScraper.DataAccess.Data;
 using BennyScraper.DataAccess.Repository.IRepository;
 using BennyScraper.Models;
 
 namespace BennyScraper.DataAccess.Repository;
 
-public class NovelRepository : Repository<Novel>, INovelRepository
+public class NovelRepository(Database db) : Repository<Novel>(db), INovelRepository
 {
-    private Database _db;
+    private readonly Database _db = db;
 
-    /// <summary>
-    /// Values will be passed in by the UnitOfWork class
-    /// </summary>
-    /// <param name="db"></param>
-    public NovelRepository(Database db) : base(db)
+    public void Update(Novel? obj)
     {
-        _db = db;
+        if (obj == null)
+        {
+            return;
+        }
+
+        _db.Novels.Update(obj);
     }
 
-    public void Update(Novel? novel)
-    {
-        _db.Novels.Update(novel);
-    }
-
-    public void UpdateRange(ICollection<Chapter> chapters)
-    {
-        _db.Chapters.UpdateRange(chapters);
-    }
+    public void UpdateRange(ICollection<Chapter> chapters) => _db.Chapters.UpdateRange(chapters);
 }

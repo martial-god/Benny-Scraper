@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using BennyScraper.BusinessLogic.Extensions;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
@@ -14,7 +15,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
     /// This particular scraper requires Selenium for the Chapter Urls and Nowel Imge Thumbnail.
     /// </summary>
     /// <returns>The populated <see cref="NovelDataBuffer"/> containing the novel's metadata and chapter links.</returns>
-    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="ArgumentNullException">Thrown when SiteTableOfContents is null.</exception>
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
         Logger.Info($"Getting novel data for {GetType().Name}");
@@ -229,20 +230,20 @@ public class WuxiaWorldStrategy : ScraperStrategy
                             NumberStyles.Integer | NumberStyles.AllowThousands,
                             CultureInfo.InvariantCulture,
                             out var spiritStones);
-                        novelDataBuffer.UserPremiumCurrencies.ReplaceWith(
-                        [
-                            new UserPremiumCurrency
+                        novelDataBuffer.UserPremiumCurrencies.ReplaceWith(new List<UserPremiumCurrency>
+                        {
+                            new()
                             {
                                 CurrencyName = ScraperData.SiteConfig.PremiumInfo!.CurrencyName,
                                 Balance = karma
                             },
-                            new UserPremiumCurrency
+                            new()
                             {
                                 CurrencyName = "Spirit Stones",
                                 Balance = spiritStones
                             }
-                        ]);
-                        premiumButton.Click();// close button back.
+                        });
+                        premiumButton.Click(); // close button back.
                         Logger.Info($"User balance - Karma: {karma:N0}, Spirit Stones: {spiritStones:N0}");
                     }
 

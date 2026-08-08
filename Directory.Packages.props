@@ -27,7 +27,6 @@
     <PackageVersion Include="PdfSharp" Version="6.2.4" />
     <PackageVersion Include="Polly" Version="8.7.0" />
     <PackageVersion Include="RecursiveDataAnnotationsValidation" Version="2.2.0" />
-
     <!-- ⚠ PINNED — do NOT bump Selenium.WebDriver past 4.41.0 on its own.
          SeleniumExtras.WaitHelpers 1.0.2 is unmaintained (last released 2019) and was compiled against an
          older WebDriver.dll. A newer Selenium.WebDriver makes every WebDriverWait / ExpectedConditions call
@@ -42,7 +41,7 @@
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageVersion Include="System.Management" Version="10.0.9" />
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.9" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.10" />
     <PackageVersion Include="TextCopy" Version="6.2.1" />
     <PackageVersion Include="WebDriverManager" Version="2.17.7" />
     <!-- Test packages -->

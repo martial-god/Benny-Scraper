@@ -2,67 +2,23 @@ using System.Linq.Expressions;
 
 namespace BennyScraper.DataAccess.Repository.IRepository;
 
-public interface IRepository<GenericDbObject> where GenericDbObject : class // Generic repository where we can pass in any object
+public interface IRepository<T>
+    where T : class // Generic repository where we can pass in any object
 {
-    GenericDbObject GetById(Guid id);
+    Task<T> GetByIdAsync(Guid id);
 
-    Task<GenericDbObject> GetByIdAsync(Guid id, CancellationToken cancellation = default);
+    Task<IEnumerable<T>> GetAllAsync(
+        Expression<Func<T, bool>>? filter = null,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        string? includeProperties = null);
 
-    IEnumerable<GenericDbObject> GetAll(
-        Expression<Func<GenericDbObject, bool>>? filter = null, // filter is a lambda expression
-        Func<IQueryable<GenericDbObject>, IOrderedQueryable<GenericDbObject>>? orderBy = null,
-        string? includeProperties = null
-    );
+    Task<T?> GetFirstOrDefaultAsync(
+        Expression<Func<T, bool>> filter,
+        string? includeProperties = null);
 
-    /// <summary>
-    /// Gets the first or default object from the database
-    /// </summary>
-    /// <param name="filter"></param>
-    /// <param name="orderBy"></param>
-    /// <param name="includeProperties"></param>
-    /// <param name="cancellationToken">Allows the caller to request cancellation of the operation</param>
-    /// <returns></returns>
-    Task<IEnumerable<GenericDbObject>> GetAllAsync(
-        Expression<Func<GenericDbObject, bool>>? filter = null,
-        Func<IQueryable<GenericDbObject>, IOrderedQueryable<GenericDbObject>>? orderBy = null,
-        string? includeProperties = null,
-        CancellationToken cancellationToken = default
-    );
+    Task AddAsync(T entity);
 
-    /// <summary>
-    /// Example: GetFirstOrDefault(x => x.Id == cartId)
-    /// </summary>
-    /// <param name="filter"></param>
-    /// <param name="includeProperties"></param>
-    /// <returns></returns>
-    GenericDbObject GetFirstOrDefault(
-        Expression<Func<GenericDbObject, bool>> filter,
-        string? includeProperties = null
-    );
+    void Remove(T entity);
 
-    Task<GenericDbObject?> GetFirstOrDefaultAsync(
-        Expression<Func<GenericDbObject, bool>> filter,
-        string? includeProperties = null,
-        CancellationToken cancellationToken = default
-    );
-
-    /// <summary>
-    /// Add to the database
-    /// </summary>
-    /// <param name="entity">Object to add to the database</param>
-    void Add(GenericDbObject entity);
-
-    void AddRange(IEnumerable<GenericDbObject> entities);
-
-    Task AddAsync(GenericDbObject entity, CancellationToken cancellationToken = default);
-
-    Task AddRangeAsync(IEnumerable<GenericDbObject> entities, CancellationToken cancellationToken = default);
-
-    void Remove(GenericDbObject entity);
-
-    /// <summary>
-    /// Removes multiple things
-    /// </summary>
-    /// <param name="entity"></param>
-    void RemoveRange(IEnumerable<GenericDbObject> entity);
+    void RemoveRange(IEnumerable<T> entity);
 }

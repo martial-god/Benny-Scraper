@@ -15,7 +15,7 @@ namespace BennyScraper.Tests;
 /// </summary>
 public class ChapterParsingTests
 {
-    private const string RoyalRoadChapter =
+    private const string _royalRoadChapter =
         """
         <html><body>
           <h1>Chapter 1</h1>
@@ -29,53 +29,31 @@ public class ChapterParsingTests
 
     public static TheoryData<ChapterCase> Cases() => new()
     {
-        new ChapterCase
+        new()
         {
             UrlPattern = "royalroad.com",
-            Chapter = RoyalRoadChapter,
+            Chapter = _royalRoadChapter,
             MustContain = "Lorem ipsum dolor sit amet.",
         },
     };
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public void ExtractsChapterContent(ChapterCase site)
+    public void ExtractsChapterContent(ChapterCase chapterCase)
     {
-        var config = TestConfig.LoadSiteConfig(site.UrlPattern);
-        var doc = TestConfig.Parse(site.Chapter);
+        var siteConfig = TestConfig.LoadSiteConfig(chapterCase.UrlPattern);
+        var htmlDocument = TestConfig.Parse(chapterCase.Chapter);
 
-        var contentNodes = doc.DocumentNode.SelectNodes(config.Selectors.ChapterContent);
-        Assert.NotNull(contentNodes);
+        var chapterContentSelector = siteConfig.Selectors.ChapterContent;
+        Assert.NotNull(chapterContentSelector);
+        var chapterContentNodes = htmlDocument.DocumentNode.SelectNodes(chapterContentSelector);
+        Assert.NotNull(chapterContentNodes);
 
-        var text = string.Join("\n", contentNodes!.Select(n => HtmlEntity.DeEntitize(n.InnerText.Trim())));
+        var extractedChapterText = string.Join(
+            "\n",
+            chapterContentNodes.Select(chapterContentNode => HtmlEntity.DeEntitize(chapterContentNode.InnerText.Trim())));
 
-        Assert.Contains(site.MustContain, text);
-        Assert.Contains("an & entity.", text); // "&amp;" decoded
+        Assert.Contains(chapterCase.MustContain, extractedChapterText, StringComparison.Ordinal);
+        Assert.Contains("an & entity.", extractedChapterText, StringComparison.Ordinal); // "&amp;" decoded
     }
-}
-
-/// <summary>One row of <see cref="ChapterParsingTests"/>: a synthetic chapter page and a phrase it should yield.</summary>
-public sealed class ChapterCase : IXunitSerializable
-{
-    public string UrlPattern { get; set; } = "";
-
-    public string Chapter { get; set; } = "";
-
-    public string MustContain { get; set; } = "";
-
-    public void Serialize(IXunitSerializationInfo info)
-    {
-        info.AddValue(nameof(UrlPattern), UrlPattern);
-        info.AddValue(nameof(Chapter), Chapter);
-        info.AddValue(nameof(MustContain), MustContain);
-    }
-
-    public void Deserialize(IXunitSerializationInfo info)
-    {
-        UrlPattern = info.GetValue<string>(nameof(UrlPattern));
-        Chapter = info.GetValue<string>(nameof(Chapter));
-        MustContain = info.GetValue<string>(nameof(MustContain));
-    }
-
-    public override string ToString() => UrlPattern;
 }

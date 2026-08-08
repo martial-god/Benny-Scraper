@@ -29,26 +29,26 @@ internal static class TestConfig
 
     public static HtmlDocument Parse(string html)
     {
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-        return doc;
+        var htmlDocument = new HtmlDocument();
+        htmlDocument.LoadHtml(html);
+        return htmlDocument;
     }
+
+    public static SiteConfiguration LoadSiteConfig(string urlPattern) =>
+        LoadSettings().SiteConfigurations.First(siteConfiguration => siteConfiguration.UrlPattern == urlPattern);
 
     /// <summary>All site selector configs from appsettings.json.</summary>
     private static NovelScraperSettings LoadSettings()
     {
-        var config = new ConfigurationBuilder()
+        var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json")
             .Build();
 
-        var settings = config.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
-        Assert.NotNull(settings);
-        return settings!;
+        var novelScraperSettings = configuration.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
+        Assert.NotNull(novelScraperSettings);
+        return novelScraperSettings;
     }
-
-    public static SiteConfiguration LoadSiteConfig(string urlPattern) =>
-        LoadSettings().SiteConfigurations.First(c => c.UrlPattern == urlPattern);
 
     /// <summary>
     /// The real base URL for a site, taken from <see cref="NovelScraper"/> — the source of truth for
@@ -58,7 +58,7 @@ internal static class TestConfig
     private static Uri ResolveBaseUri(string urlPattern)
     {
         var baseUrl = new NovelScraper().GetSupportedSites()
-            .FirstOrDefault(s => s.Contains(urlPattern, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(supportedSite => supportedSite.Contains(urlPattern, StringComparison.OrdinalIgnoreCase));
 
         Assert.True(
             baseUrl is not null,

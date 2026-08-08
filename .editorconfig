@@ -131,6 +131,24 @@ dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_style.underscore_camel.required_prefix = _
 dotnet_naming_style.underscore_camel.capitalization = camel_case
 
+# Exclude Tests
+[Benny-Scraper.Tests/**.cs]
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1515.severity = none
+
+# Exclude Program.cs
+[Benny-Scraper/Program.cs]
+dotnet_diagnostic.CA2007.severity = none
+
+# Exclude Migrations
+[Benny-Scraper.DataAccess/Migrations/**.cs]
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.SA1122.severity = none
+dotnet_diagnostic.SA1300.severity = none
+dotnet_diagnostic.CA1825.severity = none
+
+
 # ===================================================================
 # Scraper strategies: Strategy + Initializer pair is a deliberate one-file-per-site
 # convention (see CLAUDE.md "Strategy + Initializer pair") — the XyzInitializer lives

@@ -13,12 +13,12 @@ public class ChapterRepository(Database db) : Repository<Chapter>(db), IChapterR
 
     public void AddRange(ICollection<Chapter> chapters) => _db.Chapters.AddRange(chapters);
 
-    public Chapter GetLastSavedChapterAsyncByNovelId(Guid novelId)
+    public async Task<Chapter> GetLastSavedChapterAsyncByNovelId(Guid novelId)
     {
-        return _db.Chapters
+        return await _db.Chapters
             .AsNoTracking()
             .Where(c => c.NovelId == novelId)
             .OrderByDescending(c => c.DateLastModified)
-            .First();
+            .FirstAsync().ConfigureAwait(false);
     }
 }

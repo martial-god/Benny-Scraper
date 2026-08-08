@@ -1,4 +1,7 @@
 // ReSharper disable LocalizableElement
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
 using Autofac;
 using BennyScraper.BusinessLogic;
 using BennyScraper.BusinessLogic.Config;
@@ -11,7 +14,7 @@ using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Interfaces;
 using BennyScraper.BusinessLogic.Scrapers.Strategy;
 using BennyScraper.BusinessLogic.Services;
-using BennyScraper.BusinessLogic.Services.Interface;
+using BennyScraper.BusinessLogic.Services.Interfaces;
 using BennyScraper.BusinessLogic.Utilities;
 using BennyScraper.DataAccess.Data;
 using BennyScraper.DataAccess.DbInitializer;
@@ -24,23 +27,18 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NLog.Targets;
-using System.Diagnostics;
-using System.Text;
 using LogLevel = NLog.LogLevel;
 
 namespace BennyScraper;
 
-internal class Program
+internal static class Program
 {
-    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+    private const int _defaultConfigId = 1;
+    private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
     private static IContainer? Container { get; set; }
 
-    private const string AreYouSure = "Are you sure you want to {0}? (y/n)";
-
     private static IConfiguration? Configuration { get; set; }
-
-    private const int DefaultConfigId = 1;
 
     // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
     private static async Task Main(string[] args)
@@ -49,22 +47,23 @@ internal class Program
         SetupLogger(LogLevel.Info);
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         SQLitePCL.Batteries.Init();
-        Configuration = BuildConfiguration();
+        var configuration = BuildConfiguration();
+        Configuration = configuration;
 
         var builder = new ContainerBuilder();
-        ConfigureServices(builder);
+        ConfigureServices(builder, configuration);
         Container = builder.Build();
 
         // Ensure Selenium drivers (and other unmanaged resources) are disposed even on crash/exit.
-        ShutdownHooks.Register(Container.Resolve<IDriverFactory>());
+        ShutdownHooks.Register(Container!.Resolve<IDriverFactory>());
 
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var dbInitializer = scope.Resolve<DbInitializer>();
         var dbChangesMade = dbInitializer.Initialize();
 
         if (dbChangesMade)
         {
-            Logger.Info("Database Initialized");
+            _logger.Info("Database Initialized");
         }
 
         if (args.Length > 0)
@@ -73,14 +72,16 @@ internal class Program
         }
         else
         {
-            Logger.Info("Application Started");
-            await RunAsync();
+            _logger.Info("Application Started");
+            await RunAsync(Container);
         }
     }
 
-    private static async Task RunAsync()
+    private static async Task RunAsync(IContainer? container)
     {
-        await using var scope = Container.BeginLifetimeScope();
+        ArgumentNullException.ThrowIfNull(container, nameof(container));
+
+        await using var scope = Container!.BeginLifetimeScope();
         var logger = NLog.LogManager.GetCurrentClassLogger();
 
         // Display supported sites with ASCII art
@@ -151,13 +152,13 @@ internal class Program
             }
 
             // Check if user wants to test all sites
-            if (siteUrl.ToLowerInvariant() == "test-all")
+            if (string.Equals(siteUrl, "test-all", StringComparison.OrdinalIgnoreCase))
             {
                 await TestAllSitesAsync();
                 continue;
             }
 
-            if (!Uri.TryCreate(siteUrl, UriKind.Absolute, out Uri novelTableOfContentUri))
+            if (!Uri.TryCreate(siteUrl, UriKind.Absolute, out Uri? novelTableOfContentUri))
             {
                 Console.WriteLine("Invalid URL. Please enter a valid URL.");
                 continue;
@@ -169,9 +170,9 @@ internal class Program
             {
                 await novelProcessor.ProcessNovelAsync(novelTableOfContentUri);
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Chrome browser version mismatch"))
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Chrome browser version mismatch", StringComparison.OrdinalIgnoreCase))
             {
-                Logger.Error($"Chrome version mismatch: {ex.Message}");
+                _logger.Error($"Chrome version mismatch: {ex.Message}");
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(new string('═', 78));
@@ -195,12 +196,12 @@ internal class Program
             }
             catch (Exception ex)
             {
-                Logger.Error($"Exception when trying to process novel. {ex}");
+                _logger.Error($"Exception when trying to process novel. {ex}");
             }
 
             stopwatch.Stop();
             var elapsedTime = stopwatch.Elapsed;
-            Logger.Info($"Elapsed time: {elapsedTime}");
+            _logger.Info($"Elapsed time: {elapsedTime}");
         }
     }
 
@@ -209,8 +210,7 @@ internal class Program
         var result = Parser.Default.ParseArguments<CommandLineOptions>(args);
         await result.MapResult(
             async options => await HandleOptionsAsync(options),
-            HandleParseErrors
-        );
+            HandleParseErrors);
     }
 
     private static async Task HandleOptionsAsync(CommandLineOptions options)
@@ -225,8 +225,7 @@ internal class Program
         }
         else if (options.ClearDatabase)
         {
-            var userQuery = string.Format(AreYouSure, "clear the database");
-            Console.WriteLine(userQuery);
+            Console.WriteLine("Are you sure you want to clear the database? (y/n)");
             var confirmation = Console.ReadLine();
             if (confirmation?.ToLowerInvariant() == "y")
             {
@@ -277,7 +276,7 @@ internal class Program
         {
             await SetNovelSaveLocationAsync(options.NovelSaveLocation);
         }
-        else if (options.MangaExtension >= 0 && options.MangaExtension < Enum.GetNames(typeof(FileExtension)).Length)
+        else if (options.MangaExtension >= 0 && options.MangaExtension < Enum.GetNames<FileExtension>().Length)
         {
             var extension = (int)options.MangaExtension;
             await SetDefaultMangaExtensionAsync(extension);
@@ -289,7 +288,7 @@ internal class Program
         }
         else if (!string.IsNullOrEmpty(options.TestSite))
         {
-            if (Uri.TryCreate(options.TestSite, UriKind.Absolute, out Uri testUri))
+            if (Uri.TryCreate(options.TestSite, UriKind.Absolute, out Uri? testUri))
             {
                 await TestSiteConnectivityAsync(testUri);
             }
@@ -312,7 +311,7 @@ internal class Program
         }
         else if (!string.IsNullOrEmpty(options.TestInteractive))
         {
-            if (Uri.TryCreate(options.TestInteractive, UriKind.Absolute, out Uri testUri))
+            if (Uri.TryCreate(options.TestInteractive, UriKind.Absolute, out Uri? testUri))
             {
                 await RunInteractiveTestAsync(testUri);
             }
@@ -346,15 +345,15 @@ internal class Program
             // Handle URL with optional chapter range
             if (Uri.TryCreate(options.Url, UriKind.Absolute, out var novelUri))
             {
-                await using var scope = Container.BeginLifetimeScope();
+                await using var scope = Container!.BeginLifetimeScope();
                 var novelProcessor = scope.Resolve<INovelProcessor>();
                 try
                 {
                     await novelProcessor.ProcessNovelAsync(novelUri, options.BeginChapter, options.EndChapter, options.WithLogin);
                 }
-                catch (InvalidOperationException ex) when (ex.Message.Contains("Chrome browser version mismatch"))
+                catch (InvalidOperationException ex) when (ex.Message.Contains("Chrome browser version mismatch", StringComparison.OrdinalIgnoreCase))
                 {
-                    Logger.Error($"Chrome version mismatch: {ex.Message}");
+                    _logger.Error($"Chrome version mismatch: {ex.Message}");
                     Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(new string('═', 78));
@@ -378,7 +377,7 @@ internal class Program
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"Exception when trying to process novel with chapter range. {ex}");
+                    _logger.Error($"Exception when trying to process novel with chapter range. {ex}");
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"Error processing novel: {ex.Message}");
                     Console.ResetColor();
@@ -402,13 +401,14 @@ internal class Program
             return;
         }
 
-        var scope = Container.BeginLifetimeScope();
+        var scope = Container!.BeginLifetimeScope();
         var novelService = scope.Resolve<INovelService>();
         var novelProcessor = scope.Resolve<INovelProcessor>();
-        var updatedNovels = new List<(int, string novelName)>();
-        var failedToUpdate = new List<(int, string novelName)>();
+        var updatedNovels = new List<(int, string NovelName)>();
+        var failedToUpdate = new List<(int, string NovelName)>();
         var novels = await novelService.GetAllAsync();
         var nonCompletedNovels = novels.Where(novel => !novel.LastChapter).ToList(); // issue with mangareader.to
+
         // change default log level to error
         SetupLogger(LogLevel.Error);
         var count = 0;
@@ -427,7 +427,7 @@ internal class Program
             }
             catch (Exception ex)
             {
-                Logger.Error($"Exception when trying to update novel. {ex.Message}");
+                _logger.Error($"Exception when trying to update novel. {ex.Message}");
                 failedToUpdate.Add((count, novel.Title));
             }
         }
@@ -436,18 +436,18 @@ internal class Program
         foreach (var updateNovel in updatedNovels)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"{updateNovel.Item1}) {updateNovel.novelName}");
+            Console.WriteLine($"{updateNovel.Item1}) {updateNovel.NovelName}");
         }
 
         Console.ResetColor();
         Console.WriteLine($"Failed novels: {failedToUpdate.Count}");
-        if (failedToUpdate.Any())
+        if (failedToUpdate.Count > 0)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("Failed to update novels:");
             foreach (var failedNovel in failedToUpdate)
             {
-                Console.WriteLine($"{failedNovel.Item1}) {failedNovel.novelName}");
+                Console.WriteLine($"{failedNovel.Item1}) {failedNovel.NovelName}");
             }
 
             Console.ResetColor();
@@ -479,7 +479,7 @@ internal class Program
             return;
         }
 
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var novelService = scope.Resolve<INovelService>();
 
         var novels = await novelService.GetAllAsync();
@@ -494,7 +494,7 @@ internal class Program
         if (!string.IsNullOrEmpty(searchKeyWord))
         {
             novels = novels.Where(novel =>
-                novel.Title.Contains(searchKeyWord, StringComparison.InvariantCultureIgnoreCase));
+                novel.Title.Contains(searchKeyWord, StringComparison.InvariantCultureIgnoreCase)).ToList();
         }
 
         if (!novels.Any())
@@ -504,9 +504,9 @@ internal class Program
         }
 
         var paginatedNovels = novels.Skip((page - 1) * itemsPerPage).Take(itemsPerPage);
-        var totalPages = (int)Math.Ceiling((double)novels.Count / itemsPerPage);
+        var totalPages = (int)Math.Ceiling((double)novels.Count() / itemsPerPage);
 
-        var maxNoLength = novels.Count.ToString().Length + 3;  // "3" accounts for ")."
+        var maxNoLength = novels.Count().ToString(CultureInfo.InvariantCulture).Length + 3;  // "3" accounts for ")."
         var maxIdLength = novels.Max(novel => novel.Id.ToString().Length);
         var maxChapterLength = novels.Max(novel => novel.CurrentChapter?.Length ?? 0);  // New line for max chapter length
         var maxFileTypeLength = novels.Max(novel => novel.FileType.ToString().Length + 3); // +3 for " []"
@@ -547,9 +547,8 @@ internal class Program
             }
         }
 
-
         Console.WriteLine();
-        Console.WriteLine($"Total: {novels.Count}   Novels Completed: {novels.Count(novel => novel.LastChapter == true)}");
+        Console.WriteLine($"Total: {novels.Count()}   Novels Completed: {novels.Count(novel => novel.LastChapter)}");
 
         if (totalPages == 1)
         {
@@ -621,13 +620,12 @@ internal class Program
             return title;
         }
 
-        return title.Substring(0, maxLength - 3) + "..."; // -3 to account for "..."
+        return string.Concat(title.AsSpan(0, maxLength - 3), "..."); // -3 to account for "..."
     }
-
 
     private static async Task ClearDatabaseAsync()
     {
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var logger = NLog.LogManager.GetCurrentClassLogger();
         var novelService = scope.Resolve<INovelService>();
 
@@ -638,7 +636,7 @@ internal class Program
 
     private static async Task DeleteNovelByIdAsync(Guid id)
     {
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var novelService = scope.Resolve<INovelService>();
         var novel = await novelService.GetByIdAsync(id);
         if (novel == null)
@@ -647,23 +645,23 @@ internal class Program
         }
         else
         {
-            Logger.Info($"Deleting novel {novel.Title} with id {id}");
+            _logger.Info($"Deleting novel {novel.Title} with id {id}");
             await novelService.RemoveByIdAsync(id);
-            Logger.Info($"Novel with id: {id} deleted.");
+            _logger.Info($"Novel with id: {id} deleted.");
         }
     }
 
     private static async Task SetDefaultMangaExtensionAsync(int extension)
     {
-        var totalExtensions = Enum.GetNames(typeof(FileExtension)).Length;
+        var totalExtensions = Enum.GetNames<FileExtension>().Length;
         if (extension > totalExtensions)
         {
             Console.WriteLine("Invalid extension. Please enter a value between 1 and " + totalExtensions);
         }
 
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var configurationRepository = scope.Resolve<IConfigurationRepository>();
-        var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+        var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
         configuration.DefaultMangaFileExtension = (FileExtension)extension;
         configurationRepository.Update(configuration);
         Console.WriteLine($"Default manga extension updated: {configuration.DefaultMangaFileExtension}");
@@ -671,10 +669,10 @@ internal class Program
 
     private static async Task GetDefaultMangaExtensionAsync()
     {
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var configurationRepository = scope.Resolve<IConfigurationRepository>();
-        var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
-        var extensions = Enum.GetValues(typeof(FileExtension)).Cast<FileExtension>().ToList();
+        var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
+        var extensions = Enum.GetValues<FileExtension>().ToList();
         Console.WriteLine($"Default manga extension: {configuration.DefaultMangaFileExtension}");
         Console.ForegroundColor = ConsoleColor.Magenta;
         Console.WriteLine($"Available extensions: {string.Join(", ", extensions)}");
@@ -685,15 +683,15 @@ internal class Program
     {
         try
         {
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var configurationRepository = scope.Resolve<IConfigurationRepository>();
             var novelService = scope.Resolve<INovelService>();
-            var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+            var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
             var epubGenerator = scope.Resolve<IEpubGenerator>();
             var novel = await novelService.GetByIdAsync(id);
             if (novel != null)
             {
-                Logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
+                _logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
                 var chapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters).ToList();
                 var safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
                 var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
@@ -703,20 +701,20 @@ internal class Program
             }
             else
             {
-                Logger.Error($"Novel with id {id} not found.");
+                _logger.Error($"Novel with id {id} not found.");
             }
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to recreate novel. {ex.Message}");
+            _logger.Error($"Exception when trying to recreate novel. {ex.Message}");
         }
     }
 
     private static async Task GetConcurrentRequestsAsync()
     {
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var configurationRepository = scope.Resolve<IConfigurationRepository>();
-        var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+        var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
         Console.WriteLine($"Concurrent request limit: {configuration.ConcurrencyLimit}");
     }
 
@@ -724,16 +722,16 @@ internal class Program
     {
         try
         {
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var configurationRepository = scope.Resolve<IConfigurationRepository>();
-            var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+            var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
             configuration.ConcurrencyLimit = concurrentRequests;
             configurationRepository.Update(configuration);
             Console.WriteLine($"Concurrent requests updated: {configuration.ConcurrencyLimit}");
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to set concurrent requests. {ex.Message}");
+            _logger.Error($"Exception when trying to set concurrent requests. {ex.Message}");
         }
     }
 
@@ -743,9 +741,9 @@ internal class Program
         {
             if (Directory.Exists(saveLocation))
             {
-                await using var scope = Container.BeginLifetimeScope();
+                await using var scope = Container!.BeginLifetimeScope();
                 var configurationRepository = scope.Resolve<IConfigurationRepository>();
-                var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+                var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
                 configuration.SaveLocation = saveLocation;
                 configurationRepository.Update(configuration);
                 Console.WriteLine($"Save location updated: {configuration.SaveLocation}");
@@ -757,7 +755,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to set save location. {ex.Message}");
+            _logger.Error($"Exception when trying to set save location. {ex.Message}");
         }
     }
 
@@ -767,9 +765,9 @@ internal class Program
         {
             if (Directory.Exists(saveLocation))
             {
-                await using var scope = Container.BeginLifetimeScope();
+                await using var scope = Container!.BeginLifetimeScope();
                 var configurationRepository = scope.Resolve<IConfigurationRepository>();
-                var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+                var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
                 configuration.MangaSaveLocation = saveLocation;
                 configurationRepository.Update(configuration);
                 Console.WriteLine($"Manga save location updated: {configuration.MangaSaveLocation}");
@@ -781,7 +779,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to set manga save location. {ex.Message}");
+            _logger.Error($"Exception when trying to set manga save location. {ex.Message}");
         }
     }
 
@@ -791,9 +789,9 @@ internal class Program
         {
             if (Directory.Exists(saveLocation))
             {
-                await using var scope = Container.BeginLifetimeScope();
+                await using var scope = Container!.BeginLifetimeScope();
                 var configurationRepository = scope.Resolve<IConfigurationRepository>();
-                var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+                var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
                 configuration.NovelSaveLocation = saveLocation;
                 configurationRepository.Update(configuration);
                 Console.WriteLine($"Novel save location updated: {configuration.NovelSaveLocation}");
@@ -805,7 +803,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to set novel save location. {ex.Message}");
+            _logger.Error($"Exception when trying to set novel save location. {ex.Message}");
         }
     }
 
@@ -813,9 +811,9 @@ internal class Program
     {
         try
         {
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var configurationRepository = scope.Resolve<IConfigurationRepository>();
-            var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+            var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
             configuration.SaveAsSingleFile = singleFile;
             configurationRepository.Update(configuration);
             Console.WriteLine(configuration.SaveAsSingleFile
@@ -824,7 +822,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to set single file. {ex.Message}");
+            _logger.Error($"Exception when trying to set single file. {ex.Message}");
         }
     }
 
@@ -842,8 +840,12 @@ internal class Program
 
         try
         {
-            var novelScraperSettings = Configuration.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
-            var siteConfig = novelScraperSettings?.SiteConfigurations?.FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern));
+            var novelScraperSettings = Configuration!.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
+            var siteConfig = novelScraperSettings?.SiteConfigurations?.FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
+            if (siteConfig != null)
+            {
+                throw new InvalidOperationException($"");
+            }
 
             // Guard: Check for inactive site first
             if (siteConfig is { IsActive: false })
@@ -857,8 +859,8 @@ internal class Program
                 return;
             }
 
-            var httpClientFactory = new HttpClientFactory();
-            var testStrategy = new TestStrategy(httpClientFactory);
+            using var httpClientFactory = new HttpClientFactory();
+            using var testStrategy = new TestStrategy(httpClientFactory);
 
             var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await testStrategy.TestLoadHtmlAsync(testUri);
 
@@ -870,7 +872,7 @@ internal class Program
             }
 
             // Failed to fetch - handle error cases
-            HandleFailedTestConnection(statusCode, cloudflareDetected, siteConfig);
+            HandleFailedTestConnection(statusCode, cloudflareDetected, siteConfig!);
         }
         catch (Exception ex)
         {
@@ -878,7 +880,7 @@ internal class Program
             Console.WriteLine($"✗ Error during test: {ex.Message}");
             Console.WriteLine("Check the logs for detailed error information.");
             Console.ResetColor();
-            Logger.Error($"Test site connectivity error: {ex}");
+            _logger.Error($"Test site connectivity error: {ex}");
         }
 
         Console.WriteLine($"\n{'='}{new string('=', 60)}\n");
@@ -888,8 +890,8 @@ internal class Program
     {
         try
         {
-            var httpClientFactory = new HttpClientFactory();
-            var testStrategy = new TestStrategy(httpClientFactory);
+            using var httpClientFactory = new HttpClientFactory();
+            using var testStrategy = new TestStrategy(httpClientFactory);
             await testStrategy.RunInteractiveTestAsync(testUri);
         }
         catch (Exception ex)
@@ -897,7 +899,7 @@ internal class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ Error during interactive test: {ex.Message}");
             Console.ResetColor();
-            Logger.Error($"Interactive test error: {ex}");
+            _logger.Error($"Interactive test error: {ex}");
         }
     }
 
@@ -905,6 +907,8 @@ internal class Program
     {
         try
         {
+            ArgumentNullException.ThrowIfNull(url);
+
             var parts = testField.Split(':', 2);
             if (parts.Length != 2)
             {
@@ -919,7 +923,7 @@ internal class Program
             var fieldName = parts[0].Trim();
             var xpath = parts[1].Trim();
 
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri testUri))
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? testUri))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("✗ Invalid URL provided");
@@ -927,9 +931,9 @@ internal class Program
                 return;
             }
 
-            var httpClientFactory = new HttpClientFactory();
+            using var httpClientFactory = new HttpClientFactory();
             var driverFactory = new DriverFactory();
-            var testStrategy = new TestStrategy(httpClientFactory, driverFactory);
+            using var testStrategy = new TestStrategy(httpClientFactory, driverFactory);
             await testStrategy.TestSingleFieldAsync(testUri, fieldName, xpath, useSelenium, headless);
         }
         catch (Exception ex)
@@ -937,7 +941,7 @@ internal class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ Error during field test: {ex.Message}");
             Console.ResetColor();
-            Logger.Error($"Field test error: {ex}");
+            _logger.Error($"Field test error: {ex}");
         }
     }
 
@@ -945,7 +949,7 @@ internal class Program
     {
         try
         {
-            var novelScraperSettings = Configuration.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
+            var novelScraperSettings = Configuration?.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
             var siteConfig = novelScraperSettings?.SiteConfigurations?.FirstOrDefault(config =>
                 config.Name.Equals(configName, StringComparison.OrdinalIgnoreCase));
 
@@ -966,7 +970,7 @@ internal class Program
             Console.Write("Enter test URL for this site: ");
             var urlInput = Console.ReadLine()?.Trim();
 
-            if (string.IsNullOrEmpty(urlInput) || !Uri.TryCreate(urlInput, UriKind.Absolute, out Uri testUri))
+            if (string.IsNullOrEmpty(urlInput) || !Uri.TryCreate(urlInput, UriKind.Absolute, out Uri? testUri))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("✗ Invalid URL provided");
@@ -974,8 +978,8 @@ internal class Program
                 return;
             }
 
-            var httpClientFactory = new HttpClientFactory();
-            var testStrategy = new TestStrategy(httpClientFactory);
+            using var httpClientFactory = new HttpClientFactory();
+            using var testStrategy = new TestStrategy(httpClientFactory);
             await testStrategy.ValidateConfigAsync(siteConfig, testUri);
         }
         catch (Exception ex)
@@ -983,7 +987,7 @@ internal class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ Error validating configuration: {ex.Message}");
             Console.ResetColor();
-            Logger.Error($"Config validation error: {ex}");
+            _logger.Error($"Config validation error: {ex}");
         }
     }
 
@@ -991,10 +995,10 @@ internal class Program
     {
         try
         {
-            var novelScraperSettings = Configuration.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
+            var novelScraperSettings = Configuration?.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
             var activeConfigs = novelScraperSettings?.SiteConfigurations?.Where(c => c.IsActive).ToList();
 
-            if (activeConfigs == null || !activeConfigs.Any())
+            if (activeConfigs == null || activeConfigs.Count == 0)
             {
                 Console.WriteLine("No active site configurations found.");
                 return;
@@ -1003,8 +1007,8 @@ internal class Program
             Console.WriteLine($"\nFound {activeConfigs.Count} active site configurations");
             Console.WriteLine("This will test each site. You'll need to provide a test URL for each.\n");
 
-            var httpClientFactory = new HttpClientFactory();
-            var testStrategy = new TestStrategy(httpClientFactory);
+            using var httpClientFactory = new HttpClientFactory();
+            using var testStrategy = new TestStrategy(httpClientFactory);
 
             foreach (var siteConfig in activeConfigs)
             {
@@ -1022,7 +1026,7 @@ internal class Program
                     continue;
                 }
 
-                if (!Uri.TryCreate(urlInput, UriKind.Absolute, out Uri testUri))
+                if (!Uri.TryCreate(urlInput, UriKind.Absolute, out Uri? testUri))
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("✗ Invalid URL, skipping this site");
@@ -1042,7 +1046,7 @@ internal class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ Error validating configurations: {ex.Message}");
             Console.ResetColor();
-            Logger.Error($"Validate all configs error: {ex}");
+            _logger.Error($"Validate all configs error: {ex}");
         }
     }
 
@@ -1063,7 +1067,7 @@ internal class Program
             var description = descNode.Attributes["content"].Value;
             if (description.Length > 100)
             {
-                description = description.Substring(0, 100) + "...";
+                description = $"{description[..100]}...";
             }
 
             Console.WriteLine($"Description: {description}");
@@ -1123,17 +1127,17 @@ internal class Program
             return;
         }
 
-        if (statusCode == 404)
+        switch (statusCode)
         {
-            Console.WriteLine("Page not found.");
-        }
-        else if (statusCode >= 500)
-        {
-            Console.WriteLine("Server error.");
-        }
-        else
-        {
-            Console.WriteLine("This site may require additional bypass techniques or Selenium.");
+            case 404:
+                Console.WriteLine("Page not found.");
+                break;
+            case >= 500:
+                Console.WriteLine("Server error.");
+                break;
+            default:
+                Console.WriteLine("This site may require additional bypass techniques or Selenium.");
+                break;
         }
 
         Console.ResetColor();
@@ -1186,6 +1190,7 @@ internal class Program
                 Console.WriteLine("  Set \"entireSiteRequiresSelenium\": true");
                 Console.ResetColor();
                 return;
+
             // Handle no Cloudflare protection configured
             case null:
                 Console.ForegroundColor = ConsoleColor.Magenta;
@@ -1198,9 +1203,6 @@ internal class Program
         }
     }
 
-    /// <summary>
-    /// Displays all supported websites for scraping with ASCII art header.
-    /// </summary>
     private static void DisplayTestableFields()
     {
         var tocFields = new[] { "Title", "Author", "Description", "Genres", "Status", "AlternativeNames", "Thumbnail", "ChapterLinks", "NovelRating", "TotalRatings", "ChapterTitleInToc" };
@@ -1209,18 +1211,18 @@ internal class Program
         var messages = new List<string>
         {
             "TESTABLE FIELDS",
-            "",
+            string.Empty,
             "Table of Contents (use TOC URL)",
-            ""
+            string.Empty,
         };
         messages.AddRange(tocFields.Select(f => $"  {f}"));
-        messages.Add("");
+        messages.Add(string.Empty);
         messages.Add("Chapter (use chapter URL)");
-        messages.Add("");
+        messages.Add(string.Empty);
         messages.AddRange(chapterFields.Select(f => $"  {f}"));
-        messages.Add("");
+        messages.Add(string.Empty);
         messages.Add("Note: ChapterTitleInToc uses a relative XPath evaluated per chapter link");
-        messages.Add("");
+        messages.Add(string.Empty);
         messages.Add("Usage: --test-field \"FieldName:XPath\" <URL>");
 
         CommonHelper.DrawBox(messages.ToArray(), ConsoleColor.Cyan);
@@ -1265,15 +1267,12 @@ internal class Program
         Console.WriteLine();
     }
 
-    /// <summary>
-    /// Tests connectivity to all supported sites configured in the application.
-    /// </summary>
     private static async Task TestAllSitesAsync()
     {
         NovelScraper httpNovelScraper = new();
         var supportedSites = httpNovelScraper.GetSupportedSites();
 
-        var novelScraperSettings = Configuration.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
+        var novelScraperSettings = Configuration?.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
 
         Console.WriteLine($"\n{'='}{new string('=', 60)}");
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -1281,7 +1280,7 @@ internal class Program
         Console.ResetColor();
         Console.WriteLine($"{'='}{new string('=', 60)}\n");
 
-        var results = new List<(string site, bool success, string error, bool cloudflareDetected, bool needsConfigUpdate, bool isInactive)>();
+        var results = new List<(string Site, bool Success, string Error, bool CloudflareDetected, bool NeedsConfigUpdate, bool IsInactive)>();
 
         foreach (var site in supportedSites)
         {
@@ -1291,23 +1290,24 @@ internal class Program
 
             try
             {
-                if (!Uri.TryCreate(site, UriKind.Absolute, out Uri testUri))
+                if (!Uri.TryCreate(site, UriKind.Absolute, out Uri? testUri))
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"  ✗ FAILED - Invalid URI");
                     Console.ResetColor();
-                    results.Add((site, false, "Invalid URI", false, false, false));
+                    results.Add((Site: site, Success: false, Error: "Invalid URI", CloudflareDetected: false, NeedsConfigUpdate: false, IsInactive: false));
                     Console.WriteLine();
                     await Task.Delay(500);
                     continue;
                 }
 
-                var siteConfig = novelScraperSettings?.SiteConfigurations?.FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern));
+                var siteConfig = novelScraperSettings?.SiteConfigurations?
+                    .FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
 
                 if (siteConfig is { IsActive: false })
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Console.WriteLine($"  ⊘ INACTIVE - Site has been shut down or is no longer supported");
+                    Console.WriteLine("  ⊘ INACTIVE - Site has been shut down or is no longer supported");
                     Console.ResetColor();
                     results.Add((site, false, "Site inactive", false, false, true));
                     Console.WriteLine();
@@ -1315,8 +1315,8 @@ internal class Program
                     continue;
                 }
 
-                var httpClientFactory = new HttpClientFactory();
-                var testStrategy = new TestStrategy(httpClientFactory);
+                using var httpClientFactory = new HttpClientFactory();
+                using var testStrategy = new TestStrategy(httpClientFactory);
 
                 var (htmlDocument, _, statusCode, cloudflareDetected) = await testStrategy.TestLoadHtmlAsync(testUri);
 
@@ -1328,10 +1328,10 @@ internal class Program
                     var title = titleNode != null ? titleNode.InnerText.Trim() : "No title";
 
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"  ✓ SUCCESS ({statusCode}) - Title: {(title.Length > 50 ? title.Substring(0, 50) + "..." : title)}");
+                    Console.WriteLine($"  ✓ SUCCESS ({statusCode}) - Title: {(title.Length > 50 ? string.Concat(title.AsSpan(0, 50), "...") : title)}");
                     Console.ResetColor();
 
-                    results.Add((site, true, "", false, false, false));
+                    results.Add((site, true, string.Empty, false, false, false));
                     Console.WriteLine();
                     await Task.Delay(500);
                     continue;
@@ -1346,7 +1346,7 @@ internal class Program
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine($"  ✗ FAILED - {errorMsg} (Cloudflare detected)");
 
-                    if (siteConfig.CloudflareProtection == CloudflareProtectionLevel.Detected)
+                    if (siteConfig?.CloudflareProtection == CloudflareProtectionLevel.Detected)
                     {
                         Console.ForegroundColor = ConsoleColor.Magenta;
                         Console.WriteLine($"    → Escalate: Change \"cloudflareProtection\": \"detected\" to \"jschallenge\" for '{siteConfig.Name}'");
@@ -1354,7 +1354,7 @@ internal class Program
                     else if (needsConfigUpdate)
                     {
                         Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.WriteLine($"    → Update appsettings.json: Set \"cloudflareProtection\": \"jschallenge\" for '{siteConfig.Name}'");
+                        Console.WriteLine($"    → Update appsettings.json: Set \"cloudflareProtection\": \"jschallenge\" for '{siteConfig?.Name}'");
                     }
                 }
                 else
@@ -1364,7 +1364,7 @@ internal class Program
 
                 Console.ResetColor();
 
-                results.Add((site, false, errorMsg, cloudflareDetected: cloudflareDetected, needsConfigUpdate, false));
+                results.Add((site, false, errorMsg, cloudflareDetected, needsConfigUpdate, false));
             }
             catch (Exception ex)
             {
@@ -1377,7 +1377,6 @@ internal class Program
 
             Console.WriteLine();
 
-            // Small delay between requests to avoid rate limiting
             await Task.Delay(500);
         }
 
@@ -1388,11 +1387,11 @@ internal class Program
         Console.ResetColor();
         Console.WriteLine($"{'='}{new string('=', 60)}\n");
 
-        var successCount = results.Count(r => r.success);
-        var inactiveCount = results.Count(r => r.isInactive);
-        var failCount = results.Count(r => r is { success: false, isInactive: false });
-        var cloudflareBlockedCount = results.Count(r => r is { success: false, cloudflareDetected: true, isInactive: false });
-        var needsConfigUpdateCount = results.Count(r => r.needsConfigUpdate);
+        var successCount = results.Count(r => r.Success);
+        var inactiveCount = results.Count(r => r.IsInactive);
+        var failCount = results.Count(r => r is { Success: false, IsInactive: false });
+        var cloudflareBlockedCount = results.Count(r => r is { Success: false, CloudflareDetected: true, IsInactive: false });
+        var needsConfigUpdateCount = results.Count(r => r.NeedsConfigUpdate);
 
         Console.WriteLine($"Total Sites: {results.Count}");
         Console.ForegroundColor = ConsoleColor.Green;
@@ -1426,10 +1425,10 @@ internal class Program
         if (inactiveCount > 0)
         {
             Console.WriteLine("\nInactive Sites (shut down or no longer supported):");
-            foreach (var result in results.Where(r => r.isInactive))
+            foreach (var result in results.Where(r => r.IsInactive))
             {
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine($"  - {result.site}");
+                Console.WriteLine($"  - {result.Site}");
                 Console.ResetColor();
             }
         }
@@ -1437,17 +1436,17 @@ internal class Program
         if (cloudflareBlockedCount > 0)
         {
             Console.WriteLine("\nCloudflare Protected Sites (require Selenium):");
-            foreach (var result in results.Where(r => !r.success && r.cloudflareDetected))
+            foreach (var result in results.Where(r => !r.Success && r.CloudflareDetected))
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"  - {result.site}");
+                Console.WriteLine($"  - {result.Site}");
                 Console.ResetColor();
-                if (!string.IsNullOrEmpty(result.error))
+                if (!string.IsNullOrEmpty(result.Error))
                 {
-                    Console.WriteLine($"    Status: {result.error}");
+                    Console.WriteLine($"    Status: {result.Error}");
                 }
 
-                if (result.needsConfigUpdate)
+                if (result.NeedsConfigUpdate)
                 {
                     Console.ForegroundColor = ConsoleColor.Magenta;
                     Console.WriteLine($"    → Needs appsettings.json update");
@@ -1456,18 +1455,18 @@ internal class Program
             }
         }
 
-        var otherFailCount = results.Count(r => !r.success && !r.cloudflareDetected && !r.isInactive);
+        var otherFailCount = results.Count(r => !r.Success && !r.CloudflareDetected && !r.IsInactive);
         if (otherFailCount > 0)
         {
             Console.WriteLine("\nOther Failed Sites:");
-            foreach (var result in results.Where(r => !r.success && !r.cloudflareDetected && !r.isInactive))
+            foreach (var result in results.Where(r => !r.Success && !r.CloudflareDetected && !r.IsInactive))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  - {result.site}");
+                Console.WriteLine($"  - {result.Site}");
                 Console.ResetColor();
-                if (!string.IsNullOrEmpty(result.error))
+                if (!string.IsNullOrEmpty(result.Error))
                 {
-                    Console.WriteLine($"    Error: {result.error}");
+                    Console.WriteLine($"    Error: {result.Error}");
                 }
             }
         }
@@ -1475,10 +1474,10 @@ internal class Program
         if (successCount > 0)
         {
             Console.WriteLine("\nSuccessful Sites:");
-            foreach (var result in results.Where(r => r.success))
+            foreach (var result in results.Where(r => r.Success))
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"  - {result.site}");
+                Console.WriteLine($"  - {result.Site}");
                 Console.ResetColor();
             }
         }
@@ -1490,13 +1489,13 @@ internal class Program
     {
         try
         {
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var novelProcessor = scope.Resolve<INovelProcessor>();
             await novelProcessor.RetryFailedChaptersAsync(novelId, withLogin);
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when retrying failed chapters for novel {novelId}. {ex.Message}");
+            _logger.Error($"Exception when retrying failed chapters for novel {novelId}. {ex.Message}");
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"Error retrying failed chapters: {ex.Message}");
             Console.ResetColor();
@@ -1507,7 +1506,7 @@ internal class Program
     {
         try
         {
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var novelService = scope.Resolve<INovelService>();
             var novelProcessor = scope.Resolve<INovelProcessor>();
             var novels = await novelService.GetAllAsync();
@@ -1560,18 +1559,18 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when retrying all failed chapters. {ex.Message}");
+            _logger.Error($"Exception when retrying all failed chapters. {ex.Message}");
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"Error retrying all failed chapters: {ex.Message}");
             Console.ResetColor();
         }
     }
 
-    public static async Task UpdateNovelSavedLocationByIdAsync(Guid id)
+    private static async Task UpdateNovelSavedLocationByIdAsync(Guid id)
     {
         try
         {
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var novelService = scope.Resolve<INovelService>();
             var novel = await novelService.GetByIdAsync(id);
             if (novel != null)
@@ -1598,11 +1597,11 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to update novel save location. {ex.Message}");
+            _logger.Error($"Exception when trying to update novel save location. {ex.Message}");
         }
     }
 
-    public static async Task RenameDatabaseFileAsync(string newDbName)
+    private static async Task RenameDatabaseFileAsync(string newDbName)
     {
         try
         {
@@ -1615,9 +1614,9 @@ internal class Program
             File.Move(oldDbPath, newDbPath);
 
             // Update the configuration table
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var configurationRepository = scope.Resolve<IConfigurationRepository>();
-            var configuration = await configurationRepository.GetByIdAsync(DefaultConfigId);
+            var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
             configuration.DatabaseFileName = newDbName;
             configurationRepository.Update(configuration);
 
@@ -1625,13 +1624,13 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to rename database file. {ex.Message}");
+            _logger.Error($"Exception when trying to rename database file. {ex.Message}");
         }
     }
 
-    public static async Task DisplayNovelInformationAsync(Guid novelId)
+    private static async Task DisplayNovelInformationAsync(Guid novelId)
     {
-        await using var scope = Container.BeginLifetimeScope();
+        await using var scope = Container!.BeginLifetimeScope();
         var novelService = scope.Resolve<INovelService>();
 
         var novel = await novelService.GetByIdAsync(novelId);
@@ -1649,14 +1648,14 @@ internal class Program
             new("Site Name", novel.SiteName),
             new("URL", novel.Url),
             new("Genre(s)", novel.Genre ?? "N/A"),
-            new("Current Chapter", novel.CurrentChapter ?? "N/A"),
-            new("Current Chapter Url", novel.CurrentChapterUrl ?? "N/A"),
-            new("Total Chapters", novel.TotalChapters.ToString()),
+            new("Current Chapter", novel.CurrentChapter),
+            new("Current Chapter Url", novel.CurrentChapterUrl),
+            new("Total Chapters", novel.TotalChapters.ToString(CultureInfo.InvariantCulture)),
             new("Date Created", novel.DateCreated.ToShortDateString()),
             new("Last Modified", novel.DateLastModified.ToShortDateString()),
             new("NovelStatus", !string.IsNullOrEmpty(novel.Status) ? novel.Status : "N/A"),
             new("Save Location", novel.SaveLocation ?? "N/A"),
-            new("File Type", Enum.GetName(typeof(NovelFileType), novel.FileType) ?? "EPUB"),
+            new("File Type", Enum.GetName(novel.FileType) ?? "EPUB"),
             new("Saved As Single File", novel.SavedFileIsSplit ? "No" : "Yes")
         };
 
@@ -1674,14 +1673,14 @@ internal class Program
     {
         try
         {
-            await using var scope = Container.BeginLifetimeScope();
+            await using var scope = Container!.BeginLifetimeScope();
             var novelService = scope.Resolve<INovelService>();
             var novel = await novelService.GetByIdAsync(id);
 
             if (novel != null)
             {
                 Console.WriteLine($"Current file type for novel: {novel.FileType}");
-                var extensions = Enum.GetValues(typeof(NovelFileType)).Cast<NovelFileType>().ToList();
+                var extensions = Enum.GetValues<NovelFileType>().ToList();
 
                 Console.ForegroundColor = ConsoleColor.Magenta;
                 Console.WriteLine($"Available extensions: {string.Join(", ", extensions.Select((ext, index) => $"({index}) {ext}"))}");
@@ -1708,7 +1707,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Logger.Error($"Exception when trying to update novel file type. {ex.Message}");
+            _logger.Error($"Exception when trying to update novel file type. {ex.Message}");
         }
     }
 
@@ -1720,25 +1719,20 @@ internal class Program
         var directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
 
         var logPath = Path.Combine(directoryPath, $"log-book {DateTime.Now:MM-dd-yyyy}.log");
-        var logfile = new FileTarget("logfile") { FileName = logPath };
+        using var logfile = new FileTarget("logfile");
+        logfile.FileName = logPath;
 
-        var logConsole = new ColoredConsoleTarget("logconsole")
-        {
-            Layout = @"${date:format=HH\:mm\:ss} ${level} ${message} ${exception}"
-        };
+        using var logConsole = new ColoredConsoleTarget("logconsole");
+        logConsole.Layout = @"${date:format=HH\:mm\:ss} ${level} ${message} ${exception}";
 
         logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
-            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Info"),
-            ConsoleOutputColor.Green, ConsoleOutputColor.Black));
+            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Info"), ConsoleOutputColor.Green, ConsoleOutputColor.Black));
         logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
-            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Warn"),
-            ConsoleOutputColor.DarkYellow, ConsoleOutputColor.Black));
+            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Warn"), ConsoleOutputColor.DarkYellow, ConsoleOutputColor.Black));
         logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
-            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Error"),
-            ConsoleOutputColor.Red, ConsoleOutputColor.Black));
+            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Error"), ConsoleOutputColor.Red, ConsoleOutputColor.Black));
         logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
-            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Fatal"),
-            ConsoleOutputColor.White, ConsoleOutputColor.Red));
+            NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Fatal"), ConsoleOutputColor.White, ConsoleOutputColor.Red));
 
         config.AddRule(logLevel, LogLevel.Fatal, logConsole);
         config.AddRule(LogLevel.Info, LogLevel.Fatal, logfile);
@@ -1784,17 +1778,20 @@ internal class Program
     }
 
     /// <summary>
-    /// Register all services and repositories, including the DbContext, appsettings.json as NovelScraperSettings and EpubTemplates based on the key in the file
+    /// Register all services and repositories, including the DbContext, appsettings.json as NovelScraperSettings and EpubTemplates based on the key in the file.
     /// </summary>
-    /// <param name="builder"></param>
-    private static void ConfigureServices(ContainerBuilder builder)
+    /// <param name="builder">The container builder.</param>
+    /// <param name="configuration">The application configuration.</param>
+    private static void ConfigureServices(ContainerBuilder builder, IConfigurationRoot configuration)
     {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(configuration);
+
         // Register IConfiguration
-        builder.RegisterInstance(Configuration)?.As<IConfiguration>();
+        builder.RegisterInstance(configuration).As<IConfiguration>();
 
         builder.Register(c => new Database(new DbContextOptionsBuilder<Database>()
             .UseSqlite(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();
-
 
         builder.RegisterType<DbInitializer>().As<DbInitializer>();
         builder.RegisterType<UnitOfWork>().As<IUnitOfWork>();
@@ -1805,7 +1802,6 @@ internal class Program
         builder.RegisterType<NovelRepository>().As<INovelRepository>();
         builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>();
         builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
-        builder.RegisterType<PdfGenerator>().As<PdfGenerator>().InstancePerDependency();
         builder.RegisterType<ComicBookArchiveGenerator>().As<IComicBookArchiveGenerator>().InstancePerDependency();
 
         builder.AddHttpResilience();
@@ -1820,7 +1816,8 @@ internal class Program
             config.GetSection("NovelScraperSettings").Bind(settings);
             return settings;
         }).SingleInstance();
-        //needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
+
+        // needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
         builder.Register(c => Options.Create(c.Resolve<NovelScraperSettings>())).As<IOptions<NovelScraperSettings>>().SingleInstance();
 
         // register EpuTemplates.cs as singleton from the appsettings.json file
@@ -1838,9 +1835,9 @@ internal class Program
     }
 
     /// <summary>
-    /// Get the connection string for the database file, if the file does not exist, create it
+    /// Get the connection string for the database file, if the file does not exist, create it.
     /// </summary>
-    /// <returns>connection string</returns>
+    /// <returns>connection string.</returns>
     private static string GetConnectionString()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);

@@ -1,0 +1,22 @@
+﻿using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Scrapers.Strategy;
+using BennyScraper.Models;
+using HtmlAgilityPack;
+using Xunit;
+
+namespace BennyScraper.Tests;
+
+/// <summary>
+/// Minimal concrete <see cref="ScraperStrategy"/> for tests. ScraperStrategy is abstract, so this
+/// supplies the abstract members (unused here) and exposes a way to set the site config.
+/// </summary>
+internal sealed class TestableStrategy : ScraperStrategy
+{
+    public void ConfigureSort(ChapterSortOrder order)
+        => ScraperData.SiteConfig = new SiteConfiguration { ChapterSortOrder = order };
+
+    public override Task<NovelDataBuffer> ScrapeAsync() => throw new NotImplementedException();
+
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        => throw new NotImplementedException();
+}

@@ -1990,8 +1990,10 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                             if (alternateNames.Count != 0)
                             {
                                 // SelectMany flattens a list of lists into a single list.
-                                novelDataBuffer.AlternativeNames.ReplaceWith(alternateNames
-                                    .SelectMany(altName => SplitByLanguage(altName)));
+                                novelDataBuffer.AlternativeNames.ReplaceWith(alternateNames.SelectMany(SplitByLanguage)
+                                    .Where(altName => !string.IsNullOrWhiteSpace(altName))
+                                    .Select(altName => altName.Trim())
+                                    .Distinct());
                             }
                         }
 

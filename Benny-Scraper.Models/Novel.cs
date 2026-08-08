@@ -44,7 +44,7 @@ public class Novel
 
     public string CurrentChapterUrl { get; set; } = string.Empty;
 
-    public int? TotalChapters { get; set; }
+    public int TotalChapters { get; set; }
 
     /// <summary>
     /// Gets a value indicating whether this novel has chapter ranges (partial download).

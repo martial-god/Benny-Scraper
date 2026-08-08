@@ -64,7 +64,7 @@ public static class MyExtensions
     }
 
     /// <summary>
-    /// Reverses an <see cref="IList{T}"/> in place. Named distinctly from LINQ's <see cref="Enumerable.Reverse{T}"/>
+    /// Reverses an <see cref="IList{T}"/> in place. Named distinctly from LINQ's <c>Enumerable.Reverse</c>
     /// (which returns a new sequence) to avoid overload-resolution ambiguity at call sites.
     /// </summary>
     /// <typeparam name="T">The type of elements in the list.</typeparam>

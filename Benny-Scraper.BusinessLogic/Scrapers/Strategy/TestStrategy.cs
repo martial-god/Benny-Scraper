@@ -12,8 +12,12 @@ using HtmlAgilityPack;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
+using Attr = BennyScraper.BusinessLogic.Scrapers.Strategy.Impl.NovelDataInitializer.Attr;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
+
+#pragma warning disable SA1202 // Public test entry points are kept next to their corresponding workflow helpers.
+#pragma warning disable SA1204 // Static field probes are grouped together near the end of the workflow implementation.
 
 /// <summary>
 /// Simple test strategy for testing site connectivity without implementing a full scraper.
@@ -22,6 +26,15 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? driverFactory = null)
     : ScraperStrategy(httpClientFactory, driverFactory)
 {
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly IDriverFactory _driverFactory = driverFactory ?? new DriverFactory();
     private HtmlDocument _htmlDocument = new HtmlDocument();
@@ -29,11 +42,61 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     private SiteConfiguration _config = new SiteConfiguration();
     private ScraperData _scraperData = new ScraperData();
     private HtmlDocument? _chapterHtmlDocument;
+    private Uri? _chapterTestUri;
     private bool _requiredFieldsFailed;
     private bool _titleFailed;
     private bool _chapterLinksFailed;
 
+    /// <summary>
+    /// Describes a simple table-of-contents metadata field so the guided flow, the modify menu, and the
+    /// single-field probe can all be driven from one source of truth instead of three parallel hardcoded lists.
+    /// </summary>
+    private sealed record TocFieldSpec(
+        string Name,
+        string ExampleXPath,
+        Attr Attribute,
+        Action<TableOfContentsSelectors, string> Set,
+        bool Required);
+
+    private static readonly IReadOnlyList<TocFieldSpec> _tocMetadataFields = new List<TocFieldSpec>
+    {
+        new("Title", "//h1[@class='heading']/text()", Attr.Title, (s, v) => s.NovelTitle = v, true),
+        new("Author", "//a[@class='author']/text()", Attr.Author, (s, v) => s.NovelAuthor = v, false),
+        new("Description", "//div[@class='description']/p/text()", Attr.Description, (s, v) => s.NovelDescription = v, false),
+        new("Genres", "//div[@class='genres']/a/text()", Attr.Genres, (s, v) => s.NovelGenres = v, false),
+        new("Status", "//span[@class='status']/text()", Attr.NovelStatus, (s, v) => s.NovelStatus = v, false),
+        new("Alternative Names", "//div[@class='alt-names']/text()", Attr.AlternativeNames, (s, v) => s.NovelAlternativeNames = v, false),
+        new("Novel Rating", "//span[@class='rating']/text()", Attr.NovelRating, (s, v) => s.NovelRating = v, false),
+        new("Total Ratings", "//span[@class='rating-count']/text()", Attr.TotalRatings, (s, v) => s.TotalRatings = v, false),
+    };
+
+    /// <summary>
+    /// Looks up a <see cref="TocFieldSpec"/> by display name, ignoring case and interior spaces.
+    /// </summary>
+    private static TocFieldSpec RequireTocField(string name)
+    {
+        var normalizedName = name.Replace(" ", string.Empty, StringComparison.Ordinal);
+        var spec = _tocMetadataFields.FirstOrDefault(field => string.Equals(
+            field.Name.Replace(" ", string.Empty, StringComparison.Ordinal),
+            normalizedName,
+            StringComparison.OrdinalIgnoreCase));
+        return spec ?? throw new ArgumentException($"No TOC field registered for '{name}'", nameof(name));
+    }
+
     public async Task RunInteractiveTestAsync(Uri testUri)
+    {
+        try
+        {
+            await RunInteractiveTestCoreAsync(testUri).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Any Selenium drivers spun up during interactive reloads are cleaned up here.
+            _driverFactory.DisposeAllDrivers();
+        }
+    }
+
+    private async Task RunInteractiveTestCoreAsync(Uri testUri)
     {
         _testUri = testUri;
 
@@ -45,29 +108,58 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         Console.WriteLine($"Testing URL: {testUri}\n");
 
+        var initialLoadUsedSelenium = false;
         var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(testUri).ConfigureAwait(false);
 
         if (htmlDocument == null)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
+            Console.WriteLine($"✗ Failed to load page over HTTP (Status: {statusCode})");
             if (cloudflareDetected)
             {
                 Console.WriteLine("✗ Cloudflare protection detected");
             }
 
             Console.ResetColor();
-            return;
+
+            // The most common reason an HTTP fetch fails outright is exactly what this tool exists to onboard:
+            // a JavaScript/Cloudflare-gated site. Offer to fall back to a real browser instead of bailing.
+            Console.Write("\nTry loading the page with Selenium instead? (y/n): ");
+            var seleniumResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
+
+            if (seleniumResponse != "y" && seleniumResponse != "yes")
+            {
+                return;
+            }
+
+            htmlDocument = await LoadPageWithSeleniumAsync(testUri, headless: false).ConfigureAwait(false);
+            if (htmlDocument == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Selenium could not load the page either - aborting.");
+                Console.ResetColor();
+                return;
+            }
+
+            initialLoadUsedSelenium = true;
+            updatedUri = testUri;
         }
 
         _htmlDocument = htmlDocument;
         _testUri = updatedUri;
 
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
+        Console.WriteLine("✓ Page loaded successfully\n");
         Console.ResetColor();
 
         InitializeConfiguration();
+
+        // InitializeConfiguration rebuilds _config, so apply the Selenium requirement afterwards.
+        if (initialLoadUsedSelenium)
+        {
+            _config.TableOfContentsRequiresSelenium = true;
+        }
+
         await TestFieldsInteractivelyAsync().ConfigureAwait(false);
 
         await TestChapterContentInteractivelyAsync().ConfigureAwait(false);
@@ -191,7 +283,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         Console.WriteLine();
 
-        HtmlDocument htmlDocument;
+        HtmlDocument? htmlDocument;
         int statusCode = 200;
         bool cloudflareDetected = false;
 
@@ -262,38 +354,42 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             };
 
             var fieldUpper = fieldName.ToUpperInvariant();
-            var success = fieldUpper switch
+
+            // Simple TOC metadata fields are driven from the shared registry so this probe, the guided flow,
+            // and the modify menu never fall out of sync. Chapter-level and special fields stay explicit.
+            var spec = _tocMetadataFields.FirstOrDefault(field =>
+                string.Equals(field.Name.Replace(" ", string.Empty, StringComparison.Ordinal), fieldUpper, StringComparison.OrdinalIgnoreCase));
+
+            bool success;
+            if (spec != null)
             {
-                "TITLE" => await TestSpecificField(
-                    NovelDataInitializer.Attr.Title,
+                success = await TestSpecificField(
+                    spec.Attribute,
                     xpath,
                     htmlDocument,
                     scraperData,
                     config,
-                    s => config.Selectors.TableOfContents.NovelTitle = s).ConfigureAwait(false),
-                "AUTHOR" => await TestSpecificField(NovelDataInitializer.Attr.Author, xpath, htmlDocument, scraperData, config,
-                    s => config.Selectors.TableOfContents.NovelAuthor = s).ConfigureAwait(false),
-                "DESCRIPTION" => await TestSpecificField(NovelDataInitializer.Attr.Description, xpath, htmlDocument, scraperData, config,
-                    s => config.Selectors.TableOfContents.NovelDescription = s).ConfigureAwait(false),
-                "GENRES" => await TestSpecificField(NovelDataInitializer.Attr.Genres, xpath, htmlDocument, scraperData, config,
-                    s => config.Selectors.TableOfContents.NovelGenres = s).ConfigureAwait(false),
-                "STATUS" => await TestSpecificField(NovelDataInitializer.Attr.NovelStatus, xpath, htmlDocument, scraperData, config,
-                    s => config.Selectors.TableOfContents.NovelStatus = s).ConfigureAwait(false),
-                "ALTERNATIVENAMES" => await TestSpecificField(NovelDataInitializer.Attr.AlternativeNames, xpath, htmlDocument, scraperData,
-                    config, s => config.Selectors.TableOfContents.NovelAlternativeNames = s).ConfigureAwait(false),
-                "THUMBNAIL" => await TestSpecificField(NovelDataInitializer.Attr.ThumbnailUrl, xpath, htmlDocument, scraperData, config,
-                    s => config.Selectors.TableOfContents.NovelThumbnailUrl = s).ConfigureAwait(false),
-                "CHAPTERLINKS" => TestChapterLinksField(xpath, htmlDocument),
-                "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
-                "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
-                "NOVELRATING" => await TestSpecificField(NovelDataInitializer.Attr.NovelRating, xpath, htmlDocument, scraperData, config,
-                    s => config.Selectors.TableOfContents.NovelRating = s).ConfigureAwait(false),
-                "TOTALRATINGS" => await TestSpecificField(NovelDataInitializer.Attr.TotalRatings, xpath, htmlDocument, scraperData, config,
-                    s => config.Selectors.TableOfContents.TotalRatings = s).ConfigureAwait(false),
-                "CHAPTERTITLEINTOC" => TestChapterTitleInTocField(xpath, htmlDocument),
-                "NEXTCHAPTERBUTTON" => TestNextChapterButtonSingleField(xpath, htmlDocument),
-                _ => HandleUnknownField(fieldName)
-            };
+                    value => spec.Set(config.Selectors.TableOfContents, value)).ConfigureAwait(false);
+            }
+            else
+            {
+                success = fieldUpper switch
+                {
+                    "THUMBNAIL" => await TestSpecificField(
+                        Attr.ThumbnailUrl,
+                        xpath,
+                        htmlDocument,
+                        scraperData,
+                        config,
+                        value => config.Selectors.TableOfContents.NovelThumbnailUrl = value).ConfigureAwait(false),
+                    "CHAPTERLINKS" => CheckChapterLinksField(xpath, htmlDocument),
+                    "CHAPTERTITLE" => TestChapterTitleField(xpath, htmlDocument),
+                    "CHAPTERCONTENT" => TestChapterContentField(xpath, htmlDocument),
+                    "CHAPTERTITLEINTOC" => TestChapterTitleInTocField(xpath, htmlDocument),
+                    "NEXTCHAPTERBUTTON" => TestNextChapterButtonSingleField(xpath, htmlDocument),
+                    _ => HandleUnknownField(fieldName)
+                };
+            }
 
             Console.WriteLine($"\n{new string('=', 70)}\n");
             return success;
@@ -313,7 +409,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     /// </summary>
     /// <param name="uri">The URI of the page to load.</param>
     /// <returns>A tuple containing the loaded HTML document (or null on failure), the possibly-redirected URI, the HTTP status code, and whether Cloudflare protection was detected.</returns>
-    public async Task<(HtmlDocument? document, Uri updatedUri, int statusCode, bool cloudflareDetected)> TestLoadHtmlAsync(Uri uri)
+    public async Task<(HtmlDocument? Document, Uri UpdatedUri, int StatusCode, bool CloudflareDetected)> TestLoadHtmlAsync(Uri uri)
     {
         ArgumentNullException.ThrowIfNull(uri);
 
@@ -322,10 +418,15 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             using var client = _httpClientFactory.CreateClient();
             using var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
 
+            // Enforce a real 10s ceiling for fast testing. Setting a custom HttpRequestOptions key does
+            // nothing unless a handler reads it (ours does not), so use a CancellationToken instead.
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
             var userAgent = GetNextUserAgent();
 
             requestMessage.Headers.Add("User-Agent", userAgent);
-            requestMessage.Headers.Add("Accept",
+            requestMessage.Headers.Add(
+                "Accept",
                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
             requestMessage.Headers.Add("Accept-Language", "en-US,en;q=0.9");
             requestMessage.Headers.Add("Accept-Encoding", "gzip, deflate, br");
@@ -338,12 +439,10 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             requestMessage.Headers.Add("Sec-Fetch-User", "?1");
             requestMessage.Headers.Add("Cache-Control", "max-age=0");
 
-            requestMessage.Options.Set(new HttpRequestOptionsKey<TimeSpan>("RequestTimeout"), TimeSpan.FromSeconds(10));
-
-            using var response = await client.SendAsync(requestMessage).ConfigureAwait(false);
+            using var response = await client.SendAsync(requestMessage, timeoutCts.Token).ConfigureAwait(false);
             var statusCode = (int)response.StatusCode;
 
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
             var isCloudflareDetected = DetectCloudflare(response, content, statusCode);
 
             if (!response.IsSuccessStatusCode)
@@ -382,6 +481,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Logger.Error($"[TEST] HTTP error: {ex.Message}");
             return (null, uri, 0, false);
         }
+        catch (OperationCanceledException)
+        {
+            Logger.Error($"[TEST] Request to {uri} timed out after 10 seconds");
+            return (null, uri, 0, false);
+        }
         catch (Exception ex)
         {
             Logger.Error($"[TEST] Error during test: {ex.Message}");
@@ -390,6 +494,19 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     }
 
     public async Task ValidateConfigAsync(SiteConfiguration siteConfig, Uri testUri)
+    {
+        try
+        {
+            await ValidateConfigCoreAsync(siteConfig, testUri).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Dispose any Selenium driver created for TOC-requires-Selenium configs.
+            _driverFactory.DisposeAllDrivers();
+        }
+    }
+
+    private async Task ValidateConfigCoreAsync(SiteConfiguration siteConfig, Uri testUri)
     {
         ArgumentNullException.ThrowIfNull(siteConfig);
 
@@ -401,23 +518,52 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         Console.WriteLine($"Test URL: {testUri}\n");
 
-        var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(testUri).ConfigureAwait(false);
+        HtmlDocument? htmlDocument;
+        var updatedUri = testUri;
 
-        if (htmlDocument == null)
+        if (siteConfig.TableOfContentsRequiresSelenium)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
-            if (cloudflareDetected)
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("Config marks the table of contents as requiring Selenium - loading with a real browser.");
+            Console.ResetColor();
+
+            htmlDocument = await LoadPageWithSeleniumAsync(
+                testUri,
+                headless: true,
+                siteConfig.Selectors.TableOfContents.ChapterLinks).ConfigureAwait(false);
+
+            if (htmlDocument == null)
             {
-                Console.WriteLine("✗ Cloudflare protection detected");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Failed to load page with Selenium");
+                Console.ResetColor();
+                return;
+            }
+        }
+        else
+        {
+            var (httpDocument, resolvedUri, statusCode, cloudflareDetected) =
+                await TestLoadHtmlAsync(testUri).ConfigureAwait(false);
+
+            if (httpDocument == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"✗ Failed to load page (Status: {statusCode})");
+                if (cloudflareDetected)
+                {
+                    Console.WriteLine("✗ Cloudflare protection detected");
+                }
+
+                Console.ResetColor();
+                return;
             }
 
-            Console.ResetColor();
-            return;
+            htmlDocument = httpDocument;
+            updatedUri = resolvedUri;
         }
 
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✓ Page loaded successfully (Status: {statusCode})\n");
+        Console.WriteLine("✓ Page loaded successfully\n");
         Console.ResetColor();
 
         var scraperData = new ScraperData
@@ -430,7 +576,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         Console.WriteLine("Validating Selectors.TableOfContents...\n");
 
-        var validationResults = new List<(string fieldName, bool success)>();
+        var validationResults = new List<(string FieldName, bool Success)>();
 
         Console.WriteLine($"Title:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle))
@@ -442,7 +588,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Title",
-            NovelDataInitializer.Attr.Title,
+            Attr.Title,
             htmlDocument,
             scraperData,
             !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle)).ConfigureAwait(false));
@@ -457,7 +603,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Author",
-            NovelDataInitializer.Attr.Author,
+            Attr.Author,
             htmlDocument,
             scraperData,
             !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor)).ConfigureAwait(false));
@@ -472,7 +618,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Description",
-            NovelDataInitializer.Attr.Description,
+            Attr.Description,
             htmlDocument,
             scraperData,
             !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription)).ConfigureAwait(false));
@@ -487,7 +633,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Genres",
-            NovelDataInitializer.Attr.Genres,
+            Attr.Genres,
             htmlDocument,
             scraperData,
             !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres)).ConfigureAwait(false));
@@ -502,7 +648,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Status",
-            NovelDataInitializer.Attr.NovelStatus,
+            Attr.NovelStatus,
             htmlDocument,
             scraperData,
             !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus)).ConfigureAwait(false));
@@ -517,7 +663,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Alternative Names",
-            NovelDataInitializer.Attr.AlternativeNames,
+            Attr.AlternativeNames,
             htmlDocument,
             scraperData,
             !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames)).ConfigureAwait(false));
@@ -532,7 +678,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         validationResults.Add(await TestStrategyInitializer.ValidateFieldAsync(
             "Thumbnail",
-            NovelDataInitializer.Attr.ThumbnailUrl,
+            Attr.ThumbnailUrl,
             htmlDocument,
             scraperData,
             !string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl)).ConfigureAwait(false));
@@ -552,7 +698,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.WriteLine("Validation Summary:");
         Console.WriteLine($"{new string('=', 70)}\n");
 
-        var successCount = validationResults.Count(r => r.success);
+        var successCount = validationResults.Count(result => result.Success);
         var totalCount = validationResults.Count;
 
         if (successCount == totalCount)
@@ -627,28 +773,26 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.WriteLine("Field Testing - Press Enter to skip optional fields");
         Console.WriteLine($"{new string('-', 70)}\n");
 
-        await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title,
-            xpath => _config.Selectors.TableOfContents.NovelTitle = xpath, true).ConfigureAwait(false);
-        await TestFieldAsync("Author", "//a[@class='author']/text()", NovelDataInitializer.Attr.Author,
-            xpath => _config.Selectors.TableOfContents.NovelAuthor = xpath, false).ConfigureAwait(false);
-        await TestFieldAsync("Description", "//div[@class='description']/p/text()", NovelDataInitializer.Attr.Description,
-            xpath => _config.Selectors.TableOfContents.NovelDescription = xpath, false).ConfigureAwait(false);
-        await TestFieldAsync("Current Chapter Link", "//*[@id='en-chapters']/li[1]/a", NovelDataInitializer.Attr.CurrentChapter,
-            xpath => _config.Selectors.TableOfContents.LatestChapterLink = xpath, false).ConfigureAwait(false);
-        await TestFieldAsync("Genres", "//div[@class='genres']/a/text()", NovelDataInitializer.Attr.Genres,
-            xpath => _config.Selectors.TableOfContents.NovelGenres = xpath, false).ConfigureAwait(false);
+        await TestFieldAsync(RequireTocField("Title")).ConfigureAwait(false);
+        await TestFieldAsync(RequireTocField("Author")).ConfigureAwait(false);
+        await TestFieldAsync(RequireTocField("Description")).ConfigureAwait(false);
+        await TestFieldAsync(
+            "Current Chapter Link",
+            "//*[@id='en-chapters']/li[1]/a",
+            Attr.CurrentChapter,
+            xpath => _config.Selectors.TableOfContents.LatestChapterLink = xpath,
+            false).ConfigureAwait(false);
+        await TestFieldAsync(RequireTocField("Genres")).ConfigureAwait(false);
 
         TestCompletedStatusSetting();
 
-        await TestFieldAsync("Status", "//span[@class='status']/text()", NovelDataInitializer.Attr.NovelStatus,
-            xpath => _config.Selectors.TableOfContents.NovelStatus = xpath, false).ConfigureAwait(false);
-        await TestFieldAsync("Alternative Names", "//div[@class='alt-names']/text()", NovelDataInitializer.Attr.AlternativeNames,
-            xpath => _config.Selectors.TableOfContents.NovelAlternativeNames = xpath, false).ConfigureAwait(false);
+        await TestFieldAsync(RequireTocField("Status")).ConfigureAwait(false);
+        await TestFieldAsync(RequireTocField("Alternative Names")).ConfigureAwait(false);
 
         await TestNovelRatingFieldAsync().ConfigureAwait(false);
 
         await TestThumbnailFieldAsync().ConfigureAwait(false);
-        TestChapterLinksField();
+        await TestChapterLinksFieldAsync().ConfigureAwait(false);
 
         TestPaginationSettings();
         TestChapterSortOrderSetting();
@@ -664,14 +808,13 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         if (_titleFailed)
         {
             _titleFailed = false;
-            await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title,
-                xpath => _config.Selectors.TableOfContents.NovelTitle = xpath, true).ConfigureAwait(false);
+            await TestFieldAsync(RequireTocField("Title")).ConfigureAwait(false);
         }
 
         if (_chapterLinksFailed)
         {
             _chapterLinksFailed = false;
-            TestChapterLinksField();
+            await TestChapterLinksFieldAsync().ConfigureAwait(false);
         }
 
         _requiredFieldsFailed = _titleFailed || _chapterLinksFailed;
@@ -679,137 +822,126 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
     private async Task ModifyFieldsInteractivelyAsync()
     {
-        Console.WriteLine($"\n{new string('-', 70)}");
-        Console.WriteLine("Modify Fields");
-        Console.WriteLine($"{new string('-', 70)}\n");
-
-        Console.WriteLine("Which field would you like to modify?");
-        Console.WriteLine("  1. Title");
-        Console.WriteLine("  2. Author");
-        Console.WriteLine("  3. Description");
-        Console.WriteLine("  4. Genres");
-        Console.WriteLine("  5. Status");
-        Console.WriteLine("  6. Alternative Names");
-        Console.WriteLine("  7. Thumbnail");
-        Console.WriteLine("  8. Chapter Links");
-        Console.WriteLine("  9. Pagination Settings");
-        Console.WriteLine(" 10. Content Type");
-        Console.WriteLine(" 11. Completed Status");
-        Console.WriteLine(" 12. Chapter Sort Order");
-        Console.WriteLine(" 13. Novel Rating");
-        Console.WriteLine(" 14. Total Ratings");
-
-        if (_chapterHtmlDocument != null)
+        while (true)
         {
-            Console.WriteLine(" 15. Chapter Title");
-            Console.WriteLine(" 16. Chapter Content");
-            Console.WriteLine(" 17. Next Chapter Button");
-        }
+            Console.WriteLine($"\n{new string('-', 70)}");
+            Console.WriteLine("Modify Fields");
+            Console.WriteLine($"{new string('-', 70)}\n");
 
-        Console.WriteLine("  0. Done modifying");
-        Console.Write("\nChoice: ");
+            Console.WriteLine("Which field would you like to modify?");
+            Console.WriteLine("  1. Title");
+            Console.WriteLine("  2. Author");
+            Console.WriteLine("  3. Description");
+            Console.WriteLine("  4. Genres");
+            Console.WriteLine("  5. Status");
+            Console.WriteLine("  6. Alternative Names");
+            Console.WriteLine("  7. Thumbnail");
+            Console.WriteLine("  8. Chapter Links");
+            Console.WriteLine("  9. Pagination Settings");
+            Console.WriteLine(" 10. Content Type");
+            Console.WriteLine(" 11. Completed Status");
+            Console.WriteLine(" 12. Chapter Sort Order");
+            Console.WriteLine(" 13. Novel Rating");
+            Console.WriteLine(" 14. Total Ratings");
 
-        var input = Console.ReadLine()?.Trim();
-        if (!int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var choice))
-        {
-            choice = -1;
-        }
+            if (_chapterHtmlDocument != null)
+            {
+                Console.WriteLine(" 15. Chapter Title");
+                Console.WriteLine(" 16. Chapter Content");
+                Console.WriteLine(" 17. Next Chapter Button");
+            }
 
-        switch (choice)
-        {
-            case 0:
-                break;
-            case 1:
-                _titleFailed = false;
-                await TestFieldAsync("Title", "//h1[@class='heading']/text()", NovelDataInitializer.Attr.Title,
-                    xpath => _config.Selectors.TableOfContents.NovelTitle = xpath, true).ConfigureAwait(false);
-                _requiredFieldsFailed = _titleFailed || _chapterLinksFailed;
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false); // Allow modifying more
-                break;
-            case 2:
-                await TestFieldAsync("Author", "//a[@class='author']/text()", NovelDataInitializer.Attr.Author,
-                    xpath => _config.Selectors.TableOfContents.NovelAuthor = xpath, false).ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 3:
-                await TestFieldAsync("Description", "//div[@class='description']/p/text()", NovelDataInitializer.Attr.Description,
-                    xpath => _config.Selectors.TableOfContents.NovelDescription = xpath, false).ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 4:
-                await TestFieldAsync("Genres", "//div[@class='genres']/a/text()", NovelDataInitializer.Attr.Genres,
-                    xpath => _config.Selectors.TableOfContents.NovelGenres = xpath, false).ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 5:
-                await TestFieldAsync("Status", "//span[@class='status']/text()", NovelDataInitializer.Attr.NovelStatus,
-                    xpath => _config.Selectors.TableOfContents.NovelStatus = xpath, false).ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 6:
-                await TestFieldAsync("Alternative Names", "//div[@class='alt-names']/text()", NovelDataInitializer.Attr.AlternativeNames,
-                    xpath => _config.Selectors.TableOfContents.NovelAlternativeNames = xpath, false).ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 7:
-                await TestThumbnailFieldAsync().ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 8:
-                _chapterLinksFailed = false;
-                TestChapterLinksField();
-                _requiredFieldsFailed = _titleFailed || _chapterLinksFailed;
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 9:
-                TestPaginationSettings();
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 10:
-                TestContentTypeSetting();
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 11:
-                TestCompletedStatusSetting();
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 12:
-                TestChapterSortOrderSetting();
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 13:
-                await TestFieldAsync("Novel Rating", "//span[@class='rating']/text()", NovelDataInitializer.Attr.NovelRating,
-                    xpath => _config.Selectors.TableOfContents.NovelRating = xpath, false).ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 14:
-                await TestFieldAsync("Total Ratings", "//span[@class='rating-count']/text()", NovelDataInitializer.Attr.TotalRatings,
-                    xpath => _config.Selectors.TableOfContents.TotalRatings = xpath, false).ConfigureAwait(false);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 15 when _chapterHtmlDocument != null:
-                TestChapterTitle(_chapterHtmlDocument);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 16 when _chapterHtmlDocument != null:
-                TestChapterContent(_chapterHtmlDocument);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            case 17 when _chapterHtmlDocument != null:
-                TestNextChapterButtonField(_chapterHtmlDocument);
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
-            default:
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("✗ Invalid choice");
-                Console.ResetColor();
-                await ModifyFieldsInteractivelyAsync().ConfigureAwait(false);
-                break;
+            Console.WriteLine("  0. Done modifying");
+            Console.Write("\nChoice: ");
+
+            var input = Console.ReadLine()?.Trim();
+            if (!int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var choice))
+            {
+                choice = -1;
+            }
+
+            switch (choice)
+            {
+                case 0:
+                    return;
+                case 1:
+                    _titleFailed = false;
+                    await TestFieldAsync(RequireTocField("Title")).ConfigureAwait(false);
+                    _requiredFieldsFailed = _titleFailed || _chapterLinksFailed;
+                    break;
+                case 2:
+                    await TestFieldAsync(RequireTocField("Author")).ConfigureAwait(false);
+                    break;
+                case 3:
+                    await TestFieldAsync(RequireTocField("Description")).ConfigureAwait(false);
+                    break;
+                case 4:
+                    await TestFieldAsync(RequireTocField("Genres")).ConfigureAwait(false);
+                    break;
+                case 5:
+                    await TestFieldAsync(RequireTocField("Status")).ConfigureAwait(false);
+                    break;
+                case 6:
+                    await TestFieldAsync(RequireTocField("Alternative Names")).ConfigureAwait(false);
+                    break;
+                case 7:
+                    await TestThumbnailFieldAsync().ConfigureAwait(false);
+                    break;
+                case 8:
+                    _chapterLinksFailed = false;
+                    await TestChapterLinksFieldAsync().ConfigureAwait(false);
+                    _requiredFieldsFailed = _titleFailed || _chapterLinksFailed;
+                    break;
+                case 9:
+                    TestPaginationSettings();
+                    break;
+                case 10:
+                    TestContentTypeSetting();
+                    break;
+                case 11:
+                    TestCompletedStatusSetting();
+                    break;
+                case 12:
+                    TestChapterSortOrderSetting();
+                    break;
+                case 13:
+                    await TestFieldAsync(RequireTocField("Novel Rating")).ConfigureAwait(false);
+                    break;
+                case 14:
+                    await TestFieldAsync(RequireTocField("Total Ratings")).ConfigureAwait(false);
+                    break;
+                case 15 when _chapterHtmlDocument != null:
+                    await TestChapterTitleAsync().ConfigureAwait(false);
+                    break;
+                case 16 when _chapterHtmlDocument != null:
+                    await TestChapterContentAsync().ConfigureAwait(false);
+                    break;
+                case 17 when _chapterHtmlDocument != null:
+                    await TestNextChapterButtonFieldAsync().ConfigureAwait(false);
+                    break;
+                default:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("✗ Invalid choice");
+                    Console.ResetColor();
+                    break;
+            }
         }
     }
 
-    private async Task TestFieldAsync(string fieldName, string exampleXPath, NovelDataInitializer.Attr attribute,
-        Action<string> setSelectorAction, bool isRequired)
+    private Task TestFieldAsync(TocFieldSpec spec) =>
+        TestFieldAsync(
+            spec.Name,
+            spec.ExampleXPath,
+            spec.Attribute,
+            xpath => spec.Set(_config.Selectors.TableOfContents, xpath),
+            spec.Required);
+
+    private async Task TestFieldAsync(
+        string fieldName,
+        string exampleXPath,
+        Attr attribute,
+        Action<string> setSelectorAction,
+        bool isRequired)
     {
         var fieldVerified = false;
 
@@ -838,7 +970,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     Console.WriteLine("✗ Required field - skipped");
                     Console.ResetColor();
 
-                    PromptSeleniumForTocIfNeeded(fieldName);
+                    await PromptSeleniumForTocIfNeededAsync(fieldName).ConfigureAwait(false);
 
                     _requiredFieldsFailed = true;
 
@@ -866,59 +998,59 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             switch (response)
             {
                 case "y" or "yes":
-                {
-                    fieldVerified = true;
-
-                    if (!isRequired || success)
                     {
-                        continue;
-                    }
+                        fieldVerified = true;
 
-                    _requiredFieldsFailed = true;
+                        if (!isRequired || success)
+                        {
+                            continue;
+                        }
 
-                    if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _titleFailed = true;
-                    }
-
-                    break;
-                }
-
-                case "n":
-                case "no":
-                case "retry":
-                case "r":
-                {
-                    if (!success)
-                    {
-                        PromptSeleniumForTocIfNeeded(fieldName);
-                    }
-
-                    setSelectorAction(string.Empty);
-                    continue;
-                }
-
-                default:
-                {
-                    fieldVerified = true;
-
-                    if (isRequired && !success)
-                    {
                         _requiredFieldsFailed = true;
 
                         if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
                         {
                             _titleFailed = true;
                         }
+
+                        break;
                     }
 
-                    break;
-                }
+                case "n":
+                case "no":
+                case "retry":
+                case "r":
+                    {
+                        if (!success)
+                        {
+                            await PromptSeleniumForTocIfNeededAsync(fieldName).ConfigureAwait(false);
+                        }
+
+                        setSelectorAction(string.Empty);
+                        continue;
+                    }
+
+                default:
+                    {
+                        fieldVerified = true;
+
+                        if (isRequired && !success)
+                        {
+                            _requiredFieldsFailed = true;
+
+                            if (fieldName.Equals("Title", StringComparison.OrdinalIgnoreCase))
+                            {
+                                _titleFailed = true;
+                            }
+                        }
+
+                        break;
+                    }
             }
         }
     }
 
-    private void PromptSeleniumForTocIfNeeded(string fieldName)
+    private async Task PromptSeleniumForTocIfNeededAsync(string fieldName)
     {
         Console.WriteLine($"\n⚠ {fieldName} field could not be extracted.");
         Console.WriteLine("If the content is loaded via JavaScript or requires interaction, Selenium may be needed.");
@@ -934,9 +1066,33 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("✓ Marked site as requiring Selenium for table of contents");
         Console.ResetColor();
+
+        await ReloadTableOfContentsWithSeleniumAsync().ConfigureAwait(false);
     }
 
-    private async Task<bool> ValidateFieldAsync(NovelDataInitializer.Attr attribute)
+    /// <summary>
+    /// Re-fetches the table of contents page through a real browser and swaps it in as the active document,
+    /// so subsequent XPath attempts are tested against the JavaScript-rendered DOM rather than the raw HTTP HTML.
+    /// </summary>
+    private async Task<bool> ReloadTableOfContentsWithSeleniumAsync()
+    {
+        var seleniumDoc = await LoadPageWithSeleniumAsync(_testUri, headless: false).ConfigureAwait(false);
+        if (seleniumDoc == null)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("⚠ Could not reload the page with Selenium - continuing against the original HTML.");
+            Console.ResetColor();
+            return false;
+        }
+
+        _htmlDocument = seleniumDoc;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("✓ Reloaded the table of contents with Selenium. Retry your XPath against the rendered page.");
+        Console.ResetColor();
+        return true;
+    }
+
+    private async Task<bool> ValidateFieldAsync(Attr attribute)
     {
         try
         {
@@ -944,19 +1100,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             await TestStrategyInitializer.TestSingleFieldAsync(attribute, novelDataBuffer, _htmlDocument, _scraperData)
                 .ConfigureAwait(false);
 
-            var hasData = attribute switch
-            {
-                NovelDataInitializer.Attr.Title => !string.IsNullOrEmpty(novelDataBuffer.Title),
-                NovelDataInitializer.Attr.Author => !string.IsNullOrEmpty(novelDataBuffer.Author),
-                NovelDataInitializer.Attr.Description => novelDataBuffer.Description?.Count > 0,
-                NovelDataInitializer.Attr.Genres => novelDataBuffer.Genres?.Count > 0,
-                NovelDataInitializer.Attr.NovelStatus => !string.IsNullOrEmpty(novelDataBuffer.NovelStatus),
-                NovelDataInitializer.Attr.AlternativeNames => novelDataBuffer.AlternativeNames?.Count > 0,
-                NovelDataInitializer.Attr.ThumbnailUrl => !string.IsNullOrEmpty(novelDataBuffer.ThumbnailUrl),
-                NovelDataInitializer.Attr.NovelRating => novelDataBuffer.Rating > 0,
-                NovelDataInitializer.Attr.TotalRatings => novelDataBuffer.TotalRatings > 0,
-                _ => true
-            };
+            var hasData = TestStrategyInitializer.HasFieldData(attribute, novelDataBuffer);
 
             if (!hasData)
             {
@@ -1019,7 +1163,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             }
 
             _config.Selectors.TableOfContents.ThumbnailUrlAttribute = attribute;
-            var success = await ValidateFieldAsync(NovelDataInitializer.Attr.ThumbnailUrl).ConfigureAwait(false);
+            var success = await ValidateFieldAsync(Attr.ThumbnailUrl).ConfigureAwait(false);
 
             Console.Write("\nAre you happy with this result? (y/n/retry, default: y): ");
             var response = Console.ReadLine()?.Trim().ToLowerInvariant();
@@ -1034,18 +1178,18 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 case "no":
                 case "retry":
                 case "r":
-                {
-                    // Prompt about Selenium if field failed
-                    if (!success)
                     {
-                        PromptSeleniumForTocIfNeeded("Thumbnail");
-                    }
+                        // Prompt about Selenium if field failed
+                        if (!success)
+                        {
+                            await PromptSeleniumForTocIfNeededAsync("Thumbnail").ConfigureAwait(false);
+                        }
 
-                    // Clear the selectors to retry
-                    _config.Selectors.TableOfContents.NovelThumbnailUrl = string.Empty;
-                    _config.Selectors.TableOfContents.ThumbnailUrlAttribute = string.Empty;
-                    continue;
-                }
+                        // Clear the selectors to retry
+                        _config.Selectors.TableOfContents.NovelThumbnailUrl = string.Empty;
+                        _config.Selectors.TableOfContents.ThumbnailUrlAttribute = string.Empty;
+                        continue;
+                    }
 
                 default:
                     // Default to accepting the result
@@ -1055,7 +1199,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
-    private void TestChapterLinksField()
+    private async Task TestChapterLinksFieldAsync()
     {
         var linksVerified = false;
 
@@ -1090,6 +1234,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine("✓ Marked site as requiring Selenium for table of contents");
                     Console.ResetColor();
+
+                    if (await ReloadTableOfContentsWithSeleniumAsync().ConfigureAwait(false))
+                    {
+                        continue;
+                    }
                 }
 
                 _requiredFieldsFailed = true;
@@ -1112,7 +1261,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     Console.Write("\nDo you want to retry with a different XPath? (y/n, default: y): ");
                     var retryResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-                    if (retryResponse == "y" || retryResponse == "yes" || retryResponse == string.Empty)
+                    if (retryResponse == "y" || retryResponse == "yes" || string.IsNullOrEmpty(retryResponse))
                     {
                         continue;
                     }
@@ -1146,7 +1295,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 Console.Write("\nDo the chapter links look correct? (y/n, default: y): ");
                 var verifyResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-                if (verifyResponse == "y" || verifyResponse == "yes" || verifyResponse == string.Empty)
+                if (verifyResponse == "y" || verifyResponse == "yes" || string.IsNullOrEmpty(verifyResponse))
                 {
                     linksVerified = true;
                     break;
@@ -1179,6 +1328,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine("✓ Marked site as requiring Selenium for table of contents");
                     Console.ResetColor();
+
+                    if (await ReloadTableOfContentsWithSeleniumAsync().ConfigureAwait(false))
+                    {
+                        continue;
+                    }
                 }
 
                 linksVerified = true;
@@ -1192,7 +1346,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 Console.Write("\nDo you want to retry with a different XPath? (y/n, default: y): ");
                 var retryResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-                if (retryResponse == "y" || retryResponse == "yes" || retryResponse == string.Empty)
+                if (retryResponse == "y" || retryResponse == "yes" || string.IsNullOrEmpty(retryResponse))
                 {
                     continue;
                 }
@@ -1308,7 +1462,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
 
         _config.Selectors.TableOfContents.NovelRating = xpath;
-        await ValidateFieldAsync(NovelDataInitializer.Attr.NovelRating).ConfigureAwait(false);
+        await ValidateFieldAsync(Attr.NovelRating).ConfigureAwait(false);
 
         await TestTotalRatingsFieldAsync().ConfigureAwait(false);
     }
@@ -1334,7 +1488,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
 
         _config.Selectors.TableOfContents.TotalRatings = xpath;
-        await ValidateFieldAsync(NovelDataInitializer.Attr.TotalRatings).ConfigureAwait(false);
+        await ValidateFieldAsync(Attr.TotalRatings).ConfigureAwait(false);
     }
 
     private void TestContentTypeSetting()
@@ -1416,13 +1570,14 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.ResetColor();
 
         _chapterHtmlDocument = chapterHtml;
+        _chapterTestUri = updatedUri;
 
-        TestChapterTitle(chapterHtml);
-        TestChapterContent(chapterHtml);
-        TestNextChapterButtonField(chapterHtml);
+        await TestChapterTitleAsync().ConfigureAwait(false);
+        await TestChapterContentAsync().ConfigureAwait(false);
+        await TestNextChapterButtonFieldAsync().ConfigureAwait(false);
     }
 
-    private void TestChapterTitle(HtmlDocument chapterHtml)
+    private async Task TestChapterTitleAsync()
     {
         var fieldVerified = false;
 
@@ -1451,7 +1606,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
             try
             {
-                var titleNode = chapterHtml.DocumentNode.SelectSingleNode(xpath);
+                var titleNode = _chapterHtmlDocument!.DocumentNode.SelectSingleNode(xpath);
 
                 if (titleNode == null)
                 {
@@ -1500,17 +1655,17 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 case "no":
                 case "retry":
                 case "r":
-                {
-                    // Prompt about Selenium if field failed
-                    if (!success)
                     {
-                        PromptSeleniumForChapterContent("Chapter Title");
-                    }
+                        // Prompt about Selenium if field failed
+                        if (!success)
+                        {
+                            await PromptSeleniumForChapterContentAsync("Chapter Title").ConfigureAwait(false);
+                        }
 
-                    // Clear the selector to retry
-                    _config.Selectors.ChapterTitle = string.Empty;
-                    continue;
-                }
+                        // Clear the selector to retry
+                        _config.Selectors.ChapterTitle = string.Empty;
+                        continue;
+                    }
 
                 default:
                     // Default to accepting the result
@@ -1520,7 +1675,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
-    private void PromptSeleniumForChapterContent(string fieldName)
+    private async Task PromptSeleniumForChapterContentAsync(string fieldName)
     {
         Console.WriteLine($"\n⚠ {fieldName} field could not be extracted.");
         Console.WriteLine("If the content is loaded via JavaScript or requires interaction, Selenium may be needed.");
@@ -1536,9 +1691,28 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("✓ Marked site as requiring Selenium for chapter content");
         Console.ResetColor();
+
+        if (_chapterTestUri == null)
+        {
+            return;
+        }
+
+        var seleniumDoc = await LoadPageWithSeleniumAsync(_chapterTestUri, headless: false).ConfigureAwait(false);
+        if (seleniumDoc == null)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("⚠ Could not reload the chapter page with Selenium - continuing against the original HTML.");
+            Console.ResetColor();
+            return;
+        }
+
+        _chapterHtmlDocument = seleniumDoc;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("✓ Reloaded the chapter page with Selenium. Retry your XPath against the rendered page.");
+        Console.ResetColor();
     }
 
-    private void TestChapterContent(HtmlDocument chapterHtml)
+    private async Task TestChapterContentAsync()
     {
         var fieldVerified = false;
 
@@ -1570,7 +1744,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
                 try
                 {
-                    var imageNodes = chapterHtml.DocumentNode.SelectNodes(xpath);
+                    var imageNodes = _chapterHtmlDocument!.DocumentNode.SelectNodes(xpath);
 
                     if (imageNodes == null || imageNodes.Count == 0)
                     {
@@ -1629,7 +1803,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
                 try
                 {
-                    var contentNodes = chapterHtml.DocumentNode.SelectNodes(xpath);
+                    var contentNodes = _chapterHtmlDocument!.DocumentNode.SelectNodes(xpath);
 
                     if (contentNodes == null || contentNodes.Count == 0)
                     {
@@ -1647,7 +1821,9 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                         for (int i = 0; i < Math.Min(3, contentNodes.Count); i++)
                         {
                             var text = contentNodes[i].InnerText?.Trim();
-                            var preview = text?.Length > 60 ? text.Substring(0, 60) + "..." : text;
+                            var preview = text is { Length: > 60 }
+                                ? string.Concat(text.AsSpan(0, 60), "...")
+                                : text;
                             Console.WriteLine($"  [{i + 1}] {preview}");
                         }
 
@@ -1675,18 +1851,18 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 case "no":
                 case "retry":
                 case "r":
-                {
-                    // Prompt about Selenium if field failed
-                    if (!success)
                     {
-                        PromptSeleniumForChapterContent("Chapter Content");
-                    }
+                        // Prompt about Selenium if field failed
+                        if (!success)
+                        {
+                            await PromptSeleniumForChapterContentAsync("Chapter Content").ConfigureAwait(false);
+                        }
 
-                    // Clear the selectors to retry
-                    _config.Selectors.ChapterContent = string.Empty;
-                    _config.Selectors.ChapterContentImageUrlAttribute = string.Empty;
-                    continue;
-                }
+                        // Clear the selectors to retry
+                        _config.Selectors.ChapterContent = string.Empty;
+                        _config.Selectors.ChapterContentImageUrlAttribute = string.Empty;
+                        continue;
+                    }
 
                 default:
                     // Default to accepting the result
@@ -1696,7 +1872,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
-    private void TestNextChapterButtonField(HtmlDocument chapterHtml)
+    private async Task TestNextChapterButtonFieldAsync()
     {
         var fieldVerified = false;
 
@@ -1723,10 +1899,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             }
 
             _config.Selectors.NextChapterButton = xpath;
+            var success = false;
 
             try
             {
-                var node = chapterHtml.DocumentNode.SelectSingleNode(xpath);
+                var node = _chapterHtmlDocument!.DocumentNode.SelectSingleNode(xpath);
 
                 if (node == null)
                 {
@@ -1741,6 +1918,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine($"✓ Found: text=\"{text}\", href=\"{href}\"");
                     Console.ResetColor();
+                    success = true;
                 }
             }
             catch (Exception ex)
@@ -1763,6 +1941,11 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 case "no":
                 case "retry":
                 case "r":
+                    if (!success)
+                    {
+                        await PromptSeleniumForChapterContentAsync("Next Chapter Button").ConfigureAwait(false);
+                    }
+
                     _config.Selectors.NextChapterButton = string.Empty;
                     continue;
                 default:
@@ -1780,16 +1963,29 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.ResetColor();
         Console.WriteLine($"{new string('=', 70)}\n");
 
-        var options = new JsonSerializerOptions
+        // Title + ChapterLinks are the only strictly-required fields, but a config with no chapter content/title
+        // selector will download empty chapters. Warn so the user does not discover this only after a full run.
+        var missingContentSelectors = new List<string>();
+        if (string.IsNullOrEmpty(_config.Selectors.ChapterTitle))
         {
-            WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
-        };
+            missingContentSelectors.Add("Chapter Title");
+        }
 
-        var json = JsonSerializer.Serialize(_config, options);
+        if (string.IsNullOrEmpty(_config.Selectors.ChapterContent))
+        {
+            missingContentSelectors.Add("Chapter Content");
+        }
+
+        if (missingContentSelectors.Count > 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"⚠ No selector set for: {string.Join(", ", missingContentSelectors)}.");
+            Console.WriteLine("  The config will save, but chapters will be empty until these are provided.");
+            Console.ResetColor();
+            Console.WriteLine();
+        }
+
+        var json = JsonSerializer.Serialize(_config, _jsonSerializerOptions);
 
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine(json);
@@ -1840,7 +2036,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"⚠ Could not copy to clipboard: {ex.Message}");
+            Console.WriteLine($"⚠ Could not save configuration to file: {ex.Message}");
             Console.ResetColor();
             Logger.Warn($"Failed to save config to file: {ex}");
         }
@@ -1861,93 +2057,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
             var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
 
-            // Special handling for NovelBin/NovLove sites - click chapter tab
-            if (testUri.Host.Contains("novelbin", StringComparison.OrdinalIgnoreCase) ||
-                testUri.Host.Contains("novlove", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    Logger.Info("NovelBin/NovLove site detected - attempting to click 'Chapter List' tab...");
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("🔍 Detected NovelBin/NovLove site - clicking 'Chapter List' tab...");
-                    Console.ResetColor();
-
-                    var chapterTab = wait.Until(ExpectedConditions.ElementToBeClickable(
-                        By.XPath("//a[@id='tab-chapters-title'][@role='tab']")
-                    ));
-                    chapterTab.Click();
-
-                    Logger.Info("Successfully clicked 'Chapter List' tab");
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("✓ Chapter tab clicked");
-                    Console.ResetColor();
-
-                    // Wait for initial chapters to appear
-                    try
-                    {
-                        wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(
-                            By.XPath("//ul[@class='list-chapter']/li/a")
-                        ));
-                        Logger.Info("Initial chapter links are visible");
-                    }
-                    catch (WebDriverTimeoutException)
-                    {
-                        Logger.Warn("Explicit wait for chapters timed out");
-                    }
-
-                    // Wait for lazy-loaded chapters to finish loading
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("⏳ Waiting for all chapters to lazy load...");
-                    Console.ResetColor();
-                    Logger.Info("Waiting for all chapters to lazy load...");
-
-                    var previousCount = 0;
-                    var stableCount = 0;
-                    var maxWaitIterations = 30; // 30 seconds max wait
-
-                    for (int i = 0; i < maxWaitIterations; i++)
-                    {
-                        await Task.Delay(1000).ConfigureAwait(false); // Wait 1 second between checks
-
-                        var currentChapters = driver.FindElements(By.XPath("//ul[@class='list-chapter']/li/a"));
-                        var currentCount = currentChapters.Count;
-
-                        if (currentCount == previousCount)
-                        {
-                            stableCount++;
-                            // If count hasn't changed for 3 consecutive checks, assume loading is complete
-                            if (stableCount >= 3)
-                            {
-                                Logger.Info($"Chapter count stabilized at {currentCount} chapters");
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.WriteLine($"✓ All chapters loaded ({currentCount} total)");
-                                Console.ResetColor();
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            Logger.Info($"Chapters loading: {currentCount} found...");
-                            Console.WriteLine($"  Loading: {currentCount} chapters found...");
-                            stableCount = 0;
-                            previousCount = currentCount;
-                        }
-                    }
-
-                    Logger.Info("Chapter lazy loading complete");
-                }
-                catch (WebDriverTimeoutException)
-                {
-                    Logger.Warn("Could not find 'Chapter List' tab - it might already be active");
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("⚠ Chapter tab not found - may already be active");
-                    Console.ResetColor();
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"Unexpected error while clicking chapter tab: {ex.Message}");
-                }
-            }
+            await TryClickNovelBinChapterTabAsync(driver, wait, testUri).ConfigureAwait(false);
 
             // Wait for the requested XPath to be present
             Logger.Info($"Waiting for XPath to be present: {xpath}");
@@ -1969,14 +2079,172 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Logger.Error($"Selenium error: {ex}");
             return (null, null);
         }
-        finally
+    }
+
+    /// <summary>
+    /// Loads a page through a real browser and returns the rendered DOM. When <paramref name="waitForXpath"/> is
+    /// provided the loader waits for that XPath to appear; otherwise it waits for document.readyState to reach
+    /// 'complete'. Existing drivers are disposed first so repeated interactive reloads don't pile up browser windows.
+    /// </summary>
+    private async Task<HtmlDocument?> LoadPageWithSeleniumAsync(Uri uri, bool headless, string? waitForXpath = null)
+    {
+        try
         {
-            // Driver will be cleaned up by DisposeAllDrivers in the calling method's finally block
+            _driverFactory.DisposeAllDrivers();
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"🌐 Loading page with Selenium (headless: {headless})...");
+            Console.ResetColor();
+
+            var driver = await _driverFactory.CreateDriverAsync(uri.ToString(), isHeadless: headless).ConfigureAwait(false);
+            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
+
+            await TryClickNovelBinChapterTabAsync(driver, wait, uri).ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(waitForXpath))
+            {
+                try
+                {
+                    wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(waitForXpath)));
+                }
+                catch (WebDriverTimeoutException)
+                {
+                    Logger.Warn($"Timed out waiting for XPath during Selenium load: {waitForXpath}");
+                }
+            }
+            else
+            {
+                try
+                {
+                    wait.Until(d => string.Equals(
+                        ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState")?.ToString(),
+                        "complete",
+                        StringComparison.Ordinal));
+                }
+                catch (WebDriverTimeoutException)
+                {
+                    Logger.Warn("Timed out waiting for document.readyState to reach 'complete'");
+                }
+            }
+
+            var htmlDocument = new HtmlDocument();
+            htmlDocument.LoadHtml(driver.PageSource);
+            return htmlDocument;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Selenium load error: {ex}");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Failed to load page with Selenium: {ex.Message}");
+            Console.ResetColor();
+            return null;
         }
     }
 
-    private static async Task<bool> TestSpecificField(NovelDataInitializer.Attr attribute, string xpath, HtmlDocument htmlDocument,
-        ScraperData scraperData, SiteConfiguration config, Action<string> setSelector)
+    /// <summary>
+    /// NovelBin/NovLove render their chapter list behind a "Chapter List" tab and lazy-load it. When the target
+    /// host is one of those, click the tab and wait for the chapter count to stabilize. No-op for other sites.
+    /// </summary>
+    private static async Task TryClickNovelBinChapterTabAsync(IWebDriver driver, WebDriverWait wait, Uri uri)
+    {
+        if (!uri.Host.Contains("novelbin", StringComparison.OrdinalIgnoreCase) &&
+            !uri.Host.Contains("novlove", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        try
+        {
+            Logger.Info("NovelBin/NovLove site detected - attempting to click 'Chapter List' tab...");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("🔍 Detected NovelBin/NovLove site - clicking 'Chapter List' tab...");
+            Console.ResetColor();
+
+            var chapterTab = wait.Until(
+                ExpectedConditions.ElementToBeClickable(
+                    By.XPath("//a[@id='tab-chapters-title'][@role='tab']")));
+            chapterTab.Click();
+
+            Logger.Info("Successfully clicked 'Chapter List' tab");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("✓ Chapter tab clicked");
+            Console.ResetColor();
+
+            // Wait for initial chapters to appear
+            try
+            {
+                wait.Until(
+                    ExpectedConditions.PresenceOfAllElementsLocatedBy(
+                        By.XPath("//ul[@class='list-chapter']/li/a")));
+                Logger.Info("Initial chapter links are visible");
+            }
+            catch (WebDriverTimeoutException)
+            {
+                Logger.Warn("Explicit wait for chapters timed out");
+            }
+
+            // Wait for lazy-loaded chapters to finish loading
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("⏳ Waiting for all chapters to lazy load...");
+            Console.ResetColor();
+            Logger.Info("Waiting for all chapters to lazy load...");
+
+            var previousCount = 0;
+            var stableCount = 0;
+            var maxWaitIterations = 30; // 30 seconds max wait
+
+            for (int i = 0; i < maxWaitIterations; i++)
+            {
+                await Task.Delay(1000).ConfigureAwait(false); // Wait 1 second between checks
+
+                var currentChapters = driver.FindElements(By.XPath("//ul[@class='list-chapter']/li/a"));
+                var currentCount = currentChapters.Count;
+
+                if (currentCount == previousCount)
+                {
+                    stableCount++;
+
+                    // If count hasn't changed for 3 consecutive checks, assume loading is complete
+                    if (stableCount >= 3)
+                    {
+                        Logger.Info($"Chapter count stabilized at {currentCount} chapters");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"✓ All chapters loaded ({currentCount} total)");
+                        Console.ResetColor();
+                        break;
+                    }
+                }
+                else
+                {
+                    Logger.Info($"Chapters loading: {currentCount} found...");
+                    Console.WriteLine($"  Loading: {currentCount} chapters found...");
+                    stableCount = 0;
+                    previousCount = currentCount;
+                }
+            }
+
+            Logger.Info("Chapter lazy loading complete");
+        }
+        catch (WebDriverTimeoutException)
+        {
+            Logger.Warn("Could not find 'Chapter List' tab - it might already be active");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("⚠ Chapter tab not found - may already be active");
+            Console.ResetColor();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"Unexpected error while clicking chapter tab: {ex.Message}");
+        }
+    }
+
+    private static async Task<bool> TestSpecificField(
+        Attr attribute,
+        string xpath,
+        HtmlDocument htmlDocument,
+        ScraperData scraperData,
+        SiteConfiguration config,
+        Action<string> setSelector)
     {
         setSelector(xpath);
 
@@ -1985,19 +2253,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             using var novelDataBuffer = new NovelDataBuffer();
             await TestStrategyInitializer.TestSingleFieldAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
 
-            var hasData = attribute switch
-            {
-                NovelDataInitializer.Attr.Title => !string.IsNullOrEmpty(novelDataBuffer.Title),
-                NovelDataInitializer.Attr.Author => !string.IsNullOrEmpty(novelDataBuffer.Author),
-                NovelDataInitializer.Attr.Description => novelDataBuffer.Description?.Count > 0,
-                NovelDataInitializer.Attr.Genres => novelDataBuffer.Genres?.Count > 0,
-                NovelDataInitializer.Attr.NovelStatus => !string.IsNullOrEmpty(novelDataBuffer.NovelStatus),
-                NovelDataInitializer.Attr.AlternativeNames => novelDataBuffer.AlternativeNames?.Count > 0,
-                NovelDataInitializer.Attr.ThumbnailUrl => !string.IsNullOrEmpty(novelDataBuffer.ThumbnailUrl),
-                NovelDataInitializer.Attr.NovelRating => novelDataBuffer.Rating > 0,
-                NovelDataInitializer.Attr.TotalRatings => novelDataBuffer.TotalRatings > 0,
-                _ => false
-            };
+            var hasData = TestStrategyInitializer.HasFieldData(attribute, novelDataBuffer);
 
             if (!hasData)
             {
@@ -2017,7 +2273,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         }
     }
 
-    private static bool TestChapterLinksField(string xpath, HtmlDocument htmlDocument)
+    private static bool CheckChapterLinksField(string xpath, HtmlDocument htmlDocument)
     {
         try
         {
@@ -2118,7 +2374,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 return false;
             }
 
-            var isImageContent = nodes.First().Name.ToLowerInvariant() == "img";
+            var isImageContent = string.Equals(nodes.First().Name, "img", StringComparison.OrdinalIgnoreCase);
 
             if (isImageContent)
             {
@@ -2144,13 +2400,17 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             for (var i = 0; i < Math.Min(5, nodes.Count); i++)
             {
                 var text = nodes[i].InnerText?.Trim();
-                var preview = text?.Length > 80 ? text.Substring(0, 80) + "..." : text;
+                var preview = text is { Length: > 80 }
+                    ? string.Concat(text.AsSpan(0, 80), "...")
+                    : text;
                 Console.WriteLine($"  [{i + 1}] {preview}");
             }
 
             Console.WriteLine("\nLast content element:");
             var lastText = nodes.Last().InnerText?.Trim();
-            var lastPreview = lastText?.Length > 80 ? lastText.Substring(0, 80) + "..." : lastText;
+            var lastPreview = lastText is { Length: > 80 }
+                ? string.Concat(lastText.AsSpan(0, 80), "...")
+                : lastText;
             Console.WriteLine($"  [{nodes.Count}] {lastPreview}");
             return true;
         }
@@ -2168,8 +2428,9 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         try
         {
             // ChapterTitleInToc uses a relative XPath evaluated against each chapter link node.
-            // First, find chapter link nodes to test against.
-            var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes("//a[contains(@href, 'chapter') or contains(@href, 'ch')]");
+            // First, find chapter link nodes to test against. Only match 'chapter' — a bare 'ch'
+            // substring also matches "search", "cache", etc. and produces noisy false positives.
+            var chapterLinkNodes = htmlDocument.DocumentNode.SelectNodes("//a[contains(@href, 'chapter')]");
 
             if (chapterLinkNodes == null || chapterLinkNodes.Count == 0)
             {
@@ -2244,7 +2505,9 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                 Console.WriteLine("\nSample titles found:");
                 for (var i = 0; i < sampleResults.Count; i++)
                 {
-                    var preview = sampleResults[i].Length > 80 ? sampleResults[i].Substring(0, 80) + "..." : sampleResults[i];
+                    var preview = sampleResults[i].Length > 80
+                        ? string.Concat(sampleResults[i].AsSpan(0, 80), "...")
+                        : sampleResults[i];
                     Console.WriteLine($"  [{i + 1}] {preview}");
                 }
             }
@@ -2318,7 +2581,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         return false;
     }
 
-    private static (string fieldName, bool success) ValidateChapterLinks(string fieldName, HtmlDocument htmlDocument, string? xpath)
+    private static (string FieldName, bool Success) ValidateChapterLinks(string fieldName, HtmlDocument htmlDocument, string? xpath)
     {
         if (string.IsNullOrEmpty(xpath))
         {
@@ -2377,7 +2640,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
                content.Contains("cf_chl_opt", StringComparison.Ordinal) ||
                content.Contains("Checking your browser", StringComparison.Ordinal) ||
                content.Contains("Just a moment", StringComparison.Ordinal) ||
-               content.Contains("ray ID", StringComparison.Ordinal) && statusCode != 200;
+               (content.Contains("ray ID", StringComparison.Ordinal) && statusCode != 200);
     }
 
     private static string GetNextUserAgent()
@@ -2392,9 +2655,45 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     }
 }
 
+#pragma warning restore SA1204
+#pragma warning restore SA1202
+
 public abstract class TestStrategyInitializer : NovelDataInitializer
 {
-    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+    private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+
+    /// <summary>
+    /// Single source of truth for deciding whether an extraction actually produced data for a given attribute.
+    /// Shared by every field tester/validator so the per-attribute rules cannot drift apart.
+    /// Attributes without a dedicated buffer field (e.g. <see cref="Attr.CurrentChapter"/>) default to true.
+    /// </summary>
+    /// <param name="attribute">The extracted attribute whose corresponding buffer value is checked.</param>
+    /// <param name="novelDataBuffer">The buffer containing the extraction result.</param>
+    /// <returns><see langword="true"/> when the requested attribute contains usable data; otherwise, <see langword="false"/>.</returns>
+    public static bool HasFieldData(Attr attribute, NovelDataBuffer novelDataBuffer)
+    {
+        ArgumentNullException.ThrowIfNull(novelDataBuffer);
+
+        return attribute switch
+        {
+            Attr.Title => !string.IsNullOrEmpty(novelDataBuffer.Title),
+            Attr.Author => !string.IsNullOrEmpty(novelDataBuffer.Author),
+            Attr.Description => novelDataBuffer.Description?.Count > 0,
+            Attr.Genres => novelDataBuffer.Genres?.Count > 0,
+            Attr.NovelStatus => !string.IsNullOrEmpty(novelDataBuffer.NovelStatus),
+            Attr.AlternativeNames => novelDataBuffer.AlternativeNames?.Count > 0,
+            Attr.ThumbnailUrl => !string.IsNullOrEmpty(novelDataBuffer.ThumbnailUrl),
+            Attr.NovelRating => novelDataBuffer.Rating > 0,
+            Attr.TotalRatings => novelDataBuffer.TotalRatings > 0,
+            Attr.LastTableOfContentsPage => !string.IsNullOrEmpty(novelDataBuffer.LastTableOfContentsPageUrl),
+            Attr.ChapterUrls => novelDataBuffer.ChapterLinks.Count > 0,
+            Attr.FirstChapterUrl => !string.IsNullOrEmpty(novelDataBuffer.FirstChapter),
+            Attr.CurrentChapter => !string.IsNullOrEmpty(novelDataBuffer.CurrentChapterUrl),
+            Attr.Category => false,
+            Attr.AlternateLastTableOfContentsPage => false,
+            _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Unknown novel-data attribute.")
+        };
+    }
 
     /// <summary>
     /// Tests a single attribute field for the interactive testing mode.
@@ -2422,7 +2721,7 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
     /// <param name="scraperData">The scraper context (site configuration, base URI, HTTP client factory) used during extraction.</param>
     /// <param name="hasSelector">true if a selector is configured for this field; false to skip validation.</param>
     /// <returns>A tuple containing the field name and whether validation succeeded.</returns>
-    public static async Task<(string fieldName, bool success)> ValidateFieldAsync(
+    public static async Task<(string FieldName, bool Success)> ValidateFieldAsync(
         string fieldName,
         Attr attribute,
         HtmlDocument htmlDocument,
@@ -2442,19 +2741,7 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
             using var novelDataBuffer = new NovelDataBuffer();
             await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
 
-            var hasData = attribute switch
-            {
-                Attr.Title => !string.IsNullOrEmpty(novelDataBuffer.Title),
-                Attr.Author => !string.IsNullOrEmpty(novelDataBuffer.Author),
-                Attr.Description => novelDataBuffer.Description?.Count > 0,
-                Attr.Genres => novelDataBuffer.Genres?.Count > 0,
-                Attr.NovelStatus => !string.IsNullOrEmpty(novelDataBuffer.NovelStatus),
-                Attr.AlternativeNames => novelDataBuffer.AlternativeNames?.Count > 0,
-                Attr.ThumbnailUrl => !string.IsNullOrEmpty(novelDataBuffer.ThumbnailUrl),
-                Attr.NovelRating => novelDataBuffer.Rating > 0,
-                Attr.TotalRatings => novelDataBuffer.TotalRatings > 0,
-                _ => false
-            };
+            var hasData = HasFieldData(attribute, novelDataBuffer);
 
             if (!hasData)
             {
@@ -2477,7 +2764,13 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
                 Attr.ThumbnailUrl => $"  ✓ {fieldName}: {novelDataBuffer.ThumbnailUrl}",
                 Attr.NovelRating => $"  ✓ {fieldName}: {novelDataBuffer.Rating}",
                 Attr.TotalRatings => $"  ✓ {fieldName}: {novelDataBuffer.TotalRatings}",
-                _ => $"  ✓ {fieldName}: Found"
+                Attr.LastTableOfContentsPage => $"  ✓ {fieldName}: {novelDataBuffer.LastTableOfContentsPageUrl}",
+                Attr.ChapterUrls => $"  ✓ {fieldName}: {novelDataBuffer.ChapterLinks.Count} chapter(s)",
+                Attr.FirstChapterUrl => $"  ✓ {fieldName}: {novelDataBuffer.FirstChapter}",
+                Attr.CurrentChapter => $"  ✓ {fieldName}: {novelDataBuffer.CurrentChapterUrl}",
+                Attr.Category => $"  ✓ {fieldName}: Found",
+                Attr.AlternateLastTableOfContentsPage => $"  ✓ {fieldName}: Found",
+                _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Unknown novel-data attribute.")
             };
             Console.WriteLine(dataPreview);
             Console.ResetColor();
@@ -2489,7 +2782,7 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"  ✗ {fieldName}: Error - {ex.Message}");
             Console.ResetColor();
-            Logger.Error($"Validation error for {fieldName}: {ex}");
+            _logger.Error($"Validation error for {fieldName}: {ex}");
             return (fieldName, false);
         }
     }

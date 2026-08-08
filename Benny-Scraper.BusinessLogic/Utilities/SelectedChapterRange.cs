@@ -8,13 +8,7 @@ public class SelectedChapterRange(int begin, int end)
 
     public int Count => End - Begin + 1;
 
-    public bool IsValid()
-    {
-        return Begin > 0 && End > 0 && Begin <= End;
-    }
+    public bool IsValid() => Begin > 0 && End > 0 && Begin <= End;
 
-    public override string ToString()
-    {
-        return $"{Begin}-{End} ({Count} chapters)";
-    }
+    public override string ToString() => $"{Begin}-{End} ({Count} chapters)";
 }

@@ -3,6 +3,10 @@ using CommandLine;
 
 namespace BennyScraper;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Performance",
+    "CA1812:Avoid uninstantiated internal classes",
+    Justification = "CommandLineParser instantiates this type through reflection.")]
 internal sealed class CommandLineOptions
 {
     [Option('l', "list", Required = false, HelpText = "List all novels in database. Options include -P, --page [INT] | -I, --items-per-page [INT] | -S, --search [STRING]")]

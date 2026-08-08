@@ -11,9 +11,9 @@ namespace BennyScraper.BusinessLogic;
 /// </summary>
 public class NovelScraper : INovelScraper
 {
-    private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
-    private ScraperStrategy? _scraperStrategy;
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly Dictionary<string, ScraperStrategy> _websiteMap = new();
+    private ScraperStrategy? _scraperStrategy;
 
     public NovelScraper()
     {
@@ -37,19 +37,13 @@ public class NovelScraper : INovelScraper
             return _scraperStrategy;
         }
 
-        Logger.Error($"No scraper strategy found for {baseUrl}");
+        _logger.Error($"No scraper strategy found for {baseUrl}");
         return null;
     }
 
-    public IReadOnlyList<string> GetSupportedSites()
-    {
-        return _websiteMap.Select(website => website.Key).ToList();
-    }
+    public IReadOnlyList<string> GetSupportedSites() => _websiteMap.Select(website => website.Key).ToList();
 
-    private void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy)
-    {
-        _websiteMap.Add(siteName, scraperStrategy);
-    }
+    private void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy) => _websiteMap.Add(siteName, scraperStrategy);
 
     private void AddSupportForWebsite()
     {

@@ -1,6 +1,6 @@
 using BennyScraper.Models;
 
-namespace BennyScraper.BusinessLogic.Services.Interface;
+namespace BennyScraper.BusinessLogic.Services.Interfaces;
 
 public interface INovelService
 {

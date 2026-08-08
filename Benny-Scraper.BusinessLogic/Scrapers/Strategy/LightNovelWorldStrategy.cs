@@ -141,7 +141,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 };
                 foreach (var attribute in attributesToFetch)
                 {
-                    if (attribute == Attr.ThumbnailUrl) // always get a 403 forbidden error when trying to get the thumbnail image from lightnovelworld
+                    // Fetch the thumbnail from WebNovelWorld because LightNovelWorld returns HTTP 403 for it.
+                    if (attribute == Attr.ThumbnailUrl)
                     {
                         using var client = scraperData.HttpClientFactory?.CreateClient() ?? new HttpClient();
                         var response = await client.GetAsync($"https://webnovelworld.org{scraperData.SiteTableOfContents.AbsolutePath}").ConfigureAwait(false);

@@ -4,23 +4,17 @@ using BennyScraper.Models;
 
 namespace BennyScraper.DataAccess.Repository;
 
-public class ConfigurationRepository : Repository<Configuration>, IConfigurationRepository
+public class ConfigurationRepository(Database db) : Repository<Configuration>(db), IConfigurationRepository
 {
-    private Database _db;
+    private readonly Database _db = db;
 
-    public ConfigurationRepository(Database db) : base(db)
+    public void Update(Configuration obj)
     {
-        _db = db;
-    }
-
-    public void Update(Configuration configuration)
-    {
-        _db.Configurations.Update(configuration);
+        _db.Configurations.Update(obj);
         _db.SaveChanges();
     }
 
-    public async Task<Configuration> GetByIdAsync(int id)
-    {
-        return await _db.Configurations.FindAsync(id);
-    }
+    public async Task<Configuration> GetByIdAsync(int id) =>
+        await _db.Configurations.FindAsync(id).ConfigureAwait(false)
+        ?? throw new InvalidOperationException($"No configuration found with id {id}.");
 }

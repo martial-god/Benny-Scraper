@@ -9,7 +9,7 @@ namespace BennyScraper.BusinessLogic.Utilities;
 /// </summary>
 public static class ShutdownHooks
 {
-    private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+    private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private static int _disposed;
 
     /// <summary>
@@ -41,7 +41,7 @@ public static class ShutdownHooks
 
             try
             {
-                Logger.Warn($"Shutting down: disposing Selenium drivers. Reason: {reason}");
+                _logger.Warn($"Shutting down: disposing Selenium drivers. Reason: {reason}");
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.DarkGray;
                 Console.WriteLine("Tip: If the application was interrupted, check Task Manager for orphaned ChromeDriver processes.");
@@ -51,14 +51,14 @@ public static class ShutdownHooks
                 Console.ResetColor();
                 if (ex != null)
                 {
-                    Logger.Error(ex, "Unhandled exception triggered shutdown.");
+                    _logger.Error(ex, "Unhandled exception triggered shutdown.");
                 }
 
                 driverFactory.DisposeAllDrivers();
             }
             catch (Exception disposeEx)
             {
-                Logger.Error(disposeEx, "Failed while disposing Selenium drivers during shutdown.");
+                _logger.Error(disposeEx, "Failed while disposing Selenium drivers during shutdown.");
             }
         }
     }
