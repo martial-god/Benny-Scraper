@@ -1,17 +1,16 @@
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using Xunit;
-using Xunit.Abstractions;
 using Attr = BennyScraper.BusinessLogic.Scrapers.Strategy.Impl.NovelDataInitializer.Attr;
 
 namespace BennyScraper.Tests;
 
 /// <summary>
-/// Verifies a site's REAL selector config (from appsettings.json) extracts the title, author and
+/// Verifies a site's real selector configuration (from the sites directory) extracts the title, author and
 /// chapter list from a table-of-contents page.
 ///
 /// HOW TO ADD A SITE:
-///   1. Open appsettings.json, find the site, note its tableOfContents selectors:
+///   1. Open the site's JSON file and note its tableOfContents selectors:
 ///      novelTitle, novelAuthor, chapterLinks.
 ///   2. Below, write the SMALLEST HTML that contains just those target elements (made-up text).
 ///      Each element is labelled with the selector that targets it — if a selector has no matching
@@ -44,6 +43,9 @@ public class TableOfContentsParsingTests
             ExpectedTitle = "Test Novel Title",
             ExpectedAuthor = "Test Author",
             ExpectedChapterCount = 3,
+            ExpectedFirstChapterUrlSuffix = "/chapter/1/one",
+            ExpectedCurrentChapterUrlSuffix = "/chapter/3/three",
+            ExpectedMostRecentChapterTitle = "Chapter 3",
         },
     };
 
@@ -59,6 +61,10 @@ public class TableOfContentsParsingTests
         await NovelDataInitializer.FetchContentByAttributeAsync(Attr.Author, novelDataBuffer, htmlDocument, scraperData);
         await NovelDataInitializer.FetchContentByAttributeAsync(Attr.ChapterUrls, novelDataBuffer, htmlDocument, scraperData);
 
+        using var strategy = new TestableStrategy();
+        strategy.ConfigureSort(scraperData.SiteConfig.ChapterSortOrder);
+        strategy.SortChapters(novelDataBuffer);
+
         Assert.Equal(tocCase.ExpectedTitle, novelDataBuffer.Title);
         Assert.Equal(tocCase.ExpectedAuthor, novelDataBuffer.Author);
         Assert.Equal(tocCase.ExpectedChapterCount, novelDataBuffer.ChapterLinks.Count);
@@ -70,5 +76,10 @@ public class TableOfContentsParsingTests
 
         // "&amp;" should have been decoded to "&".
         Assert.Equal("Chapter 2 & More", novelDataBuffer.ChapterLinks[1].Title);
+
+        // Sites without separate first/latest selectors derive both boundaries from the ordered chapter list.
+        Assert.EndsWith(tocCase.ExpectedFirstChapterUrlSuffix, novelDataBuffer.FirstChapter, StringComparison.Ordinal);
+        Assert.EndsWith(tocCase.ExpectedCurrentChapterUrlSuffix, novelDataBuffer.CurrentChapterUrl, StringComparison.Ordinal);
+        Assert.Equal(tocCase.ExpectedMostRecentChapterTitle, novelDataBuffer.MostRecentChapterTitle);
     }
 }

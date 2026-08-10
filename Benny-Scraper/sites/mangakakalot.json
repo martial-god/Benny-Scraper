@@ -1,0 +1,42 @@
+{
+  "siteName": "mangakakalot",
+  "urlPattern": "mangakakalot.to",
+  "isActive": true,
+  "strategyName": "mangakakalot",
+  "hasPagination": false,
+  "paginationType": null,
+  "paginationQueryPartial": null,
+  "hasNovelInfoOnDifferentPage": false,
+  "chaptersPerPage": -1,
+  "pageOffSet": 0,
+  "completedStatus": "finished",
+  "hasImagesForChapterContent": true,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": false,
+  "chapterContentRequiresSelenium": true,
+  "cloudflareProtection": null,
+  "chapterSortOrder": "Descending",
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//div[@id='list-chapter-en']//a",
+      "tableOfContentsPaginationListItems": null,
+      "lastTableOfContentsPage": null,
+      "lastTableOfContentPageNumberAttribute": "href",
+      "latestChapterLink": "//div[@id='table-of-contents']/div[1]/div[1]/a",
+      "novelStatus": "//*[@id='main']/div/div/div[1]/div[3]/div[1]/div[2]/div[3]/div[2]/span[2]",
+      "novelAuthor": "//*[@id='main']/div/div/div[1]/div[3]/div[1]/div[2]/div[2]/div[2]/span[2]/a/text()",
+      "novelAlternativeNames": "//*[@id='main']/div/div/div[1]/div[3]/div[1]/div[2]/div[1]/div[2]/div",
+      "novelGenres": "//*[@id='main']/div/div/div[1]/div[3]/div[1]/div[2]/div[6]/div[2]/span[2]/a/text()",
+      "novelRating": null,
+      "novelTitle": "//div[@class='detail-box']//h3[@class='manga-name']",
+      "totalRatings": "//div[contains(@class, 'small')]/em/strong[2]/span[1]/text()",
+      "novelDescription": "//*[@id='main']/div/div/div[1]/div[3]/div[2]/div[2]",
+      "novelThumbnailUrl": "//*[@id='main']/div/div/div[1]/div[3]/div[1]/div[1]/div[1]/img",
+      "thumbnailUrlAttribute": "src"
+    },
+    "chapterTitle": "//*[@id='reading']/div[1]/div[4]/h2",
+    "chapterContent": "//div[@id='list-image']//div[@data-url]",
+    "alternativeChapterContent": "//p",
+    "chapterContentImageUrlAttribute": "data-url"
+  }
+}

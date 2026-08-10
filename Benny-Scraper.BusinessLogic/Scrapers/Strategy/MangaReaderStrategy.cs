@@ -93,11 +93,6 @@ public abstract class MangaReaderInitializer : NovelDataInitializer
         // Sort chapters based on site configuration
         scraperStrategy.SortChapters(novelDataBuffer);
 
-        if (novelDataBuffer.ChapterLinks.Any())
-        {
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.First().Url;
-        }
-
         if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
         {
             novelDataBuffer.MostRecentChapterTitle = novelDataBuffer.MostRecentChapterTitle.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).First(); // remove new line and everything after

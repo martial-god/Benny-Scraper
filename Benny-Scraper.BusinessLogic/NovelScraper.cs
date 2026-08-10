@@ -1,6 +1,8 @@
+using Autofac.Features.Indexed;
 using BennyScraper.BusinessLogic.Config;
 using BennyScraper.BusinessLogic.Interfaces;
 using BennyScraper.BusinessLogic.Scrapers.Strategy;
+using Microsoft.Extensions.Options;
 using NLog;
 
 namespace BennyScraper.BusinessLogic;
@@ -9,19 +11,15 @@ namespace BennyScraper.BusinessLogic;
 /// Resolves the scraping strategy for a given site URL. Individual strategies decide whether
 /// they use HttpClient or Selenium internally (e.g. WuxiaWorld uses Selenium for premium login).
 /// </summary>
-public class NovelScraper : INovelScraper
+public class NovelScraper(
+    IIndex<string, ScraperStrategy> scraperStrategies,
+    IOptions<NovelScraperSettings> novelScraperSettings) : INovelScraper
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
-    private readonly Dictionary<string, ScraperStrategy> _websiteMap = new();
-    private ScraperStrategy? _scraperStrategy;
-
-    public NovelScraper()
-    {
-        AddSupportForWebsite();
-    }
+    private readonly NovelScraperSettings _novelScraperSettings = novelScraperSettings.Value;
 
     /// <summary>
-    /// Returns the scraper strategy for the given site. If no strategy is found, null is returned. Classes are added to the map in the constructor.
+    /// Returns the configured scraper strategy for the given site, or null when its strategy name is not registered.
     /// </summary>
     /// <param name="novelTableOfContentsUri">The table of contents URI whose host is used to look up the matching strategy.</param>
     /// <param name="siteConfig">The site configuration associated with the novel's host.</param>
@@ -29,35 +27,32 @@ public class NovelScraper : INovelScraper
     public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
     {
         ArgumentNullException.ThrowIfNull(novelTableOfContentsUri);
+        ArgumentNullException.ThrowIfNull(siteConfig);
 
-        var baseUrl = novelTableOfContentsUri.GetLeftPart(UriPartial.Authority);
-
-        if (_websiteMap.TryGetValue(baseUrl, out _scraperStrategy))
+        if (!siteConfig.IsActive)
         {
-            return _scraperStrategy;
+            _logger.Warn($"The site configuration for {siteConfig.SiteName} is inactive.");
+            return null;
         }
 
-        _logger.Error($"No scraper strategy found for {baseUrl}");
+        var strategyName = string.IsNullOrWhiteSpace(siteConfig.StrategyName) ? "common" : siteConfig.StrategyName;
+        if (scraperStrategies.TryGetValue(strategyName, out var scraperStrategy))
+        {
+            return scraperStrategy;
+        }
+
+        _logger.Error($"No scraper strategy named {strategyName} for site {novelTableOfContentsUri.Host} found.");
         return null;
     }
 
-    public IReadOnlyList<string> GetSupportedSites() => _websiteMap.Select(website => website.Key).ToList();
-
-    private void AddSiteToMap(string siteName, ScraperStrategy scraperStrategy) => _websiteMap.Add(siteName, scraperStrategy);
-
-    private void AddSupportForWebsite()
-    {
-        AddSiteToMap("https://www.lightnovelworld.com", new LightNovelWorldStrategy());
-        AddSiteToMap("https://mangakakalot.to", new MangaKakalotStrategy());
-        AddSiteToMap("https://mangareader.to", new MangaReaderStrategy());
-        AddSiteToMap("https://mangakatana.com", new MangaKatanaStrategy());
-        AddSiteToMap("https://novelbin.me", new NovelBinStrategy());
-        AddSiteToMap("https://novelbin.com", new NovelBinStrategy());
-        AddSiteToMap("https://noveldrama.com", new NovelDramaStrategy());
-        AddSiteToMap("https://novelfull.com", new NovelFullStrategy());
-        AddSiteToMap("https://novlove.com", new NovelBinStrategy());
-        AddSiteToMap("https://wanderinginn.com", new WanderingInnStrategy());
-        AddSiteToMap("https://www.wuxiaworld.com", new WuxiaWorldStrategy());
-        AddSiteToMap("https://www.royalroad.com", new RoyalRoadStrategy());
-    }
+    /// <summary>
+    /// Gets the active sites declared by the files in the sites directory.
+    /// </summary>
+    /// <returns>The supported site addresses, ordered by site name.</returns>
+    public IReadOnlyList<string> GetSupportedSites() => _novelScraperSettings.SiteConfigurations
+        .Where(siteConfiguration => siteConfiguration.IsActive)
+        .OrderBy(siteConfiguration => siteConfiguration.SiteName, StringComparer.OrdinalIgnoreCase)
+        .Select(siteConfiguration => $"https://{siteConfiguration.UrlPattern}")
+        .ToList()
+        .AsReadOnly();
 }

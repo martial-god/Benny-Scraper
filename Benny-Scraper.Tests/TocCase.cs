@@ -1,4 +1,4 @@
-﻿using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using Xunit;
 using Xunit.Abstractions;
@@ -19,6 +19,12 @@ public sealed class TocCase : IXunitSerializable
 
     public int ExpectedChapterCount { get; set; }
 
+    public string ExpectedFirstChapterUrlSuffix { get; set; } = string.Empty;
+
+    public string ExpectedCurrentChapterUrlSuffix { get; set; } = string.Empty;
+
+    public string ExpectedMostRecentChapterTitle { get; set; } = string.Empty;
+
     public void Serialize(IXunitSerializationInfo info)
     {
         info.AddValue(nameof(UrlPattern), UrlPattern);
@@ -26,6 +32,9 @@ public sealed class TocCase : IXunitSerializable
         info.AddValue(nameof(ExpectedTitle), ExpectedTitle);
         info.AddValue(nameof(ExpectedAuthor), ExpectedAuthor);
         info.AddValue(nameof(ExpectedChapterCount), ExpectedChapterCount);
+        info.AddValue(nameof(ExpectedFirstChapterUrlSuffix), ExpectedFirstChapterUrlSuffix);
+        info.AddValue(nameof(ExpectedCurrentChapterUrlSuffix), ExpectedCurrentChapterUrlSuffix);
+        info.AddValue(nameof(ExpectedMostRecentChapterTitle), ExpectedMostRecentChapterTitle);
     }
 
     public void Deserialize(IXunitSerializationInfo info)
@@ -35,6 +44,9 @@ public sealed class TocCase : IXunitSerializable
         ExpectedTitle = info.GetValue<string>(nameof(ExpectedTitle));
         ExpectedAuthor = info.GetValue<string>(nameof(ExpectedAuthor));
         ExpectedChapterCount = info.GetValue<int>(nameof(ExpectedChapterCount));
+        ExpectedFirstChapterUrlSuffix = info.GetValue<string>(nameof(ExpectedFirstChapterUrlSuffix));
+        ExpectedCurrentChapterUrlSuffix = info.GetValue<string>(nameof(ExpectedCurrentChapterUrlSuffix));
+        ExpectedMostRecentChapterTitle = info.GetValue<string>(nameof(ExpectedMostRecentChapterTitle));
     }
 
     public override string ToString() => UrlPattern;

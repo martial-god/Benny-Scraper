@@ -85,11 +85,6 @@ public abstract class MangaKatanaInitializer : NovelDataInitializer
         scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocument, novelDataBuffer, scraperData);
         scraperStrategy.SortChapters(novelDataBuffer);
 
-        if (novelDataBuffer.ChapterLinks.Any())
-        {
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.First().Url;
-        }
-
         if (!string.IsNullOrEmpty(novelDataBuffer.MostRecentChapterTitle))
         {
             novelDataBuffer.MostRecentChapterTitle = novelDataBuffer.MostRecentChapterTitle.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).First(); // remove new line and everything after

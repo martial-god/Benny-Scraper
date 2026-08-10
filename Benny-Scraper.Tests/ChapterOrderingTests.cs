@@ -35,5 +35,8 @@ public class ChapterOrderingTests
         // Regardless of how the page listed them, reading order is oldest -> newest, numbered 1..3.
         Assert.Equal(["oldest", "middle", "newest"], novelDataBuffer.ChapterLinks.Select(chapterLink => chapterLink.Url));
         Assert.Equal([1, 2, 3], novelDataBuffer.ChapterLinks.Select(chapterLink => chapterLink.ChapterNumber));
+        Assert.Equal("oldest", novelDataBuffer.FirstChapter);
+        Assert.Equal("newest", novelDataBuffer.CurrentChapterUrl);
+        Assert.Equal("newest", novelDataBuffer.MostRecentChapterTitle);
     }
 }

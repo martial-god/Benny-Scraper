@@ -30,10 +30,7 @@ public class RoyalRoadStrategy : ScraperStrategy
         }
     }
 
-    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
-    {
-        throw new NotImplementedException();
-    }
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument) => throw new NotImplementedException();
 
     protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {

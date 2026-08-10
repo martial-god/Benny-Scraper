@@ -70,6 +70,45 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                    (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
         }
 
+        private static ChapterDataBuffer CreateFailedChapterDataBuffer(
+            ChapterLink chapterLink,
+            string tempImageDirectory = "")
+        {
+            return new ChapterDataBuffer
+            {
+                Url = chapterLink.Url,
+                Title = string.IsNullOrWhiteSpace(chapterLink.Title) ? chapterLink.Url : chapterLink.Title,
+                Content = "No content found",
+                SequenceNumber = chapterLink.ChapterNumber,
+                DateLastModified = DateTime.Now,
+                IsPartial = true,
+                TempDirectory = tempImageDirectory
+            };
+        }
+
+        private static async Task StopChapterLoadingSpinnerAsync(
+            CancellationTokenSource spinnerCancellationTokenSource,
+            Task? spinnerTask)
+        {
+            try
+            {
+                await spinnerCancellationTokenSource.CancelAsync().ConfigureAwait(false);
+                if (spinnerTask == null)
+                {
+                    return;
+                }
+
+                await spinnerTask.ConfigureAwait(false);
+            }
+            catch (TaskCanceledException)
+            {
+            }
+            catch (Exception exception)
+            {
+                Logger.Debug(exception, "The chapter-loading spinner could not be stopped cleanly.");
+            }
+        }
+
         protected ScraperStrategy(IHttpClientFactory? httpClientFactory = null, IDriverFactory? driverFactory = null)
         {
             _httpClientFactory = httpClientFactory ?? new HttpClientFactory();
@@ -183,7 +222,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 return;
             }
 
-            var loginMessages = new[] { $"Login Enabled for {ScraperData.SiteConfig.Name}" };
+            var loginMessages = new[] { $"Login Enabled for {ScraperData.SiteConfig.SiteName}" };
             CommonHelper.DrawBox(loginMessages, ConsoleColor.Cyan);
             Console.WriteLine("A browser window will open for manual login.\n");
             Console.WriteLine("Benefits:");
@@ -193,7 +232,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             Console.WriteLine($"  • Your credentials are NEVER stored");
             Console.WriteLine($"  • Login session ends after scraping completes\n");
 
-            Logger.Info($"Login enabled for {ScraperData.SiteConfig.Name}");
+            Logger.Info($"Login enabled for {ScraperData.SiteConfig.SiteName}");
         }
 
         public void SetSessionAuthenticated(bool isAuthenticated) => ScraperData.IsSessionAuthenticated = isAuthenticated;
@@ -295,7 +334,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         $"Failed to get chapter urls for novel {novelDataBuffer.Title} at url {scraperData.BaseUri}");
                     Console.ForegroundColor = ConsoleColor.Magenta;
                     Console.WriteLine(
-                        $"Please check the appsettings.json for {scraperData.SiteConfig.Name} the chapterLinks key");
+                        $"Please check the site configuration for {scraperData.SiteConfig.SiteName}, specifically the chapterLinks property.");
                     Console.ResetColor();
                     return;
                 }
@@ -350,7 +389,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             {
                 case ChapterSortOrder.None:
                     Logger.Debug("Chapter sort order set to None, keeping original order");
-                    return;
+                    break;
                 case ChapterSortOrder.Descending:
                     Logger.Debug("Reversing chapter order (Descending -> Ascending)");
                     novelDataBuffer.ChapterLinks.ReverseInPlace();
@@ -363,6 +402,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
 
             AssignChapterNumbers(novelDataBuffer);
+            NovelChapterStateUpdater.UpdateAvailableChapterBoundaries(novelDataBuffer);
         }
 
         public async Task<(HtmlDocument Document, Uri UpdatedUri)> LoadHtmlPublicAsync(Uri uri)
@@ -412,11 +452,16 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         {
             ArgumentNullException.ThrowIfNull(chapterLinks);
 
+            if (chapterLinks.Count == 0)
+            {
+                return new List<ChapterDataBuffer>();
+            }
+
             var tempImageDirectory = string.Empty;
+            var chapterDataBuffers = new List<ChapterDataBuffer>();
             try
             {
                 Logger.Info("Getting chapters data");
-                var chapterDataBuffers = new List<ChapterDataBuffer>();
 
                 // Use Selenium for sites with images or if chapter content requires Selenium. Not thread safe, so don't use tasks.
                 if (ShouldUseSeleniumForChapters())
@@ -458,10 +503,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 }
                 else
                 {
-                    var tasks = new List<Task<ChapterDataBuffer>>();
-
                     // I haven't ran into a httpclient site that requires premium so no need to pass the entire chapterLink yet.
-                    await ProcessChaptersWithHttpClient(chapterLinks.Select(c => c.Url).ToList(), tasks, chapterDataBuffers).ConfigureAwait(false);
+                    await ProcessChaptersWithHttpClient(chapterLinks, chapterDataBuffers).ConfigureAwait(false);
                 }
 
                 for (var i = 0; i < chapterDataBuffers.Count && i < chapterLinks.Count; i++)
@@ -474,6 +517,13 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             catch (Exception ex)
             {
                 Logger.Error($"Error while getting chapters data. {ex}");
+                if (chapterDataBuffers.Count != 0)
+                {
+                    Logger.Warn(
+                        $"Returning {chapterDataBuffers.Count} chapters that completed before the batch-level failure.");
+                    return chapterDataBuffers;
+                }
+
                 if (string.IsNullOrEmpty(tempImageDirectory))
                 {
                     throw;
@@ -722,6 +772,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             htmlDocument.LoadHtml(content);
 
             var canonicalNode = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+            if (canonicalNode != null)
             {
                 var canonicalUrl = canonicalNode.Attributes["href"]?.Value;
                 if (!string.IsNullOrEmpty(canonicalUrl) && canonicalUrl != uri.ToString())
@@ -1276,7 +1327,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Debug("Reusing existing Selenium driver from table of contents scraping");
                 driver = _driverFactory.GetAllDrivers().Values.First();
-                await driver.Navigate().GoToUrlAsync(chapterLinks[0].Url).ConfigureAwait(false);
             }
             else
             {
@@ -1295,7 +1345,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 foreach (var chapterLink in chapterLinks)
                 {
                     currentChapter++;
-                    chapterDataBuffers.Add(await GetChapterDataAsync(
+                    chapterDataBuffers.Add(await GetChapterDataWithSeleniumSafelyAsync(
                         driver,
                         chapterLink,
                         tempImageDirectory,
@@ -1352,102 +1402,118 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             string tempImageDirectory)
         {
             var nextChapterXPath = ScraperData.SiteConfig.Selectors.NextChapterButton!;
-            var authElementXPath = ScraperData.SiteConfig.Selectors.UserCurrencyBalances?["buttonToOpenBalances"];
+            ScraperData.SiteConfig.Selectors.UserCurrencyBalances.TryGetValue(
+                "buttonToOpenBalances",
+                out var authElementXPath);
             var totalChapters = chapterLinks.Count;
             var currentChapter = 0;
+            var previousChapterFailed = false;
 
             foreach (var chapterLink in chapterLinks)
             {
                 currentChapter++;
-                var skipNavigation = false;
-
-                if (currentChapter == 1)
+                try
                 {
-                    await driver.Navigate().GoToUrlAsync(chapterLink.Url).ConfigureAwait(false);
+                    var skipNavigation = false;
 
-                    if (!string.IsNullOrEmpty(authElementXPath))
+                    if (currentChapter == 1 || previousChapterFailed)
                     {
-                        try
-                        {
-                            var authWait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                            authWait.Until(ExpectedConditions.ElementExists(By.XPath(authElementXPath)));
-                            Logger.Debug("Auth verification passed on first chapter after full navigation");
-                        }
-                        catch (WebDriverTimeoutException)
-                        {
-                            Logger.Warn($"Auth verification timed out on first chapter {chapterLink.Url}, proceeding anyway");
-                        }
-                    }
-
-                    skipNavigation = true;
-                }
-                else
-                {
-                    // Subsequent chapters: click next-chapter button (SPA navigation)
-                    try
-                    {
-                        var navWait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                        var nextChapterButton = navWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(nextChapterXPath)));
-                        {
-                            IWebElement? previousContentElement = null;
-                            try
-                            {
-                                previousContentElement = driver.FindElement(By.XPath(ScraperData.SiteConfig.Selectors.ChapterContent!));
-                            }
-                            catch (NoSuchElementException)
-                            {
-                                Logger.Debug("Could not find previous content element for staleness check");
-                            }
-
-                            nextChapterButton.Click();
-
-                            if (previousContentElement != null)
-                            {
-                                var staleWait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
-                                staleWait.Until(ExpectedConditions.StalenessOf(previousContentElement));
-                                Logger.Debug("Previous chapter content element became stale — SPA transition detected");
-                            }
-                        }
-
-                        if (!string.IsNullOrEmpty(authElementXPath))
-                        {
-                            Logger.Debug($"\nWaiting for auth verification element to reappear after SPA navigation to chapter {currentChapter}/{totalChapters}");
-                            navWait.Until(ExpectedConditions.ElementIsVisible(By.XPath(authElementXPath)));
-                        }
-
-                        skipNavigation = true;
-                        Logger.Debug($"SPA navigation to {chapterLink.Url} succeeded (chapter {currentChapter}/{totalChapters})");
-                    }
-                    catch (WebDriverTimeoutException)
-                    {
-                        Logger.Warn($"SPA navigation failed for {chapterLink.Url}, falling back to full navigation");
-
                         await driver.Navigate().GoToUrlAsync(chapterLink.Url).ConfigureAwait(false);
+
                         if (!string.IsNullOrEmpty(authElementXPath))
                         {
                             try
                             {
                                 var authWait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
                                 authWait.Until(ExpectedConditions.ElementExists(By.XPath(authElementXPath)));
-                                Logger.Debug("Auth verification passed after fallback full navigation");
+                                Logger.Debug("Auth verification passed after full navigation");
                             }
                             catch (WebDriverTimeoutException)
                             {
-                                Logger.Warn($"Auth verification timed out after fallback for {chapterLink.Url}");
+                                Logger.Warn($"Auth verification timed out for chapter {chapterLink.Url}, proceeding anyway");
                             }
                         }
 
                         skipNavigation = true;
                     }
-                }
+                    else
+                    {
+                        // Subsequent chapters: click next-chapter button (SPA navigation)
+                        try
+                        {
+                            var navWait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+                            var nextChapterButton = navWait.Until(ExpectedConditions.ElementToBeClickable(By.XPath(nextChapterXPath)));
+                            {
+                                IWebElement? previousContentElement = null;
+                                try
+                                {
+                                    previousContentElement = driver.FindElement(By.XPath(ScraperData.SiteConfig.Selectors.ChapterContent!));
+                                }
+                                catch (NoSuchElementException)
+                                {
+                                    Logger.Debug("Could not find previous content element for staleness check");
+                                }
 
-                chapterDataBuffers.Add(await GetChapterDataAsync(
-                    driver,
-                    chapterLink,
-                    tempImageDirectory,
-                    currentChapter,
-                    totalChapters,
-                    skipNavigation).ConfigureAwait(false));
+                                nextChapterButton.Click();
+
+                                if (previousContentElement != null)
+                                {
+                                    var staleWait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
+                                    staleWait.Until(ExpectedConditions.StalenessOf(previousContentElement));
+                                    Logger.Debug("Previous chapter content element became stale — SPA transition detected");
+                                }
+                            }
+
+                            if (!string.IsNullOrEmpty(authElementXPath))
+                            {
+                                Logger.Debug($"\nWaiting for auth verification element to reappear after SPA navigation to chapter {currentChapter}/{totalChapters}");
+                                navWait.Until(ExpectedConditions.ElementIsVisible(By.XPath(authElementXPath)));
+                            }
+
+                            skipNavigation = true;
+                            Logger.Debug($"SPA navigation to {chapterLink.Url} succeeded (chapter {currentChapter}/{totalChapters})");
+                        }
+                        catch (WebDriverTimeoutException)
+                        {
+                            Logger.Warn($"SPA navigation failed for {chapterLink.Url}, falling back to full navigation");
+
+                            await driver.Navigate().GoToUrlAsync(chapterLink.Url).ConfigureAwait(false);
+                            if (!string.IsNullOrEmpty(authElementXPath))
+                            {
+                                try
+                                {
+                                    var authWait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+                                    authWait.Until(ExpectedConditions.ElementExists(By.XPath(authElementXPath)));
+                                    Logger.Debug("Auth verification passed after fallback full navigation");
+                                }
+                                catch (WebDriverTimeoutException)
+                                {
+                                    Logger.Warn($"Auth verification timed out after fallback for {chapterLink.Url}");
+                                }
+                            }
+
+                            skipNavigation = true;
+                        }
+                    }
+
+                    var chapterDataBuffer = await GetChapterDataWithSeleniumSafelyAsync(
+                        driver,
+                        chapterLink,
+                        tempImageDirectory,
+                        currentChapter,
+                        totalChapters,
+                        skipNavigation).ConfigureAwait(false);
+                    chapterDataBuffers.Add(chapterDataBuffer);
+                    previousChapterFailed = chapterDataBuffer.IsPartial;
+                }
+                catch (Exception exception)
+                {
+                    Logger.Error(
+                        exception,
+                        $"Failed to process chapter {chapterLink.Url} during SPA navigation. Recording the failed chapter and continuing.");
+                    chapterDataBuffers.Add(CreateFailedChapterDataBuffer(chapterLink, tempImageDirectory));
+                    previousChapterFailed = true;
+                }
             }
 
             Console.Write("\r" + new string(' ', 80) + "\r");
@@ -1455,37 +1521,49 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         }
 
         private async Task ProcessChaptersWithHttpClient(
-            List<string> chapterUrls,
-            List<Task<ChapterDataBuffer>> tasks,
+            IList<ChapterLink> chapterLinks,
             List<ChapterDataBuffer> chapterDataBuffers)
         {
             Logger.Debug("Using HttpClient to get chapters data");
 
-            tasks.AddRange(chapterUrls.Select(url => Task.Run(async () =>
+            var chapterTasks = chapterLinks.Select(GetChapterDataWithHttpClientSafelyAsync);
+            var chapterResults = await Task.WhenAll(chapterTasks).ConfigureAwait(false);
+            chapterDataBuffers.AddRange(chapterResults);
+
+            Logger.Info("Finished getting chapters data");
+        }
+
+        private async Task<ChapterDataBuffer> GetChapterDataWithHttpClientSafelyAsync(ChapterLink chapterLink)
+        {
+            var semaphoreWasEntered = false;
+            try
             {
                 await _semaphoreSlim.WaitAsync().ConfigureAwait(false);
-                try
+                semaphoreWasEntered = true;
+
+                var chapterDataBuffer = await GetChapterDataAsync(chapterLink.Url).ConfigureAwait(false);
+                chapterDataBuffer.SequenceNumber = chapterLink.ChapterNumber;
+                if (string.IsNullOrWhiteSpace(chapterDataBuffer.Title))
                 {
-                    return await GetChapterDataAsync(url).ConfigureAwait(false);
+                    chapterDataBuffer.Title = chapterLink.Title ?? chapterLink.Url;
                 }
-                finally
+
+                return chapterDataBuffer;
+            }
+            catch (Exception exception)
+            {
+                Logger.Error(
+                    exception,
+                    $"Failed to process chapter {chapterLink.Url}. Recording the failed chapter and continuing.");
+                return CreateFailedChapterDataBuffer(chapterLink);
+            }
+            finally
+            {
+                if (semaphoreWasEntered)
                 {
                     _semaphoreSlim.Release();
                 }
-            })));
-
-            try
-            {
-                var taskResults = await Task.WhenAll(tasks).ConfigureAwait(false);
-                chapterDataBuffers.AddRange(taskResults);
             }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error while getting chapters data. {ex}");
-                throw;
-            }
-
-            Logger.Info("Finished getting chapters data");
         }
 
         private void SetSiteConfiguration(SiteConfiguration siteConfig) => ScraperData.SiteConfig = siteConfig;
@@ -1520,18 +1598,19 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             var uriLastSegment = new Uri(chapterLink.Url).Segments.Last();
             var waitTarget = ScraperData.SiteConfig.HasImagesForChapterContent ? "Image content" : "Text content";
 
-            var chapterDataBuffer = new ChapterDataBuffer()
+#pragma warning disable CA2000 // Ownership is transferred to the caller on every handled return path.
+            var chapterDataBuffer = new ChapterDataBuffer
             {
                 TempDirectory = tempImageDirectory,
-                Url = chapterLink.Url
+                Url = chapterLink.Url,
+                SequenceNumber = chapterLink.ChapterNumber
             };
+#pragma warning restore CA2000
+            using var spinnerCancellationTokenSource = new CancellationTokenSource();
+            Task? spinnerTask = null;
 
             try
             {
-                // Start animated spinner
-                using var spinnerCts = new CancellationTokenSource();
-                Task? spinnerTask = null;
-
                 if (totalChapters > 0)
                 {
                     spinnerTask = Task.Run(
@@ -1539,13 +1618,13 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         {
                             var spinner = _function;
                             var spinnerIndex = 0;
-                            while (!spinnerCts.Token.IsCancellationRequested)
+                            while (!spinnerCancellationTokenSource.Token.IsCancellationRequested)
                             {
                                 Console.Write($"\rLoading chapter {currentChapter}/{totalChapters}, waiting for {waitTarget} {spinner[spinnerIndex]} ");
                                 spinnerIndex = (spinnerIndex + 1) % spinner.Length;
                                 try
                                 {
-                                    await Task.Delay(150, spinnerCts.Token).ConfigureAwait(false);
+                                    await Task.Delay(150, spinnerCancellationTokenSource.Token).ConfigureAwait(false);
                                 }
                                 catch (TaskCanceledException)
                                 {
@@ -1553,7 +1632,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                                 }
                             }
                         },
-                        spinnerCts.Token);
+                        spinnerCancellationTokenSource.Token);
                 }
 
                 if (!skipNavigation)
@@ -1571,37 +1650,11 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 {
                     Logger.Error($"Timeout while waiting for elements on page {chapterLink.Url}: {ex.Message}");
                     chapterDataBuffer.Title = uriLastSegment;
-                    await spinnerCts.CancelAsync().ConfigureAwait(false);
-                    if (spinnerTask != null)
-                    {
-                        try
-                        {
-                            await spinnerTask.ConfigureAwait(false);
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
+                    chapterDataBuffer.Content = "No content found";
+                    chapterDataBuffer.DateLastModified = DateTime.Now;
+                    chapterDataBuffer.IsPartial = true;
 
-                    var earlyResult = chapterDataBuffer;
-                    chapterDataBuffer = null; // Ownership transferred to the caller; don't dispose it below.
-                    return earlyResult;
-                }
-                finally
-                {
-                    await spinnerCts.CancelAsync().ConfigureAwait(false);
-                    if (spinnerTask != null)
-                    {
-                        try
-                        {
-                            await spinnerTask.ConfigureAwait(false);
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
+                    return chapterDataBuffer;
                 }
 
                 if (totalChapters > 0)
@@ -1633,13 +1686,54 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         AddTextContentToChapterDataBuffer(htmlDocument, chapterDataBuffer, contentNodes, chapterLink.Url);
                 }
 
-                var result = chapterDataBuffer;
-                chapterDataBuffer = null; // Ownership transferred to the caller; don't dispose it below.
-                return result;
+                chapterDataBuffer.DateLastModified = DateTime.Now;
+                return chapterDataBuffer;
+            }
+            catch (Exception exception)
+            {
+                Logger.Error(
+                    exception,
+                    $"Failed to process chapter {chapterLink.Url}. Recording the failed chapter and continuing.");
+                chapterDataBuffer.Title = string.IsNullOrWhiteSpace(chapterDataBuffer.Title)
+                    ? chapterLink.Title ?? uriLastSegment
+                    : chapterDataBuffer.Title;
+                chapterDataBuffer.Content ??= "No content found";
+                chapterDataBuffer.DateLastModified = DateTime.Now;
+                chapterDataBuffer.IsPartial = true;
+                return chapterDataBuffer;
             }
             finally
             {
-                chapterDataBuffer?.Dispose();
+                await StopChapterLoadingSpinnerAsync(
+                    spinnerCancellationTokenSource,
+                    spinnerTask).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<ChapterDataBuffer> GetChapterDataWithSeleniumSafelyAsync(
+            IWebDriver driver,
+            ChapterLink chapterLink,
+            string tempImageDirectory,
+            int currentChapter,
+            int totalChapters,
+            bool skipNavigation = false)
+        {
+            try
+            {
+                return await GetChapterDataAsync(
+                    driver,
+                    chapterLink,
+                    tempImageDirectory,
+                    currentChapter,
+                    totalChapters,
+                    skipNavigation).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                Logger.Error(
+                    exception,
+                    $"Failed to process chapter {chapterLink.Url}. Recording the failed chapter and continuing.");
+                return CreateFailedChapterDataBuffer(chapterLink, tempImageDirectory);
             }
         }
 
@@ -1711,13 +1805,14 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
             catch (Exception ex)
             {
-                Logger.Error(ex);
+                Logger.Error(ex, $"Failed to process chapter {url}. Recording the failed chapter and continuing.");
+                chapterDataBuffer.Content = "No content found";
+                chapterDataBuffer.IsPartial = true;
             }
             finally
             {
                 chapterDataBuffer.DateLastModified = DateTime.Now;
                 chapterDataBuffer.Url = url;
-                _semaphoreSlim.Release();
             }
 
             return chapterDataBuffer;
@@ -1730,7 +1825,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             string url)
         {
             var isWuxiaWorld =
-                string.Equals(ScraperData.SiteConfig.Name, "Wuxiaworld", StringComparison.OrdinalIgnoreCase)
+                string.Equals(ScraperData.SiteConfig.SiteName, "Wuxiaworld", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(ScraperData.SiteConfig.UrlPattern, "wuxiaworld.com", StringComparison.OrdinalIgnoreCase);
 
             var paragraphs = paragraphNodes != null
@@ -1780,6 +1875,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 Logger.Debug(
                     $"No/insufficient text content found for {url} (non-whitespace chars: {nonWhitespaceCharCount}).");
                 chapterDataBuffer.Content = "No content found";
+                chapterDataBuffer.IsPartial = true;
             }
 
             return chapterDataBuffer;
@@ -2092,7 +2188,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                                 $"No chapter link nodes found for novel {novelDataBuffer.Title} at url {scraperData.BaseUri}");
                             Console.ForegroundColor = ConsoleColor.Magenta;
                             Console.WriteLine(
-                                $"Please check the appsettings.json for {scraperData.SiteConfig.Name} the chapterLinks key");
+                                $"Please check the site configuration for {scraperData.SiteConfig.SiteName}, specifically the chapterLinks property.");
                             Console.ResetColor();
                             break;
                         }

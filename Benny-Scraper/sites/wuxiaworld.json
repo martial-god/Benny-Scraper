@@ -1,0 +1,58 @@
+{
+  "siteName": "Wuxiaworld",
+  "urlPattern": "wuxiaworld.com",
+  "isActive": true,
+  "strategyName": "wuxiaworld",
+  "hasPagination": false,
+  "paginationType": null,
+  "paginationQueryPartial": null,
+  "hasNovelInfoOnDifferentPage": false,
+  "chaptersPerPage": 0,
+  "pageOffSet": 0,
+  "completedStatus": "completed",
+  "hasImagesForChapterContent": false,
+  "hasPremiumChapters": true,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": true,
+  "chapterContentRequiresSelenium": true,
+  "cloudflareProtection": "none",
+  "chapterSortOrder": "Descending",
+  "minimumChapterParagraphThreshold": 5,
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//div[contains(@class,'MuiAccordionDetails-root')]/ancestor::*[5]//a",
+      "chapterTitleInToc": ".//div[contains(@class,'font-set-sb16')]//span[1]",
+      "premiumChapterSelectors": {
+        "premiumCost": ".//div[contains(@class,'mt-[4px]')]//div[contains(@class,'flex items-center')]//span[contains(@class,'font-set-sb13')]",
+        "premiumIndicator": ".//*[@title='wait']"
+      },
+      "tableOfContentsPaginationListItems": null,
+      "lastTableOfContentsPage": null,
+      "lastTableOfContentPageNumberAttribute": null,
+      "latestChapterLink": "//*[@id='full-width-tabpanel-0']/div/div[1]/div[1]/div[2]/div[1]/a",
+      "novelStatus": "//h1/../../div[1]/text()",
+      "novelAuthor": "//div[div[contains(text(), 'Author:')]]/div[2]/text()",
+      "novelAlternativeNames": null,
+      "novelGenres": "//div[contains(@class,'pt-[20px]')]//a[contains(@class,'MuiTypography-root')]",
+      "novelRating": null,
+      "novelTitle": "//h1/text()",
+      "totalRatings": null,
+      "novelDescription": "//div[contains(text(), 'Author:')]/../../following-sibling::div[1]//span/text()",
+      "novelThumbnailUrl": "//img[contains(@class,'drop-shadow-ww-novel-cover-image')]",
+      "thumbnailUrlAttribute": "src"
+    },
+    "userCurrencyBalances": {
+      "buttonToOpenBalances": "//button[@aria-label='VIP']",
+      "karma": "(./descendant::p)[1]",
+      "spiritStones": "(./descendant::p)[2]"
+    },
+    "chapterTitle": "//h4/span/text()",
+    "chapterContent": "//div[@class='chapter-content']/div[1]//p",
+    "alternativeChapterContent": null,
+    "chapterContentImageUrlAttribute": null,
+    "nextChapterButton": "//div[contains(@class,'flex justify-end')]/button[2]"
+  },
+  "premiumInfo": {
+    "currencyName": "Karma"
+  }
+}

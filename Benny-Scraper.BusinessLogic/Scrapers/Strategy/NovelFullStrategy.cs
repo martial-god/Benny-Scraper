@@ -28,7 +28,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
             catch (Exception e)
             {
-                Logger.Error($"Error while getting novel data. {e}");
+                Logger.Error(e, $"Error while getting novel data. {e}");
                 throw;
             }
         }
@@ -84,7 +84,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 ArgumentNullException.ThrowIfNull(novelDataBuffer);
                 ArgumentNullException.ThrowIfNull(scraperData);
 
-                Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
                 var attributesToFetch = new List<Attr>()
                 {
                     Attr.Author,

@@ -1,0 +1,42 @@
+{
+  "siteName": "mangareader",
+  "urlPattern": "mangareader.to",
+  "isActive": true,
+  "strategyName": "mangareader",
+  "hasPagination": false,
+  "paginationType": null,
+  "paginationQueryPartial": null,
+  "hasNovelInfoOnDifferentPage": false,
+  "chaptersPerPage": -1,
+  "pageOffSet": 0,
+  "completedStatus": "finished",
+  "hasImagesForChapterContent": true,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": false,
+  "chapterContentRequiresSelenium": true,
+  "cloudflareProtection": null,
+  "chapterSortOrder": "Descending",
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//*[@id='en-chapters']//li/a",
+      "tableOfContentsPaginationListItems": null,
+      "lastTableOfContentsPage": null,
+      "lastTableOfContentPageNumberAttribute": null,
+      "latestChapterLink": "//*[@id='en-chapters']/li[1]/a",
+      "novelStatus": "//*[@id='ani_detail']/div/div/div[2]/div[2]/div[4]/div[4]/div[1]/div[2]/span[2]",
+      "novelAuthor": "//*[@id='ani_detail']/div/div/div[2]/div[2]/div[4]/div[4]/div[1]/div[3]/a/text()",
+      "novelAlternativeNames": "//*[@id='ani_detail']/div/div/div[2]/div[2]/div[1]/text()",
+      "novelGenres": "//*[@id='ani_detail']/div/div/div[2]/div[2]/div[4]/div[1]/a/text()",
+      "novelRating": "//*[@id='vote-info']/div/div[1]/div[1]/strong/text()",
+      "novelTitle": "//*[@id='ani_detail']/div/div/div[2]/div[2]/h2",
+      "totalRatings": "//*[@id='vote-info']/div/div[1]/div[1]/small",
+      "novelDescription": "//*[@id='ani_detail']/div/div/div[2]/div[2]/div[4]/div[2]",
+      "novelThumbnailUrl": "//*[@id='ani_detail']/div/div/div[2]/div[1]/div/img",
+      "thumbnailUrlAttribute": "src"
+    },
+    "chapterTitle": "//*[@id='current-chapter']",
+    "chapterContent": "//*[@id='vertical-content']//div[@data-url]",
+    "alternativeChapterContent": null,
+    "chapterContentImageUrlAttribute": "data-url"
+  }
+}

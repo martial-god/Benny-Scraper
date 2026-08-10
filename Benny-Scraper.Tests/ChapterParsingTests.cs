@@ -8,7 +8,7 @@ namespace BennyScraper.Tests;
 /// Verifies a site's REAL chapter-content selector pulls the chapter text from a chapter page.
 ///
 /// HOW TO ADD A SITE:
-///   1. In appsettings.json, note the site's selectors.chapterContent value.
+///   1. In the site's JSON file, note its selectors.chapterContent value.
 ///   2. Below, write the smallest HTML that has that content container with a couple of made-up
 ///      paragraphs (the container element is labelled with the selector).
 ///   3. Add a ChapterCase row with a phrase you expect to appear in the extracted text.

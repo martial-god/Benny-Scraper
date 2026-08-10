@@ -288,11 +288,11 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
         IReadOnlyList<Attr> attributesToFetch)
     {
         ArgumentNullException.ThrowIfNull(novelDataBuffer);
+        ArgumentNullException.ThrowIfNull(htmlDocument);
         ArgumentNullException.ThrowIfNull(scraperData);
         ArgumentNullException.ThrowIfNull(scraperStrategy);
         ArgumentNullException.ThrowIfNull(attributesToFetch);
-
-        Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
+        ArgumentNullException.ThrowIfNull(scraperData.SiteTableOfContents);
 
         foreach (var attribute in attributesToFetch)
         {
@@ -302,9 +302,6 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
         if (attributesToFetch.Contains(Attr.ChapterUrls))
         {
             scraperStrategy.SortChapters(novelDataBuffer);
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.Count != 0
-                ? novelDataBuffer.ChapterLinks.First().Url
-                : string.Empty;
         }
     }
 }

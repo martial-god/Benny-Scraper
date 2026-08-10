@@ -24,7 +24,6 @@
     <PackageReference Include="SeleniumExtras.WaitHelpers" />
     <PackageReference Include="SharpZipLib" />
     <PackageReference Include="TextCopy" />
-    <PackageReference Include="WebDriverManager" />
     <PackageReference Include="PdfSharp" />
     <PackageReference Include="SixLabors.ImageSharp" />
   </ItemGroup>
@@ -32,6 +31,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Benny-Scraper.DataAccess\Benny-Scraper.DataAccess.csproj" />
     <ProjectReference Include="..\Benny-Scraper.Models\Benny-Scraper.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Benny-Scraper.Tests" />
   </ItemGroup>
 
 </Project>

@@ -40,7 +40,7 @@ public class NovelProcessor(
 
         if (!IsThereConfigurationForSite(novelTableOfContentsUri))
         {
-            throw new InvalidOperationException($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check appsettings.json. Skipping this novel..");
+            throw new InvalidOperationException($"There is no configuration for site {novelTableOfContentsUri.Host}. Please check the sites directory. Skipping this novel..");
         }
 
         var novel = await novelService.GetByUrlAsync(novelTableOfContentsUri).ConfigureAwait(false);
@@ -115,8 +115,9 @@ public class NovelProcessor(
         }
 
         var failedChapters = novel.Chapters
-            .Where(ch => (string.IsNullOrEmpty(ch.Content) || ch.Content == "No content found")
-                         && (ch.Pages == null || ch.Pages.Count == 0))
+            .Where(ch => ch.IsPartial ||
+                         ((string.IsNullOrEmpty(ch.Content) || ch.Content == "No content found") &&
+                          (ch.Pages == null || ch.Pages.Count == 0)))
             .OrderBy(ch => ch.Number)
             .ToList();
 
@@ -153,8 +154,8 @@ public class NovelProcessor(
         var siteConfig = GetSiteConfiguration(novelUri);
         if (siteConfig == null)
         {
-            _logger.Error($"There is no {nameof(SiteConfiguration)} found for {novelUri.Host}. Check the appsettings.json and verify one is present.");
-            throw new InvalidOperationException($"There is no {nameof(SiteConfiguration)} found for {novelUri.Host}. Check the appsettings.json and verify one is present.");
+            _logger.Error($"There is no {nameof(SiteConfiguration)} found for {novelUri.Host}. Check the sites directory and verify one is present.");
+            throw new InvalidOperationException($"There is no {nameof(SiteConfiguration)} found for {novelUri.Host}. Check the sites directory and verify one is present.");
         }
 
         var scraper = novelScraper.CreateScraper(novelUri, siteConfig);
@@ -216,9 +217,15 @@ public class NovelProcessor(
             }
 
             var newContent = HtmlEntity.DeEntitize(buffer.Content ?? string.Empty);
-            if (!string.IsNullOrEmpty(newContent) && newContent != "No content found")
+            var hasTextContent = !string.IsNullOrEmpty(newContent) && newContent != "No content found";
+            var hasPageContent = buffer.Pages is { Count: > 0 };
+            if ((hasTextContent || hasPageContent) && !buffer.IsPartial)
             {
-                chapter.Content = newContent;
+                if (hasTextContent)
+                {
+                    chapter.Content = newContent;
+                }
+
                 if (!string.IsNullOrEmpty(buffer.Title))
                 {
                     chapter.Title = HtmlEntity.DeEntitize(buffer.Title);
@@ -230,11 +237,13 @@ public class NovelProcessor(
                 }
 
                 chapter.DateLastModified = DateTime.Now;
+                chapter.IsPartial = false;
                 succeeded++;
                 recoveredChapters.Add(chapter);
             }
             else
             {
+                chapter.IsPartial = true;
                 stillFailed++;
                 stillFailedChapters.Add(chapter);
             }
@@ -247,6 +256,8 @@ public class NovelProcessor(
             stillFailed++;
             stillFailedChapters.Add(ch);
         }
+
+        NovelChapterStateUpdater.UpdateDownloadedChapterBoundaries(novel);
 
         // Persist changes
         await novelService.UpdateAsync(novel).ConfigureAwait(false);
@@ -304,7 +315,7 @@ public class NovelProcessor(
 
             if (!hasMangaPages)
             {
-                var sortedChapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters).ToList();
+                var sortedChapters = CommonHelper.SortNovelChaptersByNumber(novel.Chapters).ToList();
                 novel.SaveLocation = CreateEpub(novel, sortedChapters, null, outputDirectory, filenameSuffix);
                 novel.FileType = NovelFileType.Epub;
             }
@@ -358,29 +369,13 @@ public class NovelProcessor(
             : $"Ch {chapterRange.Begin}-{chapterRange.End}";
     }
 
-    private static void UpdateNovel(Novel novel, NovelDataBuffer novelDataBuffer, List<Models.Chapter> newChapters)
-    {
-        novel.Chapters.AddRange(newChapters);
-        novel.LastTableOfContentsUrl = (!string.IsNullOrEmpty(novelDataBuffer.LastTableOfContentsPageUrl)) ? novelDataBuffer.LastTableOfContentsPageUrl : novel.LastTableOfContentsUrl;
-        novel.Status = (!string.IsNullOrEmpty(novelDataBuffer.NovelStatus)) ? novelDataBuffer.NovelStatus : novel.Status;
-        novel.LastChapter = novelDataBuffer.IsNovelCompleted;
-        novel.DateLastModified = DateTime.Now;
-        novel.TotalChapters = novel.Chapters.Count;
-        novel.CurrentChapter = novel.Chapters.LastOrDefault()?.Title ?? string.Empty;
-        novel.CurrentChapterUrl = novel.Chapters.LastOrDefault()?.Url ?? string.Empty;
-        if (!string.IsNullOrEmpty(novelDataBuffer.NovelUrl))
-        {
-            novel.Url = novelDataBuffer.NovelUrl;
-        }
-
-        if (novelDataBuffer.Genres.Count != 0)
-        {
-            novel.Genre = string.Join(", ", novelDataBuffer.Genres);
-        }
-    }
-
     private static bool IsNovelUpToDate(Novel novel, NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri)
     {
+        if (novel.Chapters.Count == 0)
+        {
+            return false;
+        }
+
         if ((novel.CurrentChapterUrl == novelDataBuffer.CurrentChapterUrl) || novel.CurrentChapter == novelDataBuffer.MostRecentChapterTitle)
         {
             _logger.Warn($"Novel {novel.Title} with url {novelTableOfContentsUri} is up to date.\n\t\tCurrent chapter: {novelDataBuffer.MostRecentChapterTitle} Novel Id: {novel.Id}");
@@ -400,6 +395,11 @@ public class NovelProcessor(
 
     private static List<ChapterLink> DetermineNewChaptersToScrape(string currentChapterUrl, ICollection<Chapter> savedChapters, Guid novelId, IList<ChapterLink> bufferChapterLinks)
     {
+        if (savedChapters.Count == 0)
+        {
+            return bufferChapterLinks.ToList();
+        }
+
         var indexOfLastChapter = bufferChapterLinks.FindIndex(cl => cl.Url == currentChapterUrl);
         if (indexOfLastChapter == -1 && savedChapters.Count != 0)
         {
@@ -477,55 +477,6 @@ public class NovelProcessor(
         return true;
     }
 
-    /// <summary>
-    /// Adds a new chapter range or extends an existing one if continuous.
-    /// </summary>
-    /// <param name="novel">The novel whose chapter ranges are being updated.</param>
-    /// <param name="selectedRange">The newly downloaded chapter range to add or merge into the novel's existing ranges.</param>
-    private static void AddOrUpdateChapterRange(Novel novel, SelectedChapterRange selectedRange)
-    {
-        var orderedRanges = novel.ChapterRanges.OrderBy(r => r.Begin).ToList();
-
-        // Check if the new range is continuous with any existing range (allow 2 chapter buffer)
-        var continuousRange = orderedRanges.FirstOrDefault(r =>
-            (selectedRange.Begin >= r.Begin - 2 && selectedRange.Begin <= r.End + 2) ||
-            (selectedRange.End >= r.Begin - 2 && selectedRange.End <= r.End + 2));
-
-        if (continuousRange != null)
-        {
-            // Extend the existing range
-            var oldBegin = continuousRange.Begin;
-            var oldEnd = continuousRange.End;
-            continuousRange.Begin = Math.Min(continuousRange.Begin, selectedRange.Begin);
-            continuousRange.End = Math.Max(continuousRange.End, selectedRange.End);
-
-            _logger.Info($"Extended chapter range from {oldBegin}-{oldEnd} to {continuousRange.Begin}-{continuousRange.End}");
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"✓ Extended range: {oldBegin}-{oldEnd} → {continuousRange.Begin}-{continuousRange.End}");
-            Console.ResetColor();
-        }
-        else
-        {
-            // Add new range (gap detected)
-            novel.ChapterRanges.Add(new Models.ChapterRange
-            {
-                NovelId = novel.Id,
-                Begin = selectedRange.Begin,
-                End = selectedRange.End,
-                DateCreated = DateTime.Now
-            });
-
-            var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
-            _logger.Info($"Added new chapter range: {selectedRange.Begin}-{selectedRange.End}. All ranges: {string.Join(", ", ranges)}");
-
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"⚠ Gap detected - Added new range: {selectedRange.Begin}-{selectedRange.End}");
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"  All ranges: {string.Join(", ", ranges)}");
-            Console.ResetColor();
-        }
-    }
-
     private static Novel CreateNovel(NovelDataBuffer novelDataBuffer, Uri novelTableOfContentsUri, SelectedChapterRange? chapterRange = null, string? volumeName = null)
     {
         var novel = new Novel
@@ -540,10 +491,7 @@ public class NovelProcessor(
             Status = novelDataBuffer.NovelStatus,
             LastTableOfContentsUrl = novelDataBuffer.LastTableOfContentsPageUrl,
             LastChapter = novelDataBuffer.IsNovelCompleted,
-            CurrentChapter = novelDataBuffer.MostRecentChapterTitle ?? string.Empty,
             SiteName = novelTableOfContentsUri.Host ?? string.Empty,
-            FirstChapter = novelDataBuffer.FirstChapter ?? string.Empty,
-            CurrentChapterUrl = novelDataBuffer.CurrentChapterUrl ?? string.Empty
         };
 
         // Add to ChapterRanges collection if this is a partial download
@@ -574,7 +522,8 @@ public class NovelProcessor(
                 Title = HtmlEntity.DeEntitize(data.Title) ?? string.Empty,
                 Number = data.SequenceNumber,
                 DateCreated = DateTime.Now,
-                DateLastModified = data.DateLastModified
+                DateLastModified = data.DateLastModified,
+                IsPartial = data.IsPartial
             };
             chapter.SetPages(data.Pages?.Select(p => new Page { Url = p.Url }));
             return chapter;
@@ -725,7 +674,14 @@ public class NovelProcessor(
             }
         }
 
-        var newNovel = CreateNovel(novelDataBuffer, novelTableOfContentsUri, selectedRange);
+        var selectedRangeCoversAllAvailableChapters = selectedRange is { Begin: 1 } &&
+                                                      selectedRange.End == novelDataBuffer.ChapterLinks.Count;
+        var partialDownloadRange = selectedRangeCoversAllAvailableChapters ? null : selectedRange;
+        var newNovel = CreateNovel(
+            novelDataBuffer,
+            novelTableOfContentsUri,
+            partialDownloadRange,
+            detectedVolumeName);
         _logger.Info("Finished populating Novel data for {0}", newNovel.Title);
 
         // Filter chapter URLs based on range if selected
@@ -736,6 +692,7 @@ public class NovelProcessor(
         scraperStrategy.SetSessionAuthenticated(novelDataBuffer.IsLoggedIn);
         IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chaptersToDownload).ConfigureAwait(false);
         newNovel.Chapters.ReplaceWith(CreateChapters(chapterDataBuffers, newNovel.Id));
+        NovelChapterStateUpdater.UpdateDownloadedChapterBoundaries(newNovel);
 
         var userOutputDirectory = configuration.DetermineSaveLocation(scraperStrategy.GetSiteConfiguration().HasImagesForChapterContent);
         string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(newNovel.Title, userOutputDirectory);
@@ -847,6 +804,12 @@ public class NovelProcessor(
 
         if (newChapterLinks.Count == 0)
         {
+            NovelChapterStateUpdater.UpdateDownloadedChapterBoundaries(novel);
+            NovelChapterStateUpdater.ClearChapterRangesWhenAllAvailableChaptersAreDownloaded(
+                novel,
+                novelDataBuffer.ChapterLinks.Count);
+            await novelService.UpdateAsync(novel).ConfigureAwait(false);
+
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("All chapters in the selected range are already downloaded.");
             Console.ResetColor();
@@ -874,17 +837,26 @@ public class NovelProcessor(
         var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterLinks).ConfigureAwait(false);
         var newChapters = CreateChapters(chapterDataBuffers, novel.Id);
 
-        novel.Chapters.AddRange(newChapters);
-        novel.TotalChapters = novel.Chapters.Count;
+        NovelChapterStateUpdater.AddDownloadedChaptersAndUpdateBoundaries(novel, newChapters);
         novel.DateLastModified = DateTime.Now;
 
-        AddOrUpdateChapterRange(novel, selectedRange);
+        NovelChapterStateUpdater.AddOrMergeDownloadedChapterRange(novel, selectedRange);
+        var completedPartialDownload = NovelChapterStateUpdater.ClearChapterRangesWhenAllAvailableChaptersAreDownloaded(
+            novel,
+            novelDataBuffer.ChapterLinks.Count);
+        if (completedPartialDownload)
+        {
+            _logger.Info($"All available chapters for {novel.Title} are downloaded. Removed partial-download ranges.");
+        }
 
         var userOutputDirectory = configuration.DetermineSaveLocation(scraperStrategy.GetSiteConfiguration().HasImagesForChapterContent);
         var orderedRanges = novel.ChapterRanges.OrderBy(r => r.Begin).ToList();
-        var filenameSuffix = orderedRanges.Count == 1
-            ? GenerateFilenameSuffix(new SelectedChapterRange(orderedRanges[0].Begin, orderedRanges[0].End), detectedVolumeName)
-            : "Ch " + string.Join(" & ", orderedRanges.Select(r => $"{r.Begin}-{r.End}"));
+        var filenameSuffix = orderedRanges.Count switch
+        {
+            0 => string.Empty,
+            1 => GenerateFilenameSuffix(new SelectedChapterRange(orderedRanges[0].Begin, orderedRanges[0].End), detectedVolumeName),
+            _ => "Ch " + string.Join(" & ", orderedRanges.Select(r => $"{r.Begin}-{r.End}"))
+        };
 
         await HandleFileTypeUpdatesAsync(novel, novelDataBuffer!, chapterDataBuffers, newChapters, configuration, userOutputDirectory, filenameSuffix).ConfigureAwait(false);
     }
@@ -906,10 +878,20 @@ public class NovelProcessor(
             return;
         }
 
-        var sortedSavedChapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters);
+        var novelHadDownloadedChapters = novel.Chapters.Count != 0;
+        var previouslyDownloadedChapterIndex = novelHadDownloadedChapters
+            ? novelDataBuffer.ChapterLinks.FindIndex(chapterLink => chapterLink.Url == novel.CurrentChapterUrl) + 1
+            : 0;
+        if (previouslyDownloadedChapterIndex == 0 && novel.Chapters.Count != 0)
+        {
+            previouslyDownloadedChapterIndex = (int)novel.Chapters.Max(chapter => chapter.Number);
+        }
+
+        var sortedSavedChapters = CommonHelper.SortNovelChaptersByNumber(novel.Chapters);
         var newChapterLinks = DetermineNewChaptersToScrape(novel.CurrentChapterUrl, sortedSavedChapters, novel.Id, novelDataBuffer.ChapterLinks);
 
         SelectedChapterRange? selectedRange = null;
+        var selectedRangeCreatesGap = false;
 
         if (beginChapter.HasValue || endChapter.HasValue)
         {
@@ -922,6 +904,7 @@ public class NovelProcessor(
                 var chapterNumber = novelDataBuffer!.ChapterLinks.FindIndex(c => c.Url == link.Url) + 1;
                 return chapterNumber >= selectedRange.Begin && chapterNumber <= selectedRange.End;
             }).ToList();
+            selectedRangeCreatesGap = selectedRange.Begin > previouslyDownloadedChapterIndex + 1;
         }
         else if (newChapterLinks.Count != 0)
         {
@@ -932,35 +915,54 @@ public class NovelProcessor(
             ChapterRangeSelector.ConfirmPremiumChapters(newChaptersRange, novelDataBuffer.ChapterLinks, novelDataBuffer.UserPremiumCurrencies, novelDataBuffer.IsLoggedIn);
         }
 
+        if (newChapterLinks.Count == 0)
+        {
+            NovelChapterStateUpdater.UpdateDownloadedChapterBoundaries(novel);
+            await novelService.UpdateAsync(novel).ConfigureAwait(false);
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(selectedRange == null
+                ? "No new chapters are available."
+                : "All chapters in the selected range are already downloaded.");
+            Console.ResetColor();
+            return;
+        }
+
         scraperStrategy.SetSessionAuthenticated(novelDataBuffer.IsLoggedIn);
         var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(newChapterLinks).ConfigureAwait(false);
         var newChapters = CreateChapters(chapterDataBuffers, novel.Id);
         var userOutputDirectory = configuration.DetermineSaveLocation(scraperStrategy.GetSiteConfiguration().HasImagesForChapterContent);
-        UpdateNovel(novel, novelDataBuffer!, newChapters);
+        NovelChapterStateUpdater.UpdateNovelWithDownloadedChapters(
+            novel,
+            novelDataBuffer,
+            newChapters);
 
-        // Update chapter ranges if this is a continuation of a partial download
-        if (selectedRange != null && novel.IsPartialDownload)
+        var selectedRangeCreatesPartialDownloadFromEmptyNovel = selectedRange is not null &&
+                                                                !novelHadDownloadedChapters &&
+                                                                (selectedRange.Begin != 1 ||
+                                                                 selectedRange.End != novelDataBuffer.ChapterLinks.Count);
+        if (selectedRange is not null &&
+            (selectedRangeCreatesGap || selectedRangeCreatesPartialDownloadFromEmptyNovel))
         {
-            AddOrUpdateChapterRange(novel, selectedRange);
-        }
-        else if (selectedRange != null && !novel.IsPartialDownload)
-        {
-            // First partial download for this novel
-            var exists = novel.ChapterRanges.Any(r => r.Begin == selectedRange.Begin && r.End == selectedRange.End);
-            if (!exists)
+            if (previouslyDownloadedChapterIndex > 0)
             {
-                novel.ChapterRanges.Add(new ChapterRange
-                {
-                    NovelId = novel.Id,
-                    Begin = selectedRange.Begin,
-                    End = selectedRange.End,
-                    DateCreated = DateTime.Now
-                });
-                _logger.Info($"Added first chapter range: {selectedRange.Begin}-{selectedRange.End}");
+                NovelChapterStateUpdater.AddOrMergeDownloadedChapterRange(
+                    novel,
+                    new SelectedChapterRange(1, previouslyDownloadedChapterIndex));
             }
+
+            NovelChapterStateUpdater.AddOrMergeDownloadedChapterRange(novel, selectedRange);
         }
 
-        var filenameSuffix = GenerateFilenameSuffix(selectedRange, null);
+        var downloadedRanges = novel.ChapterRanges.OrderBy(range => range.Begin).ToList();
+        var filenameSuffix = downloadedRanges.Count switch
+        {
+            0 => string.Empty,
+            1 => GenerateFilenameSuffix(
+                new SelectedChapterRange(downloadedRanges[0].Begin, downloadedRanges[0].End),
+                null),
+            _ => "Ch " + string.Join(" & ", downloadedRanges.Select(range => $"{range.Begin}-{range.End}"))
+        };
 
         await HandleFileTypeUpdatesAsync(novel, novelDataBuffer!, chapterDataBuffers, newChapters, configuration, userOutputDirectory, filenameSuffix).ConfigureAwait(false);
     }
@@ -989,7 +991,7 @@ public class NovelProcessor(
 
         if (newChapters.All(chapter => chapter?.Pages == null || chapter.Pages.Count == 0) && novel.FileType == NovelFileType.Epub)
         {
-            var sortedChapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters).ToList();
+            var sortedChapters = CommonHelper.SortNovelChaptersByNumber(novel.Chapters).ToList();
             novel.SaveLocation = CreateEpub(novel, sortedChapters, novelDataBuffer.ThumbnailImage?.ToArray(), outputDirectory, filenameSuffix);
             await novelService.UpdateAndAddChaptersAsync(novel, newChapters).ConfigureAwait(false);
             return;
@@ -1028,13 +1030,17 @@ public class NovelProcessor(
     private bool IsThereConfigurationForSite(Uri novelTableOfContentsUri)
     {
         var siteConfigurations = _novelScraperSettings.SiteConfigurations;
-        return siteConfigurations.Any(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern, StringComparison.Ordinal));
+        return siteConfigurations.Any(config =>
+            config.IsActive &&
+            novelTableOfContentsUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
     }
 
     private SiteConfiguration GetSiteConfiguration(Uri novelTableOfContentsUri)
     {
         var siteConfigurations = _novelScraperSettings.SiteConfigurations;
-        return siteConfigurations.First(config => novelTableOfContentsUri.Host.Contains(config.UrlPattern, StringComparison.Ordinal));
+        return siteConfigurations.First(config =>
+            config.IsActive &&
+            novelTableOfContentsUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed class VolumeRange

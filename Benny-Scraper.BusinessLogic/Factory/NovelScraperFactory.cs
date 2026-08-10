@@ -27,7 +27,7 @@ public class NovelScraperFactory : INovelScraperFactory
 
         if (siteConfig.CloudflareProtection == CloudflareProtectionLevel.Detected)
         {
-            _logger.Info($"Site {siteConfig.Name} has Cloudflare protection detected. Using HttpClient with enhanced headers.");
+            _logger.Info($"Site {siteConfig.SiteName} has Cloudflare protection detected. Using HttpClient with enhanced headers.");
         }
 
         try

@@ -43,7 +43,6 @@
     <PackageVersion Include="System.Management" Version="10.0.9" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.10" />
     <PackageVersion Include="TextCopy" Version="6.2.1" />
-    <PackageVersion Include="WebDriverManager" Version="2.17.7" />
     <!-- Test packages -->
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />

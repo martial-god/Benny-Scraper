@@ -40,18 +40,20 @@ internal static class Program
 
     private static IConfiguration? Configuration { get; set; }
 
+    private static NovelScraperSettings? LoadedNovelScraperSettings { get; set; }
+
     // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
     private static async Task Main(string[] args)
     {
-        DeleteOldLogs();
         SetupLogger(LogLevel.Info);
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         SQLitePCL.Batteries.Init();
         var configuration = BuildConfiguration();
         Configuration = configuration;
+        LoadedNovelScraperSettings = BuildNovelScraperSettings(configuration);
 
         var builder = new ContainerBuilder();
-        ConfigureServices(builder, configuration);
+        ConfigureServices(builder, configuration, LoadedNovelScraperSettings);
         Container = builder.Build();
 
         // Ensure Selenium drivers (and other unmanaged resources) are disposed even on crash/exit.
@@ -692,7 +694,7 @@ internal static class Program
             if (novel != null)
             {
                 _logger.Info($"Recreating novel {novel.Title}. Id: {novel.Id}, Total Chapters: {novel.Chapters.Count}");
-                var chapters = CommonHelper.SortNovelChaptersByDateCreated(novel.Chapters).ToList();
+                var chapters = CommonHelper.SortNovelChaptersByNumber(novel.Chapters).ToList();
                 var safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
                 var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
                 Directory.CreateDirectory(documentsFolder);
@@ -840,12 +842,8 @@ internal static class Program
 
         try
         {
-            var novelScraperSettings = Configuration!.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
-            var siteConfig = novelScraperSettings?.SiteConfigurations?.FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
-            if (siteConfig != null)
-            {
-                throw new InvalidOperationException($"");
-            }
+            var siteConfig = LoadedNovelScraperSettings?.SiteConfigurations
+                .FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
 
             // Guard: Check for inactive site first
             if (siteConfig is { IsActive: false })
@@ -872,7 +870,7 @@ internal static class Program
             }
 
             // Failed to fetch - handle error cases
-            HandleFailedTestConnection(statusCode, cloudflareDetected, siteConfig!);
+            HandleFailedTestConnection(statusCode, cloudflareDetected, siteConfig);
         }
         catch (Exception ex)
         {
@@ -949,19 +947,19 @@ internal static class Program
     {
         try
         {
-            var novelScraperSettings = Configuration?.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
-            var siteConfig = novelScraperSettings?.SiteConfigurations?.FirstOrDefault(config =>
-                config.Name.Equals(configName, StringComparison.OrdinalIgnoreCase));
+            var novelScraperSettings = LoadedNovelScraperSettings;
+            var siteConfig = novelScraperSettings?.SiteConfigurations.FirstOrDefault(config =>
+                config.SiteName.Equals(configName, StringComparison.OrdinalIgnoreCase));
 
             if (siteConfig == null)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Configuration '{configName}' not found in appsettings.json");
+                Console.WriteLine($"✗ Configuration '{configName}' was not found in the sites directory");
                 Console.ResetColor();
                 Console.WriteLine("\nAvailable configurations:");
                 foreach (var config in novelScraperSettings?.SiteConfigurations ?? Enumerable.Empty<SiteConfiguration>())
                 {
-                    Console.WriteLine($"  - {config.Name}");
+                    Console.WriteLine($"  - {config.SiteName}");
                 }
 
                 return;
@@ -995,8 +993,8 @@ internal static class Program
     {
         try
         {
-            var novelScraperSettings = Configuration?.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
-            var activeConfigs = novelScraperSettings?.SiteConfigurations?.Where(c => c.IsActive).ToList();
+            var novelScraperSettings = LoadedNovelScraperSettings;
+            var activeConfigs = novelScraperSettings?.SiteConfigurations.Where(siteConfiguration => siteConfiguration.IsActive).ToList();
 
             if (activeConfigs == null || activeConfigs.Count == 0)
             {
@@ -1013,9 +1011,9 @@ internal static class Program
             foreach (var siteConfig in activeConfigs)
             {
                 Console.WriteLine($"\n{new string('=', 70)}");
-                Console.WriteLine($"Site: {siteConfig.Name}");
+                Console.WriteLine($"Site: {siteConfig.SiteName}");
                 Console.WriteLine($"{new string('=', 70)}");
-                Console.Write($"Enter test URL for {siteConfig.Name} (or press Enter to skip): ");
+                Console.Write($"Enter test URL for {siteConfig.SiteName} (or press Enter to skip): ");
                 var urlInput = Console.ReadLine()?.Trim();
 
                 if (string.IsNullOrEmpty(urlInput))
@@ -1087,7 +1085,7 @@ internal static class Program
         Console.ResetColor();
     }
 
-    private static void HandleFailedTestConnection(int statusCode, bool cloudflareDetected, SiteConfiguration siteConfig)
+    private static void HandleFailedTestConnection(int statusCode, bool cloudflareDetected, SiteConfiguration? siteConfig)
     {
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine("✗ Failed to fetch the page.");
@@ -1112,7 +1110,7 @@ internal static class Program
 
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("\nRECOMMENDATION:");
-            Console.WriteLine($"  Consider updating appsettings.json for '{siteConfig.Name}':");
+            Console.WriteLine($"  Consider updating the site configuration for '{siteConfig.SiteName}':");
             Console.WriteLine("  Change \"cloudflareProtection\": \"jschallenge\" to \"detected\" or null");
             Console.WriteLine("  Set \"entireSiteRequiresSelenium\": false (if not needed)");
             Console.ResetColor();
@@ -1143,7 +1141,7 @@ internal static class Program
         Console.ResetColor();
     }
 
-    private static void HandleCloudflareDetected(SiteConfiguration siteConfig)
+    private static void HandleCloudflareDetected(SiteConfiguration? siteConfig)
     {
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine("\nCloudflare Protection Detected:");
@@ -1171,7 +1169,7 @@ internal static class Program
 
                     Console.ForegroundColor = ConsoleColor.Magenta;
                     Console.WriteLine("\nRECOMMENDATION:");
-                    Console.WriteLine($"  Set \"entireSiteRequiresSelenium\": true for '{siteConfig.Name}' in appsettings.json");
+                    Console.WriteLine($"  Set \"entireSiteRequiresSelenium\": true for '{siteConfig.SiteName}' in its site configuration");
                     Console.WriteLine("  (Selenium will be used automatically based on CloudflareProtection, but explicit setting is clearer)");
                     Console.ResetColor();
                     return;
@@ -1185,7 +1183,7 @@ internal static class Program
 
                 Console.ForegroundColor = ConsoleColor.Magenta;
                 Console.WriteLine("\nACTION REQUIRED:");
-                Console.WriteLine($"  Please update appsettings.json for '{siteConfig.Name}':");
+                Console.WriteLine($"  Please update the site configuration for '{siteConfig.SiteName}':");
                 Console.WriteLine("  Change \"cloudflareProtection\": \"detected\" to \"jschallenge\"");
                 Console.WriteLine("  Set \"entireSiteRequiresSelenium\": true");
                 Console.ResetColor();
@@ -1195,7 +1193,7 @@ internal static class Program
             case null:
                 Console.ForegroundColor = ConsoleColor.Magenta;
                 Console.WriteLine("\nACTION REQUIRED:");
-                Console.WriteLine($"  Please update appsettings.json for '{siteConfig.Name}':");
+                Console.WriteLine($"  Please update the site configuration for '{siteConfig.SiteName}':");
                 Console.WriteLine("  Set \"cloudflareProtection\": \"jschallenge\"");
                 Console.WriteLine("  Set \"entireSiteRequiresSelenium\": true");
                 Console.ResetColor();
@@ -1230,8 +1228,7 @@ internal static class Program
 
     private static void DisplaySupportedSites()
     {
-        NovelScraper httpNovelScraper = new();
-        var supportedSites = httpNovelScraper.GetSupportedSites();
+        var supportedSites = GetSupportedSites();
 
         // ASCII Art header
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -1267,12 +1264,18 @@ internal static class Program
         Console.WriteLine();
     }
 
+    private static IReadOnlyList<string> GetSupportedSites()
+    {
+        ArgumentNullException.ThrowIfNull(Container);
+
+        using var lifetimeScope = Container.BeginLifetimeScope();
+        return lifetimeScope.Resolve<INovelScraper>().GetSupportedSites();
+    }
+
     private static async Task TestAllSitesAsync()
     {
-        NovelScraper httpNovelScraper = new();
-        var supportedSites = httpNovelScraper.GetSupportedSites();
-
-        var novelScraperSettings = Configuration?.GetSection("NovelScraperSettings").Get<NovelScraperSettings>();
+        var supportedSites = GetSupportedSites();
+        var novelScraperSettings = LoadedNovelScraperSettings;
 
         Console.WriteLine($"\n{'='}{new string('=', 60)}");
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -1349,12 +1352,12 @@ internal static class Program
                     if (siteConfig?.CloudflareProtection == CloudflareProtectionLevel.Detected)
                     {
                         Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.WriteLine($"    → Escalate: Change \"cloudflareProtection\": \"detected\" to \"jschallenge\" for '{siteConfig.Name}'");
+                        Console.WriteLine($"    → Escalate: Change \"cloudflareProtection\": \"detected\" to \"jschallenge\" for '{siteConfig.SiteName}'");
                     }
                     else if (needsConfigUpdate)
                     {
                         Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.WriteLine($"    → Update appsettings.json: Set \"cloudflareProtection\": \"jschallenge\" for '{siteConfig?.Name}'");
+                        Console.WriteLine($"    → Update the site configuration: Set \"cloudflareProtection\": \"jschallenge\" for '{siteConfig?.SiteName}'");
                     }
                 }
                 else
@@ -1449,7 +1452,7 @@ internal static class Program
                 if (result.NeedsConfigUpdate)
                 {
                     Console.ForegroundColor = ConsoleColor.Magenta;
-                    Console.WriteLine($"    → Needs appsettings.json update");
+                    Console.WriteLine("    → Needs a site configuration update");
                     Console.ResetColor();
                 }
             }
@@ -1713,56 +1716,40 @@ internal static class Program
 
     private static void SetupLogger(LogLevel logLevel)
     {
-        var config = new NLog.Config.LoggingConfiguration();
+        var loggingConfiguration = new NLog.Config.LoggingConfiguration();
 
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
+        var applicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var logDirectoryPath = Path.Combine(applicationDataPath, "BennyScraper", "logs");
+        Directory.CreateDirectory(logDirectoryPath);
 
-        var logPath = Path.Combine(directoryPath, $"log-book {DateTime.Now:MM-dd-yyyy}.log");
-        using var logfile = new FileTarget("logfile");
-        logfile.FileName = logPath;
+        var logFilePath = Path.Combine(logDirectoryPath, "log-book ${shortdate}.log");
+        using var logFileTarget = new FileTarget("logfile")
+        {
+            FileName = logFilePath,
+            MaxArchiveDays = 14,
+            MaxArchiveFiles = 14
+        };
 
-        using var logConsole = new ColoredConsoleTarget("logconsole");
-        logConsole.Layout = @"${date:format=HH\:mm\:ss} ${level} ${message} ${exception}";
+        using var logConsoleTarget = new ColoredConsoleTarget("logconsole");
+        logConsoleTarget.Layout = @"${date:format=HH\:mm\:ss} ${level} ${message} ${exception}";
 
-        logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
+        logConsoleTarget.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
             NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Info"), ConsoleOutputColor.Green, ConsoleOutputColor.Black));
-        logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
+        logConsoleTarget.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
             NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Warn"), ConsoleOutputColor.DarkYellow, ConsoleOutputColor.Black));
-        logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
+        logConsoleTarget.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
             NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Error"), ConsoleOutputColor.Red, ConsoleOutputColor.Black));
-        logConsole.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
+        logConsoleTarget.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
             NLog.Conditions.ConditionParser.ParseExpression("level == LogLevel.Fatal"), ConsoleOutputColor.White, ConsoleOutputColor.Red));
 
-        config.AddRule(logLevel, LogLevel.Fatal, logConsole);
-        config.AddRule(LogLevel.Info, LogLevel.Fatal, logfile);
+        loggingConfiguration.AddRule(logLevel, LogLevel.Fatal, logConsoleTarget);
+        loggingConfiguration.AddRule(LogLevel.Info, LogLevel.Fatal, logFileTarget);
 
-        NLog.LogManager.Configuration = config;
-    }
-
-    private static void DeleteOldLogs()
-    {
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var directoryPath = Path.Combine(appDataPath, "BennyScraper", "logs");
-        if (!Directory.Exists(directoryPath))
-        {
-            Directory.CreateDirectory(directoryPath);
-        }
-
-        var directory = new DirectoryInfo(directoryPath);
-        var files = directory.GetFiles("*.log")
-            .OrderByDescending(file => file.LastWriteTime)
-            .Skip(5);
-
-        foreach (var file in files)
-        {
-            file.Delete();
-        }
+        NLog.LogManager.Configuration = loggingConfiguration;
     }
 
     /// <summary>
-    /// Loads the configuration for the application from appsettings.json. The configuration is used to configure the application's services, and will be
-    /// handed to the Autofac container builder in Startup.cs, which will register the appsettings as classes I have defined.
+    /// Loads the application-wide configuration from appsettings.json. Site configurations are loaded separately from the sites directory.
     /// </summary>
     /// <returns>The loaded configuration object.</returns>
     private static IConfigurationRoot BuildConfiguration()
@@ -1778,14 +1765,41 @@ internal static class Program
     }
 
     /// <summary>
-    /// Register all services and repositories, including the DbContext, appsettings.json as NovelScraperSettings and EpubTemplates based on the key in the file.
+    /// Binds the application-wide scraper settings and adds the per-site files from the sites directory.
+    /// </summary>
+    /// <param name="configuration">The application configuration containing the non-site scraper settings.</param>
+    /// <returns>The complete scraper settings used by the application.</returns>
+    private static NovelScraperSettings BuildNovelScraperSettings(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var novelScraperSettings = new NovelScraperSettings();
+        configuration.GetSection("NovelScraperSettings").Bind(novelScraperSettings);
+
+        novelScraperSettings.SiteConfigurations.Clear();
+        var siteConfigurationsDirectory = Path.Combine(AppContext.BaseDirectory, "sites");
+        foreach (var siteConfiguration in SiteConfigurationLoader.LoadFromDirectory(siteConfigurationsDirectory))
+        {
+            novelScraperSettings.SiteConfigurations.Add(siteConfiguration);
+        }
+
+        return novelScraperSettings;
+    }
+
+    /// <summary>
+    /// Registers services, repositories, application settings, site configurations, and EPUB templates.
     /// </summary>
     /// <param name="builder">The container builder.</param>
     /// <param name="configuration">The application configuration.</param>
-    private static void ConfigureServices(ContainerBuilder builder, IConfigurationRoot configuration)
+    /// <param name="novelScraperSettings">The scraper settings, including the configurations loaded from the sites directory.</param>
+    private static void ConfigureServices(
+        ContainerBuilder builder,
+        IConfigurationRoot configuration,
+        NovelScraperSettings novelScraperSettings)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(novelScraperSettings);
 
         // Register IConfiguration
         builder.RegisterInstance(configuration).As<IConfiguration>();
@@ -1803,24 +1817,29 @@ internal static class Program
         builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>();
         builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
         builder.RegisterType<ComicBookArchiveGenerator>().As<IComicBookArchiveGenerator>().InstancePerDependency();
+        builder.RegisterType<CommonStrategy>().Keyed<ScraperStrategy>("common").InstancePerDependency();
+        builder.RegisterType<LightNovelWorldStrategy>().Keyed<ScraperStrategy>("lightnovelworld").InstancePerDependency();
+        builder.RegisterType<MangaKakalotStrategy>().Keyed<ScraperStrategy>("mangakakalot").InstancePerDependency();
+        builder.RegisterType<MangaKatanaStrategy>().Keyed<ScraperStrategy>("mangakatana").InstancePerDependency();
+        builder.RegisterType<MangaReaderStrategy>().Keyed<ScraperStrategy>("mangareader").InstancePerDependency();
+        builder.RegisterType<NovelBinStrategy>().Keyed<ScraperStrategy>("novelbin").InstancePerDependency();
+        builder.RegisterType<NovelDramaStrategy>().Keyed<ScraperStrategy>("noveldrama").InstancePerDependency();
+        builder.RegisterType<NovelFullStrategy>().Keyed<ScraperStrategy>("novelfull").InstancePerDependency();
+        builder.RegisterType<RoyalRoadStrategy>().Keyed<ScraperStrategy>("royalroad").InstancePerDependency();
+        builder.RegisterType<WanderingInnStrategy>().Keyed<ScraperStrategy>("wanderinginn").InstancePerDependency();
+        builder.RegisterType<WuxiaWorldStrategy>().Keyed<ScraperStrategy>("wuxiaworld").InstancePerDependency();
 
         builder.AddHttpResilience();
 
         // Centralized Selenium driver factory (so all drivers can be disposed on shutdown)
         builder.RegisterType<DriverFactory>().As<IDriverFactory>().SingleInstance();
 
-        builder.Register(c =>
-        {
-            var config = c.Resolve<IConfiguration>();
-            var settings = new NovelScraperSettings();
-            config.GetSection("NovelScraperSettings").Bind(settings);
-            return settings;
-        }).SingleInstance();
+        builder.RegisterInstance(novelScraperSettings).SingleInstance();
 
         // needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
         builder.Register(c => Options.Create(c.Resolve<NovelScraperSettings>())).As<IOptions<NovelScraperSettings>>().SingleInstance();
 
-        // register EpuTemplates.cs as singleton from the appsettings.json file
+        // Register EpubTemplates.cs as a singleton from appsettings.json.
         builder.Register(c =>
         {
             var config = c.Resolve<IConfiguration>();

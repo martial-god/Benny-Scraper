@@ -99,10 +99,5 @@ public abstract class MangaKakalotInitializer : NovelDataInitializer
 
         scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocumentForChapterUrls, novelDataBuffer, scraperData);
         scraperStrategy.SortChapters(novelDataBuffer);
-
-        if (novelDataBuffer.ChapterLinks.Count != 0)
-        {
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.First().Url;
-        }
     }
 }

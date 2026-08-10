@@ -19,7 +19,7 @@ public class SiteConfiguration
     /// <summary>
     /// Gets or sets the human-readable site name. Used for logs and display.
     /// </summary>
-    public string Name { get; set; } = string.Empty;
+    public string SiteName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the substring used to match <see cref="Uri.Host"/> (e.g. "novelfull.com").
@@ -30,6 +30,11 @@ public class SiteConfiguration
     /// Gets or sets a value indicating whether this site config is enabled without deleting it.
     /// </summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Gets the name of the scraper strategy to use.
+    /// </summary>
+    public string StrategyName { get; init; } = "common";
 
     /// <summary>
     /// Gets or sets a value indicating whether the table of contents spans multiple pages.

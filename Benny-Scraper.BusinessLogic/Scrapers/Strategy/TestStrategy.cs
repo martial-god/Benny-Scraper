@@ -29,7 +29,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
     {
         WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
@@ -512,7 +512,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         Console.WriteLine($"\n{new string('=', 70)}");
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"Validating Configuration: {siteConfig.Name}");
+        Console.WriteLine($"Validating Configuration: {siteConfig.SiteName}");
         Console.ResetColor();
         Console.WriteLine($"{new string('=', 70)}\n");
 
@@ -734,7 +734,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         _config = new SiteConfiguration
         {
-            Name = siteName,
+            SiteName = siteName,
             UrlPattern = host,
             Selectors = new Selectors()
             {
@@ -763,7 +763,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             HttpClientFactory = _httpClientFactory
         };
 
-        Console.WriteLine($"Site Name: {_config.Name}");
+        Console.WriteLine($"Site Name: {_config.SiteName}");
         Console.WriteLine($"URL Pattern: {_config.UrlPattern}\n");
     }
 
@@ -1963,24 +1963,36 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
         Console.ResetColor();
         Console.WriteLine($"{new string('=', 70)}\n");
 
-        // Title + ChapterLinks are the only strictly-required fields, but a config with no chapter content/title
-        // selector will download empty chapters. Warn so the user does not discover this only after a full run.
-        var missingContentSelectors = new List<string>();
-        if (string.IsNullOrEmpty(_config.Selectors.ChapterTitle))
+        var missingRequiredSelectors = new List<string>();
+        if (string.IsNullOrWhiteSpace(_config.Selectors.TableOfContents.NovelTitle))
         {
-            missingContentSelectors.Add("Chapter Title");
+            missingRequiredSelectors.Add("Novel Title");
         }
 
-        if (string.IsNullOrEmpty(_config.Selectors.ChapterContent))
+        if (string.IsNullOrWhiteSpace(_config.Selectors.TableOfContents.ChapterLinks))
         {
-            missingContentSelectors.Add("Chapter Content");
+            missingRequiredSelectors.Add("Chapter Links");
         }
 
-        if (missingContentSelectors.Count > 0)
+        if (string.IsNullOrWhiteSpace(_config.Selectors.ChapterContent))
+        {
+            missingRequiredSelectors.Add("Chapter Content");
+        }
+
+        if (missingRequiredSelectors.Count > 0)
+        {
+            _config.IsActive = false;
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"⚠ Required selector not set for: {string.Join(", ", missingRequiredSelectors)}.");
+            Console.WriteLine("  The configuration will be saved as inactive until these selectors are provided.");
+            Console.ResetColor();
+            Console.WriteLine();
+        }
+
+        if (string.IsNullOrWhiteSpace(_config.Selectors.ChapterTitle))
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"⚠ No selector set for: {string.Join(", ", missingContentSelectors)}.");
-            Console.WriteLine("  The config will save, but chapters will be empty until these are provided.");
+            Console.WriteLine("⚠ No Chapter Title selector is set. This is optional, but should be verified with a real chapter.");
             Console.ResetColor();
             Console.WriteLine();
         }
@@ -2010,9 +2022,9 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
         Console.WriteLine($"\nNext steps:");
         Console.WriteLine("1. Review the configuration above");
-        Console.WriteLine("2. Paste into appsettings.json under \"SiteConfigurations\"");
-        Console.WriteLine("3. Create a new strategy class inheriting from ScraperStrategy");
-        Console.WriteLine("4. Test with a real download");
+        Console.WriteLine("2. The configuration has been saved in the sites directory");
+        Console.WriteLine("3. Use the common strategy unless the site requires custom behavior");
+        Console.WriteLine("4. Validate the saved configuration, then test with a real download");
         Console.WriteLine($"{new string('=', 70)}\n");
     }
 
@@ -2020,12 +2032,31 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     {
         try
         {
-            var configDir = Path.Combine(Directory.GetCurrentDirectory(), "test-configs");
-            Directory.CreateDirectory(configDir);
+            var configurationDirectory = GetSiteConfigurationDirectory();
+            Directory.CreateDirectory(configurationDirectory);
 
-            var fileName =
-                $"{_config.Name.ToLowerInvariant()}-{DateTime.Now.ToString("yyyy-MM-dd-HHmmss", CultureInfo.InvariantCulture)}.json";
-            var filePath = Path.Combine(configDir, fileName);
+            var fileName = CreateSiteConfigurationFileName(_config.UrlPattern);
+            var filePath = Path.Combine(configurationDirectory, fileName);
+
+            if (File.Exists(filePath))
+            {
+                Console.Write($"A configuration for '{_config.UrlPattern}' already exists. Replace it? (y/n): ");
+                var shouldReplace = string.Equals(
+                    Console.ReadLine()?.Trim(),
+                    "y",
+                    StringComparison.OrdinalIgnoreCase);
+
+                if (!shouldReplace)
+                {
+                    var draftsDirectory = Path.Combine(configurationDirectory, "drafts");
+                    Directory.CreateDirectory(draftsDirectory);
+
+                    var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HHmmss", CultureInfo.InvariantCulture);
+                    filePath = Path.Combine(
+                        draftsDirectory,
+                        $"{Path.GetFileNameWithoutExtension(fileName)}-{timestamp}.json");
+                }
+            }
 
             File.WriteAllText(filePath, json);
 
@@ -2040,6 +2071,37 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
             Console.ResetColor();
             Logger.Warn($"Failed to save config to file: {ex}");
         }
+    }
+
+    private static string CreateSiteConfigurationFileName(string urlPattern)
+    {
+        var normalizedCharacters = urlPattern
+            .Trim()
+            .ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) || character is '.' or '-' ? character : '-')
+            .ToArray();
+
+        return $"{new string(normalizedCharacters)}.json";
+    }
+
+    private static string GetSiteConfigurationDirectory()
+    {
+        var workingDirectorySiteConfigurations = Path.Combine(Directory.GetCurrentDirectory(), "sites");
+        if (Directory.Exists(workingDirectorySiteConfigurations))
+        {
+            return workingDirectorySiteConfigurations;
+        }
+
+        var repositorySiteConfigurations = Path.Combine(
+            Directory.GetCurrentDirectory(),
+            "Benny-Scraper",
+            "sites");
+        if (Directory.Exists(repositorySiteConfigurations))
+        {
+            return repositorySiteConfigurations;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "sites");
     }
 
     private async Task<(HtmlDocument? Document, string? PageSource)> LoadHtmlWithSeleniumAsync(

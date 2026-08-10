@@ -122,12 +122,6 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
         if (attributesToFetch.Contains(Attr.ChapterUrls))
         {
             scraperStrategy.SortChapters(novelDataBuffer);
-            novelDataBuffer.FirstChapter = novelDataBuffer.ChapterLinks.Count != 0
-                ? novelDataBuffer.ChapterLinks.First().Url
-                : string.Empty;
-            novelDataBuffer.CurrentChapterUrl = novelDataBuffer.ChapterLinks.Count != 0
-                ? novelDataBuffer.ChapterLinks.Last().Url
-                : string.Empty;
         }
 
         novelDataBuffer.Title = _defaultTitle;

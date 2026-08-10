@@ -49,9 +49,19 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = new NovelDataBuffer();
+            var attributesToFetch = new List<NovelDataInitializer.Attr>()
+            {
+                NovelDataInitializer.Attr.Title,
+                NovelDataInitializer.Attr.Author,
+                NovelDataInitializer.Attr.NovelStatus,
+                NovelDataInitializer.Attr.Description,
+                NovelDataInitializer.Attr.ThumbnailUrl,
+                NovelDataInitializer.Attr.Genres,
+                NovelDataInitializer.Attr.CurrentChapter
+            };
             try
             {
-                await LightNovelWorldInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, ScraperData).ConfigureAwait(false);
+                await LightNovelWorldInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetch).ConfigureAwait(false);
                 return novelDataBuffer;
             }
             catch (Exception e)
@@ -125,20 +135,19 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
     {
         public abstract class LightNovelWorldInitializer : NovelDataInitializer
         {
-            public static async Task FetchNovelContent(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
+            public static async Task FetchNovelContent(
+                NovelDataBuffer novelDataBuffer,
+                HtmlDocument htmlDocument,
+                ScraperData scraperData,
+                ScraperStrategy scraperStrategy,
+                IReadOnlyList<Attr> attributesToFetch)
             {
+                ArgumentNullException.ThrowIfNull(novelDataBuffer);
+                ArgumentNullException.ThrowIfNull(htmlDocument);
                 ArgumentNullException.ThrowIfNull(scraperData);
+                ArgumentNullException.ThrowIfNull(scraperStrategy);
+                ArgumentNullException.ThrowIfNull(attributesToFetch);
 
-                var attributesToFetch = new List<Attr>()
-                {
-                    Attr.Title,
-                    Attr.Author,
-                    Attr.NovelStatus,
-                    Attr.Description,
-                    Attr.ThumbnailUrl,
-                    Attr.Genres,
-                    Attr.CurrentChapter
-                };
                 foreach (var attribute in attributesToFetch)
                 {
                     // Fetch the thumbnail from WebNovelWorld because LightNovelWorld returns HTTP 403 for it.

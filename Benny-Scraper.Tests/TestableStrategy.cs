@@ -1,4 +1,5 @@
-﻿using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using BennyScraper.BusinessLogic.Scrapers.Strategy;
 using BennyScraper.Models;
 using HtmlAgilityPack;
@@ -12,8 +13,29 @@ namespace BennyScraper.Tests;
 /// </summary>
 internal sealed class TestableStrategy : ScraperStrategy
 {
+    public TestableStrategy()
+    {
+    }
+
+    public TestableStrategy(IHttpClientFactory httpClientFactory)
+        : base(httpClientFactory)
+    {
+    }
+
     public void ConfigureSort(ChapterSortOrder order)
         => ScraperData.SiteConfig = new SiteConfiguration { ChapterSortOrder = order };
+
+    public void ConfigureChapterDownloads(
+        SiteConfiguration siteConfiguration,
+        Uri tableOfContentsUri,
+        int concurrentRequestLimit)
+    {
+        SetBaseUri(tableOfContentsUri);
+        SetVariables(
+            siteConfiguration,
+            tableOfContentsUri,
+            new Configuration { ConcurrencyLimit = concurrentRequestLimit });
+    }
 
     public override Task<NovelDataBuffer> ScrapeAsync() => throw new NotImplementedException();
 

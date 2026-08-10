@@ -73,8 +73,11 @@ public static class CommonHelper
         return tempDirectory;
     }
 
-    public static ICollection<Chapter> SortNovelChaptersByDateCreated(ICollection<Chapter> chapters) =>
-        chapters.OrderBy(chapter => chapter.DateCreated).ToList();
+    public static ICollection<Chapter> SortNovelChaptersByNumber(ICollection<Chapter> chapters) =>
+        chapters
+            .OrderBy(chapter => chapter.Number)
+            .ThenBy(chapter => chapter.DateCreated)
+            .ToList();
 
     /// <summary>
     /// Draws a box around the provided messages with automatic width calculation.

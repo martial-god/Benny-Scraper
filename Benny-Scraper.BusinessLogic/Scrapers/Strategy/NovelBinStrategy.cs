@@ -109,10 +109,7 @@ public class NovelBinStrategy : ScraperStrategy
         return novelDataBuffer;
     }
 
-    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
-    {
-        throw new NotImplementedException();
-    }
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument) => throw new NotImplementedException();
 
     protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {
@@ -131,7 +128,7 @@ public class NovelBinStrategy : ScraperStrategy
             NovelDataInitializer.Attr.CurrentChapter
         };
 
-        await NovelBinInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch).ConfigureAwait(false);
+        await NovelBinInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetch).ConfigureAwait(false);
 
         return novelDataBuffer;
     }
@@ -146,13 +143,23 @@ public abstract class NovelBinInitializer : NovelDataInitializer
         NovelDataBuffer novelDataBuffer,
         HtmlDocument htmlDocument,
         ScraperData scraperData,
+        ScraperStrategy scraperStrategy,
         IReadOnlyList<Attr> attributesToFetch)
     {
+        ArgumentNullException.ThrowIfNull(novelDataBuffer);
+        ArgumentNullException.ThrowIfNull(htmlDocument);
+        ArgumentNullException.ThrowIfNull(scraperData);
+        ArgumentNullException.ThrowIfNull(scraperStrategy);
         ArgumentNullException.ThrowIfNull(attributesToFetch);
 
         foreach (var attribute in attributesToFetch)
         {
             await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
+        }
+
+        if (attributesToFetch.Contains(Attr.ChapterUrls))
+        {
+            scraperStrategy.SortChapters(novelDataBuffer);
         }
     }
 }

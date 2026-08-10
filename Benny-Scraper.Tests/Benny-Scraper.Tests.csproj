@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <None Include="..\Benny-Scraper\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Benny-Scraper\sites\**\*.json" Link="sites\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
