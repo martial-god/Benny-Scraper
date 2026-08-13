@@ -79,11 +79,9 @@ internal static class Program
         }
     }
 
-    private static async Task RunAsync(IContainer? container)
+    private static async Task RunAsync(IContainer container)
     {
-        ArgumentNullException.ThrowIfNull(container, nameof(container));
-
-        await using var scope = Container!.BeginLifetimeScope();
+        await using var scope = container.BeginLifetimeScope();
         var logger = NLog.LogManager.GetCurrentClassLogger();
 
         // Display supported sites with ASCII art
@@ -905,8 +903,6 @@ internal static class Program
     {
         try
         {
-            ArgumentNullException.ThrowIfNull(url);
-
             var parts = testField.Split(':', 2);
             if (parts.Length != 2)
             {
@@ -1266,9 +1262,7 @@ internal static class Program
 
     private static IReadOnlyList<string> GetSupportedSites()
     {
-        ArgumentNullException.ThrowIfNull(Container);
-
-        using var lifetimeScope = Container.BeginLifetimeScope();
+        using var lifetimeScope = Container!.BeginLifetimeScope();
         return lifetimeScope.Resolve<INovelScraper>().GetSupportedSites();
     }
 
@@ -1723,14 +1717,15 @@ internal static class Program
         Directory.CreateDirectory(logDirectoryPath);
 
         var logFilePath = Path.Combine(logDirectoryPath, "log-book ${shortdate}.log");
-        using var logFileTarget = new FileTarget("logfile")
+#pragma warning disable CA2000 // NLog owns targets after the configuration is assigned.
+        var logFileTarget = new FileTarget("logfile")
         {
             FileName = logFilePath,
             MaxArchiveDays = 14,
             MaxArchiveFiles = 14
         };
 
-        using var logConsoleTarget = new ColoredConsoleTarget("logconsole");
+        var logConsoleTarget = new ColoredConsoleTarget("logconsole");
         logConsoleTarget.Layout = @"${date:format=HH\:mm\:ss} ${level} ${message} ${exception}";
 
         logConsoleTarget.RowHighlightingRules.Add(new ConsoleRowHighlightingRule(
@@ -1746,6 +1741,7 @@ internal static class Program
         loggingConfiguration.AddRule(LogLevel.Info, LogLevel.Fatal, logFileTarget);
 
         NLog.LogManager.Configuration = loggingConfiguration;
+#pragma warning restore CA2000
     }
 
     /// <summary>
@@ -1771,8 +1767,6 @@ internal static class Program
     /// <returns>The complete scraper settings used by the application.</returns>
     private static NovelScraperSettings BuildNovelScraperSettings(IConfiguration configuration)
     {
-        ArgumentNullException.ThrowIfNull(configuration);
-
         var novelScraperSettings = new NovelScraperSettings();
         configuration.GetSection("NovelScraperSettings").Bind(novelScraperSettings);
 
@@ -1797,10 +1791,6 @@ internal static class Program
         IConfigurationRoot configuration,
         NovelScraperSettings novelScraperSettings)
     {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentNullException.ThrowIfNull(novelScraperSettings);
-
         // Register IConfiguration
         builder.RegisterInstance(configuration).As<IConfiguration>();
 

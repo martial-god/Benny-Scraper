@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Config;
 
-public sealed class TableOfContentsSelectors
+internal sealed class TableOfContentsSelectors
 {
     /// <summary>
     /// Gets or sets the XPath for all chapter link nodes on the table of contents page.

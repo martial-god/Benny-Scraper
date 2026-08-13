@@ -6,7 +6,7 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-public class CommonStrategy : ScraperStrategy
+internal sealed class CommonStrategy : ScraperStrategy
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
@@ -70,16 +70,13 @@ public class CommonStrategy : ScraperStrategy
     }
 }
 
-public abstract class CommonStrategyInitializer : NovelDataInitializer
+internal abstract class CommonStrategyInitializer : NovelDataInitializer
 {
     public static async Task FetchNovelContentAsync(
         NovelDataBuffer novelDataBuffer,
         HtmlDocument htmlDocument,
         ScraperData scraperData)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-        ArgumentNullException.ThrowIfNull(htmlDocument);
-        ArgumentNullException.ThrowIfNull(scraperData);
         var attributesToFetch = GetAttributesToFetch(scraperData.SiteConfig);
 
         foreach (var attribute in attributesToFetch)
@@ -90,8 +87,6 @@ public abstract class CommonStrategyInitializer : NovelDataInitializer
 
     private static List<Attr> GetAttributesToFetch(SiteConfiguration siteConfiguration)
     {
-        ArgumentNullException.ThrowIfNull(siteConfiguration);
-
         var tableOfContentsSelectors = siteConfiguration.Selectors.TableOfContents;
         var attributesToFetch = new List<Attr>();
 

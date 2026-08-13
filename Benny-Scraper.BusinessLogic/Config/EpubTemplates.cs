@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Config;
 
-public class EpubTemplates
+internal sealed class EpubTemplates
 {
     public string ContentOpf { get; set; } = string.Empty;
 

@@ -9,7 +9,7 @@ namespace BennyScraper.BusinessLogic.Factory;
 /// so callers can safely set per-request headers without affecting others.
 /// Includes cookie management for better Cloudflare bypass.
 /// </summary>
-public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
+internal sealed class HttpClientFactory : IHttpClientFactory, IDisposable
 {
     private readonly SocketsHttpHandler _handler;
     private readonly System.Net.CookieContainer _cookieContainer;
@@ -96,7 +96,6 @@ public sealed class HttpClientFactory : IHttpClientFactory, IDisposable
     /// <param name="cookieHeader">The raw cookie header string to parse.</param>
     public void AddCookiesFromHeader(Uri uri, string cookieHeader)
     {
-        ArgumentNullException.ThrowIfNull(uri);
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(cookieHeader))

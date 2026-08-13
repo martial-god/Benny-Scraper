@@ -2,7 +2,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.DataAccess.Repository.IRepository;
 
-public interface IConfigurationRepository : IRepository<Configuration>
+internal interface IConfigurationRepository : IRepository<Configuration>
 {
     void Update(Configuration obj);
 

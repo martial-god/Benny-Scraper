@@ -5,12 +5,12 @@ using OpenQA.Selenium.Chrome;
 
 namespace BennyScraper.BusinessLogic.Factory;
 
-public enum Browser
+internal enum Browser
 {
     Chrome
 }
 
-public class DriverFactory : IDriverFactory
+internal sealed class DriverFactory : IDriverFactory
 {
     private readonly ConcurrentDictionary<int, IWebDriver> _drivers = new(); // thread-safe version of the dictionary, no need to worry about multiple threads making changes
     private int _counter;

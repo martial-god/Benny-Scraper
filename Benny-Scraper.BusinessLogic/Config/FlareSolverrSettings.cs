@@ -3,7 +3,7 @@ namespace BennyScraper.BusinessLogic.Config;
 /// <summary>
 /// Configuration for FlareSolverr Cloudflare bypass service.
 /// </summary>
-public class FlareSolverrSettings
+internal sealed class FlareSolverrSettings
 {
     /// <summary>
     /// Gets or sets a value indicating whether to enable FlareSolverr for Cloudflare bypass.

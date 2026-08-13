@@ -6,16 +6,11 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
-    public class NovelFullStrategy : ScraperStrategy
+    internal sealed class NovelFullStrategy : ScraperStrategy
     {
         public override async Task<NovelDataBuffer> ScrapeAsync()
         {
             Logger.Info($"Getting novel data for {this.GetType().Name}");
-            if (ScraperData.SiteTableOfContents == null)
-            {
-                throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
-            }
-
             SetBaseUri(ScraperData.SiteTableOfContents);
             var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
 
@@ -74,16 +69,13 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
     namespace Impl
     {
-        public abstract class NovelFullInitializer : NovelDataInitializer
+        internal abstract class NovelFullInitializer : NovelDataInitializer
         {
             // Brad: Ideally this method would be pure virtual and we would get a forcible reminder to implement it on each
             // child class, but C# doesn't allow static virtual methods or mixing of abstract and non-abstract methods and
             // the implementation would require both.
             public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
             {
-                ArgumentNullException.ThrowIfNull(novelDataBuffer);
-                ArgumentNullException.ThrowIfNull(scraperData);
-
                 var attributesToFetch = new List<Attr>()
                 {
                     Attr.Author,

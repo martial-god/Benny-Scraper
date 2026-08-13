@@ -3,7 +3,7 @@ using BennyScraper.BusinessLogic.Interfaces;
 
 namespace BennyScraper.BusinessLogic.Factory.Interfaces;
 
-public interface INovelScraperFactory
+internal interface INovelScraperFactory
 {
     INovelScraper CreateScraper(Uri novelTableOfContentsUri, SiteConfiguration siteConfig);
 }

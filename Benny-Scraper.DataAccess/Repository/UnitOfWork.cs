@@ -4,7 +4,7 @@ using Database = BennyScraper.DataAccess.Data.Database;
 
 namespace BennyScraper.DataAccess.Repository;
 
-public class UnitOfWork : IUnitOfWork
+internal sealed class UnitOfWork : IUnitOfWork
 {
     private readonly Database _db;
 

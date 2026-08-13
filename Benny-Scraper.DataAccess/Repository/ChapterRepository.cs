@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BennyScraper.DataAccess.Repository;
 
-public class ChapterRepository(Database db) : Repository<Chapter>(db), IChapterRepository
+internal sealed class ChapterRepository(Database db) : Repository<Chapter>(db), IChapterRepository
 {
     private readonly Database _db = db;
 

@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Config;
 
-public class HttpResilienceSettings
+internal sealed class HttpResilienceSettings
 {
     /// <summary>
     /// Gets or sets the base retry delay used for transient HTTP failures when no server-specific delay is provided.

@@ -6,16 +6,11 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-public class WanderingInnStrategy : ScraperStrategy
+internal sealed class WanderingInnStrategy : ScraperStrategy
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
         Logger.Info($"Getting novel data for {GetType().Name}");
-        if (ScraperData.SiteTableOfContents == null)
-        {
-            throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
-        }
-
         SetBaseUri(ScraperData.SiteTableOfContents);
         var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
 
@@ -72,7 +67,7 @@ public class WanderingInnStrategy : ScraperStrategy
     }
 }
 
-public abstract class WanderingInnInitializer : NovelDataInitializer
+internal abstract class WanderingInnInitializer : NovelDataInitializer
 {
     private const string _defaultAuthor = "Pirate Aba";
     private const string _defaultTitle = "The Wandering Inn";
@@ -88,11 +83,6 @@ public abstract class WanderingInnInitializer : NovelDataInitializer
         ScraperStrategy scraperStrategy,
         IReadOnlyList<Attr> attributesToFetch)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-        ArgumentNullException.ThrowIfNull(scraperData);
-        ArgumentNullException.ThrowIfNull(scraperStrategy);
-        ArgumentNullException.ThrowIfNull(attributesToFetch);
-
         Debug.Assert(scraperData.SiteTableOfContents != null, "scraperData.SiteTableOfContents != null");
 
         foreach (var attribute in attributesToFetch)

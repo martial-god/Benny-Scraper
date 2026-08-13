@@ -2,7 +2,7 @@ using System.Linq.Expressions;
 
 namespace BennyScraper.DataAccess.Repository.IRepository;
 
-public interface IRepository<T>
+internal interface IRepository<T>
     where T : class // Generic repository where we can pass in any object
 {
     Task<T> GetByIdAsync(Guid id);

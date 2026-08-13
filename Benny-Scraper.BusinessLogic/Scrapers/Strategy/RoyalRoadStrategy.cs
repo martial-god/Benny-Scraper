@@ -8,7 +8,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 /// Scraping strategy for royalroad.com.
 /// HTTP-based scraper, no Selenium required.
 /// </summary>
-public class RoyalRoadStrategy : ScraperStrategy
+internal sealed class RoyalRoadStrategy : ScraperStrategy
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
@@ -74,7 +74,7 @@ public class RoyalRoadStrategy : ScraperStrategy
 /// <summary>
 /// Initializer for RoyalRoad site.
 /// </summary>
-public abstract class RoyalRoadInitializer : NovelDataInitializer
+internal abstract class RoyalRoadInitializer : NovelDataInitializer
 {
     public static async Task FetchNovelContentAsync(
         NovelDataBuffer novelDataBuffer,
@@ -82,8 +82,6 @@ public abstract class RoyalRoadInitializer : NovelDataInitializer
         ScraperData scraperData,
         IReadOnlyList<Attr> attributesToFetch)
     {
-        ArgumentNullException.ThrowIfNull(attributesToFetch);
-
         foreach (var attribute in attributesToFetch)
         {
             await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);

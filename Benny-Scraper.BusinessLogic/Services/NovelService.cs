@@ -5,13 +5,11 @@ using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.Services;
 
-public class NovelService(IUnitOfWork unitOfWork) : INovelService
+internal sealed class NovelService(IUnitOfWork unitOfWork) : INovelService
 {
     // CreateScraper new novel with a passed in novel
     public async Task<Guid> CreateAsync(Novel novel)
     {
-        ArgumentNullException.ThrowIfNull(novel);
-
         novel.DateLastModified = DateTime.Now;
         novel.TotalChapters = novel.Chapters.Count;
         await unitOfWork.Novel.AddAsync(novel).ConfigureAwait(false);
@@ -41,8 +39,6 @@ public class NovelService(IUnitOfWork unitOfWork) : INovelService
     /// <returns>A task that represents the asynchronous update operation.</returns>
     public async Task UpdateAsync(Novel novel)
     {
-        ArgumentNullException.ThrowIfNull(novel);
-
         novel.DateLastModified = DateTime.Now;
         unitOfWork.Novel.Update(novel);
         await unitOfWork.SaveAsync().ConfigureAwait(false);
@@ -55,15 +51,15 @@ public class NovelService(IUnitOfWork unitOfWork) : INovelService
 
     public async Task<Novel?> GetByUrlAsync(Uri uri)
     {
-        ArgumentNullException.ThrowIfNull(uri);
-
         var context = await unitOfWork.Novel.GetFirstOrDefaultAsync(filter: c => c.Url == uri.OriginalString, includeProperties: "ChapterRanges").ConfigureAwait(false);
         if (context == null)
         {
             return context;
         }
 
-        var chapterContext = await unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == context.Id).ConfigureAwait(false);
+        var chapterContext = await unitOfWork.Chapter
+            .GetAllAsync(filter: c => c.NovelId == context.Id, includeProperties: "Pages")
+            .ConfigureAwait(false);
         context.Chapters.ReplaceWith(chapterContext);
         return context;
     }

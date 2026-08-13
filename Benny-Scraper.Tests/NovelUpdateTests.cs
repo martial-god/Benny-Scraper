@@ -134,6 +134,124 @@ public class NovelUpdateTests
         Assert.Equal([49f, 50f, 100f], orderedChapters.Select(chapter => chapter.Number));
     }
 
+    [Fact]
+    public void ImageChapterWithSavedPagesIsCompleteWithoutText()
+    {
+        var chapter = new Chapter
+        {
+            Content = null,
+            IsPartial = false
+        };
+        chapter.SetPages([new Page { Url = "https://example.com/page-1.jpg" }]);
+
+        var isIncomplete = NovelChapterStateUpdater.IsIncompleteChapter(chapter);
+
+        Assert.False(isIncomplete);
+    }
+
+    [Fact]
+    public void ExplicitlyPartialImageChapterIsIncompleteEvenWithSavedPages()
+    {
+        var chapter = new Chapter
+        {
+            Content = null,
+            IsPartial = true
+        };
+        chapter.SetPages([new Page { Url = "https://example.com/page-1.jpg" }]);
+
+        var isIncomplete = NovelChapterStateUpdater.IsIncompleteChapter(chapter);
+
+        Assert.True(isIncomplete);
+    }
+
+    [Fact]
+    public void FailedImageRetryPreservesPreviouslySavedPages()
+    {
+        var chapter = new Chapter
+        {
+            Content = null,
+            IsPartial = true
+        };
+        chapter.SetPages([new Page { Url = "https://example.com/original-page.jpg" }]);
+        using var chapterDataBuffer = new ChapterDataBuffer
+        {
+            Content = "An error response that is not a manga page.",
+            IsPartial = false
+        };
+
+        var wasRecovered = NovelChapterStateUpdater.ApplyChapterRetry(
+            chapter,
+            chapterDataBuffer,
+            hasImagesForChapterContent: true);
+
+        Assert.False(wasRecovered);
+        Assert.True(chapter.IsPartial);
+        Assert.Equal("https://example.com/original-page.jpg", Assert.Single(chapter.Pages!).Url);
+    }
+
+    [Fact]
+    public void SuccessfulImageRetryReplacesPagesAndClearsPartialState()
+    {
+        var chapter = new Chapter
+        {
+            Content = null,
+            IsPartial = true
+        };
+        chapter.SetPages([new Page { Url = "https://example.com/original-page.jpg" }]);
+        using var chapterDataBuffer = new ChapterDataBuffer
+        {
+            Url = "https://example.com/chapter-1",
+            Title = "Chapter 1",
+            IsPartial = false
+        };
+        chapterDataBuffer.SetPages(
+        [
+            new PageData { Url = "https://example.com/recovered-page-1.jpg" },
+            new PageData { Url = "https://example.com/recovered-page-2.jpg" }
+        ]);
+
+        var wasRecovered = NovelChapterStateUpdater.ApplyChapterRetry(
+            chapter,
+            chapterDataBuffer,
+            hasImagesForChapterContent: true);
+
+        Assert.True(wasRecovered);
+        Assert.False(chapter.IsPartial);
+        Assert.Equal(
+            [
+                "https://example.com/recovered-page-1.jpg",
+                "https://example.com/recovered-page-2.jpg"
+            ],
+            chapter.Pages!.Select(page => page.Url));
+    }
+
+    [Fact]
+    public void SuccessfulTextRetryReplacesTextAndClearsPartialState()
+    {
+        var chapter = new Chapter
+        {
+            Content = "No content found",
+            IsPartial = true
+        };
+        using var chapterDataBuffer = new ChapterDataBuffer
+        {
+            Url = "https://example.com/chapter-1",
+            Title = "Chapter &amp; One",
+            Content = "Recovered &amp; complete",
+            IsPartial = false
+        };
+
+        var wasRecovered = NovelChapterStateUpdater.ApplyChapterRetry(
+            chapter,
+            chapterDataBuffer,
+            hasImagesForChapterContent: false);
+
+        Assert.True(wasRecovered);
+        Assert.False(chapter.IsPartial);
+        Assert.Equal("Chapter & One", chapter.Title);
+        Assert.Equal("Recovered & complete", chapter.Content);
+    }
+
     private static ChapterRange CreateChapterRange(Guid novelId, int begin, int end) => new()
     {
         NovelId = novelId,

@@ -13,7 +13,7 @@ namespace BennyScraper.BusinessLogic.Factory;
 /// Docker command to run FlareSolverr:
 /// docker run -d --name=flaresolverr -p 8191:8191 -e LOG_LEVEL=info ghcr.io/flaresolverr/flaresolverr:latest.
 /// </summary>
-public sealed class FlareSolverrService : IDisposable
+internal sealed class FlareSolverrService : IDisposable
 {
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly HttpClient _httpClient;
@@ -23,8 +23,6 @@ public sealed class FlareSolverrService : IDisposable
 
     public FlareSolverrService(string baseUrl = "http://localhost:8191", int timeoutSeconds = 60)
     {
-        ArgumentNullException.ThrowIfNull(baseUrl);
-
         _baseUrl = baseUrl.TrimEnd('/');
         _httpClient = new HttpClient
         {
@@ -48,8 +46,6 @@ public sealed class FlareSolverrService : IDisposable
     /// <returns>A cookie header string suitable for use with <see cref="HttpClientFactory"/>, or an empty string if there are no cookies.</returns>
     public static string GetCookieHeader(FlareSolverrResponse response)
     {
-        ArgumentNullException.ThrowIfNull(response);
-
         if (response.Solution?.Cookies == null || response.Solution.Cookies.Count == 0)
         {
             return string.Empty;
@@ -65,8 +61,6 @@ public sealed class FlareSolverrService : IDisposable
     /// <returns>The <see cref="Cookie"/> objects contained in the response, or an empty sequence if there are none.</returns>
     public static IEnumerable<Cookie> GetCookies(FlareSolverrResponse response)
     {
-        ArgumentNullException.ThrowIfNull(response);
-
         return GetCookiesIterator(response);
     }
 
@@ -110,7 +104,7 @@ public sealed class FlareSolverrService : IDisposable
             IsEnabled = response.IsSuccessStatusCode;
             if (IsEnabled)
             {
-                _logger.Info("FlareSolverr is available and healthy");
+                _logger.Debug("FlareSolverr is available and healthy");
             }
 
             return IsEnabled;
@@ -144,7 +138,7 @@ public sealed class FlareSolverrService : IDisposable
         var json = JsonSerializer.Serialize(request, _jsonSerializerOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        _logger.Info($"Sending URL to FlareSolverr: {url}");
+        _logger.Debug($"Sending URL to FlareSolverr: {url}");
 
         try
         {
@@ -161,7 +155,7 @@ public sealed class FlareSolverrService : IDisposable
 
             if (result?.Status == "ok")
             {
-                _logger.Info($"FlareSolverr successfully solved challenge for {url}");
+                _logger.Debug($"FlareSolverr successfully solved challenge for {url}");
                 _logger.Debug($"Cookies received: {result.Solution?.Cookies?.Count ?? 0}");
 
                 // Store the user-agent for subsequent requests

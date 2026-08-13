@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace BennyScraper.BusinessLogic.Helper;
 
-public static class CommandExecutor
+internal static class CommandExecutor
 {
     public static string ExecuteCommand(string command)
     {

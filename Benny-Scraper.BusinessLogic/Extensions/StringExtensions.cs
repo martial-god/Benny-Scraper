@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace BennyScraper.BusinessLogic.Extensions;
 
-public static class StringExtensions
+internal static class StringExtensions
 {
     public static string ToLowerCase(this string str) =>
         string.IsNullOrEmpty(str) ? str : CultureInfo.InvariantCulture.TextInfo.ToLower(str);

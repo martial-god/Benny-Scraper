@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace BennyScraper.DataAccess.Repository.IRepository;
 
-public interface IUnitOfWork
+internal interface IUnitOfWork
 {
     IChapterRepository Chapter { get; }
 

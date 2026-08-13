@@ -6,7 +6,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.FileGenerators;
 
-public class ComicBookArchiveGenerator : IComicBookArchiveGenerator
+internal sealed class ComicBookArchiveGenerator : IComicBookArchiveGenerator
 {
     private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -21,10 +21,6 @@ public class ComicBookArchiveGenerator : IComicBookArchiveGenerator
     /// <returns>Location where the archive was saved.</returns>
     public string CreateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration, string filenameSuffix = "")
     {
-        ArgumentNullException.ThrowIfNull(novel);
-        ArgumentNullException.ThrowIfNull(chapterDataBuffers);
-        ArgumentNullException.ThrowIfNull(configuration);
-
         int? totalPages = novel.Chapters.Where(chapter => chapter.Pages != null).Sum(chapter => chapter.Pages?.Count);
         int totalMissingChapters = novel.Chapters.Count(chapter => chapter.Pages == null || chapter.Pages.Count == 0);
         var missingChapterUrls = novel.Chapters.Where(chapter => chapter.Pages == null).Select(chapter => chapter.Url);
@@ -95,10 +91,6 @@ public class ComicBookArchiveGenerator : IComicBookArchiveGenerator
     /// <returns>Location where the archive was saved.</returns>
     public string UpdateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
     {
-        ArgumentNullException.ThrowIfNull(novel);
-        ArgumentNullException.ThrowIfNull(chapterDataBuffers);
-        ArgumentNullException.ThrowIfNull(configuration);
-
         var comicBookArchivePath = novel.SaveLocation;
 
         if (string.IsNullOrEmpty(comicBookArchivePath) || !File.Exists(comicBookArchivePath))
@@ -118,14 +110,18 @@ public class ComicBookArchiveGenerator : IComicBookArchiveGenerator
                     }
 
                     var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
+                    var chapterEntryPrefix = $"Chapter_{chapter.Number}_Page";
+                    var existingChapterEntries = archive.Entries
+                        .Where(entry => entry.FullName.StartsWith(chapterEntryPrefix, StringComparison.Ordinal))
+                        .ToArray();
+                    foreach (var existingChapterEntry in existingChapterEntries)
+                    {
+                        existingChapterEntry.Delete();
+                    }
 
                     for (int i = 0; i < imagePaths.Count; i++)
                     {
                         var imageName = $"Chapter_{chapter.Number}_Page{(i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(chapter.Pages.Count.ToString(CultureInfo.InvariantCulture).Length, '0')}.{Path.GetExtension(imagePaths[i]).TrimStart('.')}";
-
-                        // Delete existing image if it's already in the archive
-                        var existingEntry = archive.GetEntry(imageName);
-                        existingEntry?.Delete();
 
                         // Add new image
                         var entry = archive.CreateEntry(imageName);

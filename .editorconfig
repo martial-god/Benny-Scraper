@@ -148,6 +148,10 @@ dotnet_diagnostic.SA1122.severity = none
 dotnet_diagnostic.SA1300.severity = none
 dotnet_diagnostic.CA1825.severity = none
 
+# EF Core supplies the ModelBuilder used by this framework override.
+[Benny-Scraper.DataAccess/Data/Database.cs]
+dotnet_diagnostic.CA1062.severity = none
+
 
 # ===================================================================
 # Scraper strategies: Strategy + Initializer pair is a deliberate one-file-per-site

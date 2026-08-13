@@ -34,6 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Benny-Scraper" />
     <InternalsVisibleTo Include="Benny-Scraper.Tests" />
   </ItemGroup>
 

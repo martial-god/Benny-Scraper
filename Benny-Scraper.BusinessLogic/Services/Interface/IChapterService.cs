@@ -2,7 +2,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.Services.Interfaces;
 
-public interface IChapterService
+internal interface IChapterService
 {
     Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId);
 }

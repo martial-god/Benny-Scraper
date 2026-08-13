@@ -6,7 +6,7 @@ using Polly;
 
 namespace BennyScraper.BusinessLogic.Extensions;
 
-public static class DependencyInjectionExtensions
+internal static class DependencyInjectionExtensions
 {
     public static ContainerBuilder AddHttpResilience(this ContainerBuilder builder)
     {

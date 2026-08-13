@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BennyScraper.DataAccess.Repository;
 
-public class Repository<T> : IRepository<T>
+internal class Repository<T> : IRepository<T>
     where T : class
 {
     private readonly DbSet<T> _dbSet;

@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Config;
 
-public sealed class Selectors
+internal sealed class Selectors
 {
     /// <summary>
     /// Gets the table of contents specific selectors (chapter links, pagination, novel meta on TOC, premium info).

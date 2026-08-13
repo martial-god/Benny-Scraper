@@ -2,7 +2,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.Services.Interfaces;
 
-public interface INovelService
+internal interface INovelService
 {
     public Task<Guid> CreateAsync(Novel novel);
 

@@ -4,7 +4,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.Helper;
 
-public static class CommonHelper
+internal static class CommonHelper
 {
     /// <summary>
     /// Removes invalid characters from a file name and optionally capitalizes the first letter of each word.
@@ -91,8 +91,6 @@ public static class CommonHelper
     /// </example>
     public static void DrawBox(string[] messages, ConsoleColor color)
     {
-        ArgumentNullException.ThrowIfNull(messages);
-
         var maxLength = messages.Max(m => m.Length);
         var boxWidth = maxLength + 4; // 2 spaces padding on each side
 

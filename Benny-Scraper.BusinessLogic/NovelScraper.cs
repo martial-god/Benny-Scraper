@@ -11,7 +11,7 @@ namespace BennyScraper.BusinessLogic;
 /// Resolves the scraping strategy for a given site URL. Individual strategies decide whether
 /// they use HttpClient or Selenium internally (e.g. WuxiaWorld uses Selenium for premium login).
 /// </summary>
-public class NovelScraper(
+internal sealed class NovelScraper(
     IIndex<string, ScraperStrategy> scraperStrategies,
     IOptions<NovelScraperSettings> novelScraperSettings) : INovelScraper
 {
@@ -26,9 +26,6 @@ public class NovelScraper(
     /// <returns>The matching <see cref="ScraperStrategy"/>, or null if no strategy is registered for the host.</returns>
     public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig)
     {
-        ArgumentNullException.ThrowIfNull(novelTableOfContentsUri);
-        ArgumentNullException.ThrowIfNull(siteConfig);
-
         if (!siteConfig.IsActive)
         {
             _logger.Warn($"The site configuration for {siteConfig.SiteName} is inactive.");

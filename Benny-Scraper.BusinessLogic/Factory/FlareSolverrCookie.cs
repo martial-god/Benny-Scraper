@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace BennyScraper.BusinessLogic.Factory;
 
-public class FlareSolverrCookie
+internal sealed class FlareSolverrCookie
 {
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;

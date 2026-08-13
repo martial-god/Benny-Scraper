@@ -5,7 +5,7 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-public class MangaKakalotStrategy : ScraperStrategy
+internal sealed class MangaKakalotStrategy : ScraperStrategy
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
@@ -55,15 +55,10 @@ public class MangaKakalotStrategy : ScraperStrategy
 /// <summary>
 /// Strategy for https://mangakakalot.to/.
 /// </summary>
-public abstract class MangaKakalotInitializer : NovelDataInitializer
+internal abstract class MangaKakalotInitializer : NovelDataInitializer
 {
     public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-        ArgumentNullException.ThrowIfNull(scraperData);
-        ArgumentNullException.ThrowIfNull(scraperData.BaseUri);
-        ArgumentNullException.ThrowIfNull(scraperStrategy);
-
         _ = int.TryParse(scraperData.SiteTableOfContents.Segments[^1].Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
 
         var queryBuilder = new StringBuilder(scraperData.BaseUri.ToString());

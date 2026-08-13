@@ -9,21 +9,15 @@ using OpenQA.Selenium;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-public class WuxiaWorldStrategy : ScraperStrategy
+internal sealed class WuxiaWorldStrategy : ScraperStrategy
 {
     /// <summary>
     /// This particular scraper requires Selenium for the Chapter Urls and Nowel Imge Thumbnail.
     /// </summary>
     /// <returns>The populated <see cref="NovelDataBuffer"/> containing the novel's metadata and chapter links.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when SiteTableOfContents is null.</exception>
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
         Logger.Info($"Getting novel data for {GetType().Name}");
-        if (ScraperData.SiteTableOfContents == null)
-        {
-            throw new ArgumentNullException(nameof(ScraperData.SiteTableOfContents), "SiteTableOfContents cannot be null.");
-        }
-
         SetBaseUri(ScraperData.SiteTableOfContents);
         var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
 
@@ -278,7 +272,7 @@ public class WuxiaWorldStrategy : ScraperStrategy
 /// <summary>
 /// Strategy for https://wuxiaworld.com/.
 /// </summary>
-public abstract class WuxiaworldInitializer : NovelDataInitializer
+internal abstract class WuxiaworldInitializer : NovelDataInitializer
 {
     public static async Task FetchNovelContentAsync(
         NovelDataBuffer novelDataBuffer,
@@ -287,13 +281,6 @@ public abstract class WuxiaworldInitializer : NovelDataInitializer
         ScraperStrategy scraperStrategy,
         IReadOnlyList<Attr> attributesToFetch)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-        ArgumentNullException.ThrowIfNull(htmlDocument);
-        ArgumentNullException.ThrowIfNull(scraperData);
-        ArgumentNullException.ThrowIfNull(scraperStrategy);
-        ArgumentNullException.ThrowIfNull(attributesToFetch);
-        ArgumentNullException.ThrowIfNull(scraperData.SiteTableOfContents);
-
         foreach (var attribute in attributesToFetch)
         {
             await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);

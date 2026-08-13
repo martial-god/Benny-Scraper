@@ -6,7 +6,7 @@ namespace BennyScraper.BusinessLogic.Config;
 /// <summary>
 /// Loads the individual site configuration files shipped in the application's sites directory.
 /// </summary>
-public static class SiteConfigurationLoader
+internal static class SiteConfigurationLoader
 {
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
@@ -24,8 +24,6 @@ public static class SiteConfigurationLoader
     /// <returns>The configurations, ordered by site name.</returns>
     public static IReadOnlyList<SiteConfiguration> LoadFromDirectory(string siteConfigurationsDirectory)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(siteConfigurationsDirectory);
-
         if (!Directory.Exists(siteConfigurationsDirectory))
         {
             throw new DirectoryNotFoundException(

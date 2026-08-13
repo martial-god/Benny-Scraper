@@ -22,7 +22,6 @@ public class Database(DbContextOptions<Database> options) : DbContext(options)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
         modelBuilder.Entity<Novel>().ToTable("novel");
         modelBuilder.Entity<Chapter>().ToTable("chapter");
         modelBuilder.Entity<Page>().ToTable("page");

@@ -29,4 +29,9 @@
     <ProjectReference Include="..\Benny-Scraper.Models\Benny-Scraper.Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Benny-Scraper" />
+    <InternalsVisibleTo Include="Benny-Scraper.BusinessLogic" />
+  </ItemGroup>
+
 </Project>

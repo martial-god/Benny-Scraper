@@ -4,7 +4,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.DataAccess.Repository;
 
-public class PageRepository : Repository<Page>, IPageRepository
+internal sealed class PageRepository : Repository<Page>, IPageRepository
 {
     private Database _db;
 

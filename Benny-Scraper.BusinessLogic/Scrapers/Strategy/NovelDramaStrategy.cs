@@ -6,7 +6,7 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-public class NovelDramaStrategy : ScraperStrategy
+internal sealed class NovelDramaStrategy : ScraperStrategy
 {
     private readonly string _lastTableOfContentsPageNumberXpath = "//*[@id='chapters']/div[2]/div[2]/div/div/input"; // This site does not have a last page button, so we have to get the last page number from the input box
     private readonly string _chapterMaxAttribute = "data-max";
@@ -31,10 +31,7 @@ public class NovelDramaStrategy : ScraperStrategy
         }
     }
 
-    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
-    {
-        throw new NotImplementedException();
-    }
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument) => throw new NotImplementedException();
 
     protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {
@@ -93,13 +90,10 @@ public class NovelDramaStrategy : ScraperStrategy
     }
 }
 
-public abstract class NovelDramaInitializer : NovelDataInitializer
+internal abstract class NovelDramaInitializer : NovelDataInitializer
 {
     public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-        ArgumentNullException.ThrowIfNull(scraperData);
-
         var tableOfContents = scraperData.SiteTableOfContents;
         var attributesToFetch = new List<Attr>()
         {

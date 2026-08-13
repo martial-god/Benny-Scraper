@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace BennyScraper.BusinessLogic.Factory;
 
-public class FlareSolverrRequest
+internal sealed class FlareSolverrRequest
 {
     [JsonPropertyName("cmd")]
     public string Cmd { get; set; } = "request.get";

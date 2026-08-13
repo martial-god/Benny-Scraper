@@ -16,82 +16,140 @@ internal static class PdfGenerator
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     /// <summary>
-    /// Method that will update an existing pdf file with new chapters, does not work with single chapter pdfs.
+    /// Updates an existing combined PDF with new chapters and replaces recovered chapter pages in their original reading position.
     /// </summary>
     /// <param name="novel">The novel whose existing pdf file is being updated.</param>
-    /// <param name="chapterDataBuffer">The new chapter data, including page image paths, to append to the pdf.</param>
+    /// <param name="chapterDataBuffer">The new or recovered chapter data, including page image paths.</param>
     /// <param name="configuration">The configuration for the pdf generation.</param>
+    /// <param name="originalPageCountsByChapterNumber">
+    /// Page counts captured before recovered chapters were updated. When supplied, matching chapters replace their
+    /// existing PDF page range while chapters absent from the map are appended as new chapters.
+    /// </param>
     /// <exception cref="ArgumentException">The path to the pdf file is not a pdf file. </exception>
-    public static void UpdatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, Models.Configuration configuration)
+    public static void UpdatePdf(
+        Novel novel,
+        IEnumerable<ChapterDataBuffer> chapterDataBuffer,
+        Models.Configuration configuration,
+        IReadOnlyDictionary<float, int>? originalPageCountsByChapterNumber = null)
     {
-        ArgumentNullException.ThrowIfNull(novel);
-        ArgumentNullException.ThrowIfNull(chapterDataBuffer);
+        var chapterDataBuffers = chapterDataBuffer
+            .Where(chapter => chapter.Pages is { Count: > 0 })
+            .OrderBy(chapter => chapter.SequenceNumber)
+            .ToArray();
+        if (chapterDataBuffers.Length == 0)
+        {
+            return;
+        }
 
         var pdfFilePath = novel.SaveLocation;
         if (Path.GetExtension(pdfFilePath) != PdfFileExtension)
         {
-            CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
+            CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
             throw new ArgumentException("The path to the pdf file is not a pdf file. " + pdfFilePath);
         }
 
         if (!File.Exists(pdfFilePath))
         {
-            CommonHelper.DeleteTempFolder(chapterDataBuffer.First().TempDirectory);
+            CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
             throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath + "\n Please try to update the save location of the novel by running the command 'benny-scraper -L " + novel.Id + "'");
         }
 
         var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
+        var imagePathsToDelete = new List<string>();
 
         _logger.Info("Updating Pdf file: " + pdfFilePath);
-        var chapterDataBuffers = chapterDataBuffer as ChapterDataBuffer[] ?? chapterDataBuffer.ToArray();
-        using (var pdfFile = File.OpenRead(pdfFilePath))
+        try
         {
+            using (var pdfFile = File.OpenRead(pdfFilePath))
             using (var document = PdfReader.Open(pdfFile, PdfDocumentOpenMode.Modify))
             {
                 document.Info.ModificationDate = DateTime.Now;
+                var currentPageCountsByChapterNumber = originalPageCountsByChapterNumber == null
+                    ? null
+                    : new Dictionary<float, int>(originalPageCountsByChapterNumber);
+
+                if (currentPageCountsByChapterNumber != null)
+                {
+                    var expectedExistingPageCount = currentPageCountsByChapterNumber.Values.Sum();
+                    if (document.PageCount != expectedExistingPageCount)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot safely replace recovered pages in {pdfFilePath}. " +
+                            $"The PDF contains {document.PageCount} pages but the database describes {expectedExistingPageCount} pages.");
+                    }
+                }
+
                 foreach (var chapter in chapterDataBuffers)
                 {
-                    if (chapter.Pages == null)
+                    var imagePaths = chapter.Pages!.Select(page => page.ImagePath).ToList();
+                    Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
+                    var chapterNumber = (float)chapter.SequenceNumber;
+                    var chapterAlreadyExists = currentPageCountsByChapterNumber?.ContainsKey(chapterNumber) == true;
+                    var pageIndex = currentPageCountsByChapterNumber != null
+                        ? currentPageCountsByChapterNumber
+                            .Where(pageCount => pageCount.Key < chapterNumber)
+                            .Sum(pageCount => pageCount.Value)
+                        : document.PageCount;
+
+                    if (chapterAlreadyExists)
                     {
-                        continue;
+                        var originalPageCount = currentPageCountsByChapterNumber![chapterNumber];
+                        for (var pageNumber = 0; pageNumber < originalPageCount; pageNumber++)
+                        {
+                            document.Pages.RemoveAt(pageIndex);
+                        }
                     }
 
-                    var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
-                    Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
-
-                    foreach (var imagePath in imagePaths)
+                    for (var imageIndex = 0; imageIndex < imagePaths.Count; imageIndex++)
                     {
+                        var imagePath = imagePaths[imageIndex];
                         using var image = Image.Load(imagePath);
                         using var imageStream = ConvertImageToStream(image);
                         using var img = XImage.FromStream(imageStream);
-                        var page = document.AddPage();
+                        var page = currentPageCountsByChapterNumber != null && pageIndex + imageIndex < document.PageCount
+                            ? document.Pages.Insert(pageIndex + imageIndex)
+                            : document.AddPage();
                         page.Width = XUnit.FromPoint(img.PixelWidth);
                         page.Height = XUnit.FromPoint(img.PixelHeight);
 
-                        var gfx = XGraphics.FromPdfPage(page);
+                        using var gfx = XGraphics.FromPdfPage(page);
                         gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
-                        File.Delete(imagePath);
+                        imagePathsToDelete.Add(imagePath);
+                    }
 
-                        document.Save(tempPdfFilePath);
+                    if (currentPageCountsByChapterNumber != null)
+                    {
+                        currentPageCountsByChapterNumber![chapterNumber] = imagePaths.Count;
                     }
                 }
+
+                document.Save(tempPdfFilePath);
             }
-        } // dispose the filestream after use to avoid the error "The process cannot access the file because it is being used by another process"
 
-        CommonHelper.DeleteTempFolder(chapterDataBuffers.First().TempDirectory);
+            // The source stream must be closed before overwriting the original PDF.
+            _logger.Info($"Saving Pdf to {pdfFilePath}");
+            File.Copy(tempPdfFilePath, pdfFilePath, true);
 
-        _logger.Info($"Saving Pdf to {pdfFilePath}");
-        File.Copy(tempPdfFilePath, pdfFilePath, true);
-        File.Delete(tempPdfFilePath);
-        _logger.Info("Pdf file updated");
-        Console.WriteLine($"Pdf file updated at {pdfFilePath}");
+            foreach (var imagePath in imagePathsToDelete)
+            {
+                File.Delete(imagePath);
+            }
+
+            CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
+            _logger.Info("Pdf file updated");
+            Console.WriteLine($"Pdf file updated at {pdfFilePath}");
+        }
+        finally
+        {
+            if (File.Exists(tempPdfFilePath))
+            {
+                File.Delete(tempPdfFilePath);
+            }
+        }
     }
 
     public static string CreatePdfByChapter(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffer, string pdfDirectoryPath, string filenameSuffix = "")
     {
-        ArgumentNullException.ThrowIfNull(novel);
-        ArgumentNullException.ThrowIfNull(chapterDataBuffer);
-
         Directory.CreateDirectory(pdfDirectoryPath);
 
         foreach (var chapter in chapterDataBuffer)
@@ -138,10 +196,6 @@ internal static class PdfGenerator
 
     public static (string SaveLocation, bool IsFileSplit) CreatePdf(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Models.Configuration configuration, string filenameSuffix = "")
     {
-        ArgumentNullException.ThrowIfNull(novel);
-        ArgumentNullException.ThrowIfNull(chapterDataBuffers);
-        ArgumentNullException.ThrowIfNull(configuration);
-
         string pdfSaveLocation;
         var isPdfSplit = false;
         _logger.Info(CultureInfo.InvariantCulture, "Creating PDFs for {0}", novel.Title);

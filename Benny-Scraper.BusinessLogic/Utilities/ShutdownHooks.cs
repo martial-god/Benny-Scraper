@@ -7,7 +7,7 @@ namespace BennyScraper.BusinessLogic.Utilities;
 /// Registers process-level shutdown handlers so we can dispose unmanaged resources
 /// (e.g., Selenium WebDrivers) even when the app exits unexpectedly.
 /// </summary>
-public static class ShutdownHooks
+internal static class ShutdownHooks
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private static int _disposed;
@@ -18,8 +18,6 @@ public static class ShutdownHooks
     /// <param name="driverFactory">The driver factory whose Selenium drivers should be disposed on shutdown.</param>
     public static void Register(IDriverFactory driverFactory)
     {
-        ArgumentNullException.ThrowIfNull(driverFactory);
-
         AppDomain.CurrentDomain.ProcessExit += (_, _) => DisposeDriversOnce("ProcessExit");
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>

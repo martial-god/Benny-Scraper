@@ -4,7 +4,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.BusinessLogic.Services;
 
-public class ChapterService(IUnitOfWork unitOfWork) : IChapterService
+internal sealed class ChapterService(IUnitOfWork unitOfWork) : IChapterService
 {
     public async Task<Chapter> GetLastSavedChapterByNovelIdAsync(Guid novelId) =>
         await unitOfWork.Chapter.GetLastSavedChapterAsyncByNovelId(novelId).ConfigureAwait(false);

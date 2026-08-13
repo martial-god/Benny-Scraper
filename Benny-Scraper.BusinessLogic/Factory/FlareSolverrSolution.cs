@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace BennyScraper.BusinessLogic.Factory;
 
-public class FlareSolverrSolution
+internal sealed class FlareSolverrSolution
 {
     [JsonPropertyName("url")]
     public string Url { get; set; } = string.Empty;

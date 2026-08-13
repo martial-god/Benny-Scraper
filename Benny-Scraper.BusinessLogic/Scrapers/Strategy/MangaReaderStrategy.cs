@@ -5,7 +5,7 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-public class MangaReaderStrategy : ScraperStrategy
+internal sealed class MangaReaderStrategy : ScraperStrategy
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
@@ -56,14 +56,10 @@ public class MangaReaderStrategy : ScraperStrategy
 /// <summary>
 /// Strategy for https://mangareader.to/.
 /// </summary>
-public abstract class MangaReaderInitializer : NovelDataInitializer
+internal abstract class MangaReaderInitializer : NovelDataInitializer
 {
     public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-        ArgumentNullException.ThrowIfNull(scraperData);
-        ArgumentNullException.ThrowIfNull(scraperStrategy);
-
         _ = int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
         var queryBuilder = new StringBuilder(scraperData.BaseUri?.ToString());
         queryBuilder.Append("ajax/manga/list-chapter-volume?id=");

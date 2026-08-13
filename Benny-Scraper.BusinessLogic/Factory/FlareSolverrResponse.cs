@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace BennyScraper.BusinessLogic.Factory;
 
-public class FlareSolverrResponse
+internal sealed class FlareSolverrResponse
 {
     [JsonPropertyName("status")]
     public string Status { get; set; } = string.Empty;

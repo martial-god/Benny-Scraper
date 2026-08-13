@@ -14,7 +14,7 @@ public enum ChapterSortOrder
     None
 }
 
-public class SiteConfiguration
+internal sealed class SiteConfiguration
 {
     /// <summary>
     /// Gets or sets the human-readable site name. Used for logs and display.

@@ -2,7 +2,7 @@ using System.Net;
 
 namespace BennyScraper.BusinessLogic.Factory.Interfaces;
 
-public interface IHttpClientFactory
+internal interface IHttpClientFactory
 {
     HttpClient CreateClient();
 

@@ -23,7 +23,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 /// Simple test strategy for testing site connectivity without implementing a full scraper.
 /// Provides single-attempt testing without retry logic for faster testing.
 /// </summary>
-public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? driverFactory = null)
+internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? driverFactory = null)
     : ScraperStrategy(httpClientFactory, driverFactory)
 {
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
@@ -264,9 +264,6 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
     public async Task<bool> TestSingleFieldAsync(Uri testUri, string fieldName, string xpath, bool useSelenium = false, bool headless = true)
     {
-        ArgumentNullException.ThrowIfNull(testUri);
-        ArgumentNullException.ThrowIfNull(fieldName);
-
         Console.WriteLine($"\n{new string('=', 70)}");
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine($"Testing Field: {fieldName}");
@@ -411,8 +408,6 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     /// <returns>A tuple containing the loaded HTML document (or null on failure), the possibly-redirected URI, the HTTP status code, and whether Cloudflare protection was detected.</returns>
     public async Task<(HtmlDocument? Document, Uri UpdatedUri, int StatusCode, bool CloudflareDetected)> TestLoadHtmlAsync(Uri uri)
     {
-        ArgumentNullException.ThrowIfNull(uri);
-
         try
         {
             using var client = _httpClientFactory.CreateClient();
@@ -508,8 +503,6 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
 
     private async Task ValidateConfigCoreAsync(SiteConfiguration siteConfig, Uri testUri)
     {
-        ArgumentNullException.ThrowIfNull(siteConfig);
-
         Console.WriteLine($"\n{new string('=', 70)}");
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine($"Validating Configuration: {siteConfig.SiteName}");
@@ -2717,10 +2710,7 @@ public class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? 
     }
 }
 
-#pragma warning restore SA1204
-#pragma warning restore SA1202
-
-public abstract class TestStrategyInitializer : NovelDataInitializer
+internal abstract class TestStrategyInitializer : NovelDataInitializer
 {
     private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -2734,8 +2724,6 @@ public abstract class TestStrategyInitializer : NovelDataInitializer
     /// <returns><see langword="true"/> when the requested attribute contains usable data; otherwise, <see langword="false"/>.</returns>
     public static bool HasFieldData(Attr attribute, NovelDataBuffer novelDataBuffer)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-
         return attribute switch
         {
             Attr.Title => !string.IsNullOrEmpty(novelDataBuffer.Title),

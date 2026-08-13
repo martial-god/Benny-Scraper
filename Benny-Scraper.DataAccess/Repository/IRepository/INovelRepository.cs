@@ -2,7 +2,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.DataAccess.Repository.IRepository;
 
-public interface INovelRepository : IRepository<Novel>
+internal interface INovelRepository : IRepository<Novel>
 {
     void Update(Novel? obj);
 

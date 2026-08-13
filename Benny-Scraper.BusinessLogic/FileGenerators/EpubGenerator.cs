@@ -18,15 +18,13 @@ namespace BennyScraper.BusinessLogic.FileGenerators;
 /// Generates an epub file from a novel and its chapters. Using Epub Version 3.2 https://en.wikipedia.org/wiki/EPUB#Open_Container_Format_3.2
 /// Validation for files can be done at https://validator.w3.org/check.
 /// </summary>
-public class EpubGenerator : IEpubGenerator
+internal sealed class EpubGenerator : IEpubGenerator
 {
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly EpubTemplates _epubTemplates;
 
     public EpubGenerator(IOptions<EpubTemplates> epubTemplates)
     {
-        ArgumentNullException.ThrowIfNull(epubTemplates);
-
         _epubTemplates = epubTemplates.Value;
     }
 
@@ -34,9 +32,6 @@ public class EpubGenerator : IEpubGenerator
 
     public void CreateEpub(Novel novel, ICollection<Chapter> chapters, string outputFilePath, byte[]? coverImage)
     {
-        ArgumentNullException.ThrowIfNull(novel);
-        ArgumentNullException.ThrowIfNull(chapters);
-
         _logger.Info(CultureInfo.InvariantCulture, "Creating epub file. Novel: {0}, Chapters: {1}, OutputFilePath: {2}", novel.Title, chapters.Count, outputFilePath);
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         _logger.Info(CultureInfo.InvariantCulture, "Temp directory: {0}", tempDirectory);

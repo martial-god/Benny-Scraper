@@ -31,11 +31,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Log4Net.AspNetCore" />
     <PackageReference Include="NLog" />
     <PackageReference Include="Selenium.WebDriver" />
-    <PackageReference Include="Selenium.WebDriver.IEDriver" />
     <PackageReference Include="SeleniumExtras.WaitHelpers" />
     <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
-    <PackageReference Include="System.Management" />
     <PackageReference Include="System.Security.Cryptography.Xml" />
   </ItemGroup>
 

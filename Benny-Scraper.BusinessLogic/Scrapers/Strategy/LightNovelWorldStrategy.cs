@@ -8,7 +8,7 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
-    public class LightNovelWorldStrategy : ScraperStrategy
+    internal sealed class LightNovelWorldStrategy : ScraperStrategy
     {
         private const string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
         private Uri? _chaptersUri; // the url of the chapters pages are different from the table of contents page
@@ -61,7 +61,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             };
             try
             {
-                await LightNovelWorldInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetch).ConfigureAwait(false);
+                await LightNovelWorldInitializer.FetchNovelContent(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch).ConfigureAwait(false);
                 return novelDataBuffer;
             }
             catch (Exception e)
@@ -133,21 +133,14 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
     namespace Impl
     {
-        public abstract class LightNovelWorldInitializer : NovelDataInitializer
+        internal abstract class LightNovelWorldInitializer : NovelDataInitializer
         {
             public static async Task FetchNovelContent(
                 NovelDataBuffer novelDataBuffer,
                 HtmlDocument htmlDocument,
                 ScraperData scraperData,
-                ScraperStrategy scraperStrategy,
                 IReadOnlyList<Attr> attributesToFetch)
             {
-                ArgumentNullException.ThrowIfNull(novelDataBuffer);
-                ArgumentNullException.ThrowIfNull(htmlDocument);
-                ArgumentNullException.ThrowIfNull(scraperData);
-                ArgumentNullException.ThrowIfNull(scraperStrategy);
-                ArgumentNullException.ThrowIfNull(attributesToFetch);
-
                 foreach (var attribute in attributesToFetch)
                 {
                     // Fetch the thumbnail from WebNovelWorld because LightNovelWorld returns HTTP 403 for it.

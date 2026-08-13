@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BennyScraper.DataAccess.DbInitializer;
 
-public class DbInitializer
+internal sealed class DbInitializer
 {
     private readonly Database _db;
 

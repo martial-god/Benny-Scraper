@@ -4,7 +4,7 @@ using Polly.Retry;
 
 namespace BennyScraper.BusinessLogic.Factory;
 
-public static class HttpClientResilience
+internal static class HttpClientResilience
 {
     public static ResiliencePipeline<HttpResponseMessage> CreatePipeline(
         Config.HttpResilienceSettings? settings = null)

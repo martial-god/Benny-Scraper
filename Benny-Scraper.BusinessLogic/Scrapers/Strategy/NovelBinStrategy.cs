@@ -11,7 +11,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 /// Scraping strategy for novelbin.me and novlove.com
 /// Handles Cloudflare protection and dynamic chapter list loading via Selenium.
 /// </summary>
-public class NovelBinStrategy : ScraperStrategy
+internal sealed class NovelBinStrategy : ScraperStrategy
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {
@@ -137,7 +137,7 @@ public class NovelBinStrategy : ScraperStrategy
 /// <summary>
 /// Initializer for NovelBin and NovLove sites.
 /// </summary>
-public abstract class NovelBinInitializer : NovelDataInitializer
+internal abstract class NovelBinInitializer : NovelDataInitializer
 {
     public static async Task FetchNovelContentAsync(
         NovelDataBuffer novelDataBuffer,
@@ -146,12 +146,6 @@ public abstract class NovelBinInitializer : NovelDataInitializer
         ScraperStrategy scraperStrategy,
         IReadOnlyList<Attr> attributesToFetch)
     {
-        ArgumentNullException.ThrowIfNull(novelDataBuffer);
-        ArgumentNullException.ThrowIfNull(htmlDocument);
-        ArgumentNullException.ThrowIfNull(scraperData);
-        ArgumentNullException.ThrowIfNull(scraperStrategy);
-        ArgumentNullException.ThrowIfNull(attributesToFetch);
-
         foreach (var attribute in attributesToFetch)
         {
             await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);

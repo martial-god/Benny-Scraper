@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Config;
 
-public class NovelScraperSettings
+internal sealed class NovelScraperSettings
 {
     public string UserAgent { get; set; } = string.Empty;
 

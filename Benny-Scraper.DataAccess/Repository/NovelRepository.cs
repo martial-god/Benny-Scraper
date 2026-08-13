@@ -4,7 +4,7 @@ using BennyScraper.Models;
 
 namespace BennyScraper.DataAccess.Repository;
 
-public class NovelRepository(Database db) : Repository<Novel>(db), INovelRepository
+internal sealed class NovelRepository(Database db) : Repository<Novel>(db), INovelRepository
 {
     private readonly Database _db = db;
 

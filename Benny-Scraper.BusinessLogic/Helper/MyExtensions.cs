@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Helper;
 
-public static class MyExtensions
+internal static class MyExtensions
 {
     /// <summary>
     /// Extension method for <see cref="ICollection{T}"/> to add a range of items. No-op if either <paramref name="collection"/> or <paramref name="items"/> is null.
@@ -49,9 +49,6 @@ public static class MyExtensions
     /// <returns>The zero-based index of the first element that matches the predicate, or -1 if no match is found.</returns>
     public static int FindIndex<T>(this IList<T> list, Predicate<T> match)
     {
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(match);
-
         for (var i = 0; i < list.Count; i++)
         {
             if (match(list[i]))
@@ -71,8 +68,6 @@ public static class MyExtensions
     /// <param name="list">The list to reverse in place.</param>
     public static void ReverseInPlace<T>(this IList<T> list)
     {
-        ArgumentNullException.ThrowIfNull(list);
-
         var count = list.Count;
         for (var i = 0; i < count / 2; i++)
         {

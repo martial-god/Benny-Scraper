@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Config;
 
-public sealed class PremiumChapterSelectorsRelativeToChapterLinks
+internal sealed class PremiumChapterSelectorsRelativeToChapterLinks
 {
     public string? PremiumCost { get; set; }
 

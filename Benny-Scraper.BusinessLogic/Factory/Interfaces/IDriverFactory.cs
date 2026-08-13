@@ -3,7 +3,7 @@ using OpenQA.Selenium;
 
 namespace BennyScraper.BusinessLogic.Factory.Interfaces;
 
-public interface IDriverFactory
+internal interface IDriverFactory
 {
     /// <summary>
     /// Creates a Chrome WebDriver instance, navigates it to the given URL, registers it in the internal driver

@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Utilities;
 
-public class SelectedChapterRange(int begin, int end)
+internal sealed class SelectedChapterRange(int begin, int end)
 {
     public int Begin { get; set; } = begin;
 

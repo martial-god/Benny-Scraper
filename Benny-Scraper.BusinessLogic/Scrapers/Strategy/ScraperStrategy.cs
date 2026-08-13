@@ -20,7 +20,7 @@ using Cookie = System.Net.Cookie;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
-    public abstract class ScraperStrategy : IDisposable
+    internal abstract class ScraperStrategy : IDisposable
     {
         protected const int TotalPossiblePaginationTabs = 6;
 
@@ -64,10 +64,15 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         public static bool IsValidHttpUrl(string url)
         {
-            ArgumentNullException.ThrowIfNull(url);
-
             return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) &&
                    (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+        }
+
+        private static bool AreChapterImageUrlsLoaded(IEnumerable<string?> chapterImageUrls)
+        {
+            var imageUrls = chapterImageUrls.ToList();
+            return imageUrls.Count > 0 && imageUrls.All(imageUrl =>
+                !string.IsNullOrWhiteSpace(imageUrl) && IsValidHttpUrl(imageUrl));
         }
 
         private static ChapterDataBuffer CreateFailedChapterDataBuffer(
@@ -109,6 +114,13 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
         }
 
+        private static void ReportChapterProcessing(ChapterLink chapterLink)
+        {
+            var message = $"Processing chapter {chapterLink.ChapterNumber}: {chapterLink.Url}";
+            Logger.Info(message);
+            Console.WriteLine(message);
+        }
+
         protected ScraperStrategy(IHttpClientFactory? httpClientFactory = null, IDriverFactory? driverFactory = null)
         {
             _httpClientFactory = httpClientFactory ?? new HttpClientFactory();
@@ -147,16 +159,12 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// <returns>True if FlareSolverr is available and enabled.</returns>
         public async Task<bool> EnableFlareSolverrAsync(string flareSolverrUrl = "http://localhost:8191")
         {
-            ArgumentNullException.ThrowIfNull(flareSolverrUrl);
-
             _flareSolverr = new FlareSolverrService(flareSolverrUrl);
             _flareSolverrEnabled = await _flareSolverr.CheckHealthAsync().ConfigureAwait(false);
 
             if (_flareSolverrEnabled)
             {
-                Logger.Info($"FlareSolverr enabled at {flareSolverrUrl}");
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"✓ FlareSolverr enabled - Cloudflare challenges will be solved automatically");
+                Logger.Debug($"FlareSolverr enabled at {flareSolverrUrl}");
             }
             else
             {
@@ -189,10 +197,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         public void SetVariables(SiteConfiguration siteConfig, Uri siteTableOfContents, Configuration configuration)
         {
-            ArgumentNullException.ThrowIfNull(siteConfig);
-            ArgumentNullException.ThrowIfNull(siteTableOfContents);
-            ArgumentNullException.ThrowIfNull(configuration);
-
             SetSiteConfiguration(siteConfig);
             SetSiteTableOfContents(siteTableOfContents);
             SetConcurrentRequestLimit(configuration.ConcurrencyLimit);
@@ -254,8 +258,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             out IReadOnlyList<string>? filteredTitles,
             IReadOnlyList<string>? chapterTitles = null)
         {
-            ArgumentNullException.ThrowIfNull(chapterUrls);
-
             filteredTitles = null;
 
             if (ScraperData.ChapterRange == null)
@@ -314,10 +316,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             NovelDataBuffer novelDataBuffer,
             ScraperData scraperData)
         {
-            ArgumentNullException.ThrowIfNull(htmlDocument);
-            ArgumentNullException.ThrowIfNull(novelDataBuffer);
-            ArgumentNullException.ThrowIfNull(scraperData);
-
             try
             {
                 Logger.Info("Extracting chapter URLs and titles from table of contents");
@@ -383,8 +381,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// <param name="novelDataBuffer">The buffer whose ChapterLinks and ChapterTitles are reordered and re-numbered in place.</param>
         public virtual void SortChapters(NovelDataBuffer novelDataBuffer)
         {
-            ArgumentNullException.ThrowIfNull(novelDataBuffer);
-
             switch (ScraperData.SiteConfig.ChapterSortOrder)
             {
                 case ChapterSortOrder.None:
@@ -407,8 +403,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         public async Task<(HtmlDocument Document, Uri UpdatedUri)> LoadHtmlPublicAsync(Uri uri)
         {
-            ArgumentNullException.ThrowIfNull(uri);
-
             return await LoadHtmlAsync(uri).ConfigureAwait(false);
         }
 
@@ -421,9 +415,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// <param name="cookieHeader">Cookie string from browser (format: "name1=value1; name2=value2").</param>
         public void InjectCookiesFromBrowser(Uri uri, string cookieHeader)
         {
-            ArgumentNullException.ThrowIfNull(uri);
-            ArgumentNullException.ThrowIfNull(cookieHeader);
-
             _httpClientFactory.AddCookiesFromHeader(uri, cookieHeader);
             Logger.Info($"Injected {cookieHeader.Split(';').Length} cookie(s) for {uri.Host}");
         }
@@ -435,9 +426,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// <param name="cookie">The cookie to add.</param>
         public void AddCookie(Uri uri, Cookie cookie)
         {
-            ArgumentNullException.ThrowIfNull(uri);
-            ArgumentNullException.ThrowIfNull(cookie);
-
             _httpClientFactory.AddCookie(uri, cookie);
             Logger.Info($"Added cookie '{cookie.Name}' for {uri.Host}");
         }
@@ -450,8 +438,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// <returns>Returns the list of Chapter Data Buffer which contains the contents.</returns>
         public async Task<List<ChapterDataBuffer>> GetChaptersDataAsync(IList<ChapterLink> chapterLinks)
         {
-            ArgumentNullException.ThrowIfNull(chapterLinks);
-
             if (chapterLinks.Count == 0)
             {
                 return new List<ChapterDataBuffer>();
@@ -543,9 +529,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         protected static int GetPageNumberFromUrlQuery(string url, Uri baseUri)
         {
-            ArgumentNullException.ThrowIfNull(url);
-            ArgumentNullException.ThrowIfNull(baseUri);
-
             bool result = Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out Uri? uriResult);
             if (!result || uriResult == null || (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
             {
@@ -578,8 +561,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// <returns>Decoded HtmlDocument.</returns>
         protected static HtmlDocument DecodeHtml(HtmlDocument htmlDocument)
         {
-            ArgumentNullException.ThrowIfNull(htmlDocument);
-
             Logger.Debug("Decoding HTML - Start");
             var decodedHtml = WebUtility.HtmlDecode(htmlDocument.DocumentNode.OuterHtml);
             if (string.IsNullOrEmpty(decodedHtml))
@@ -610,16 +591,12 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// <returns>A task that resolves to a populated <see cref="NovelDataBuffer"/> containing the novel's metadata and chapter links.</returns>
         protected virtual Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
         {
-            ArgumentNullException.ThrowIfNull(htmlDocument);
-
             // this method should always be overridden, I just needed a default implementation so other Strategies would not require it
             return Task.Run(() => FetchNovelDataFromTableOfContents(htmlDocument));
         }
 
         protected async Task<(HtmlDocument Document, Uri UpdatedUri)> LoadHtmlAsync(Uri uri)
         {
-            ArgumentNullException.ThrowIfNull(uri);
-
             using var client = _httpClientFactory.CreateClient();
             using var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
 
@@ -700,10 +677,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 if (_flareSolverrEnabled && _flareSolverr != null &&
                     FlareSolverrService.IsCloudflareChallenge(response.StatusCode, errorContent))
                 {
-                    Logger.Info($"Cloudflare challenge detected for {uri}. Using FlareSolverr to solve...");
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine($"🔓 Cloudflare challenge detected - solving with FlareSolverr...");
-                    Console.ResetColor();
+                    Logger.Debug($"Cloudflare challenge detected for {uri}. Using FlareSolverr to solve...");
 
                     var flareSolverrResult = await _flareSolverr.SolveAsync(uri.ToString()).ConfigureAwait(false);
                     if (flareSolverrResult?.Status == "ok" && flareSolverrResult.Solution != null)
@@ -712,7 +686,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         if (!string.IsNullOrEmpty(cookieHeader))
                         {
                             _httpClientFactory.AddCookiesFromHeader(uri, cookieHeader);
-                            Logger.Info(
+                            Logger.Debug(
                                 $"Injected {flareSolverrResult.Solution.Cookies?.Count ?? 0} cookies from FlareSolverr");
                         }
 
@@ -721,9 +695,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         var solvedHtmlDocument = new HtmlDocument();
                         solvedHtmlDocument.LoadHtml(flareSolverrResult.Solution.Response);
 
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"✓ Cloudflare challenge solved successfully");
-                        Console.ResetColor();
+                        Logger.Debug($"Cloudflare challenge solved successfully for {uri}");
 
                         var solvedCanonicalNode =
                             solvedHtmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
@@ -787,9 +759,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         protected async Task<string> DownloadImageAsync(Uri uri, string tempImageDirectory)
         {
-            ArgumentNullException.ThrowIfNull(uri);
-            ArgumentNullException.ThrowIfNull(tempImageDirectory);
-
             var uriString = uri.ToString();
             uriString = uriString.Replace("amp;", string.Empty, StringComparison.Ordinal);
             uri = new Uri(uriString);
@@ -843,8 +812,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         protected virtual Uri TrimLastUriSegment(Uri siteUri)
         {
-            ArgumentNullException.ThrowIfNull(siteUri);
-
             string allSegementsButLast = siteUri.Segments.Take(siteUri.Segments.Length - 1)
                 .Aggregate((segment1, segment2) => segment1 + segment2);
             return new Uri(ScraperData.BaseUri, allSegementsButLast);
@@ -852,12 +819,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         protected void SetBaseUri(Uri siteUri)
         {
-            if (siteUri == null)
-            {
-                Logger.Error($"siteUri, which is the url that was provided by the user is null.");
-                throw new ArgumentNullException(nameof(siteUri));
-            }
-
             ScraperData.BaseUri = new Uri(siteUri.GetLeftPart(UriPartial.Authority));
         }
 
@@ -876,8 +837,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 int pageToStopAt,
                 int pageToStartAt = 1)
         {
-            ArgumentNullException.ThrowIfNull(tableOfContentUri);
-
             var chapterLinks = new List<ChapterLink>();
             var tocSelector = ScraperData.SiteConfig.Selectors.TableOfContents;
             var baseTableOfContentUrl = tableOfContentUri + ScraperData.SiteConfig.PaginationType;
@@ -966,10 +925,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             Func<IWebDriver, WebDriverWait, Task>? preWaitAction = null,
             bool reuseExistingDriver = false)
         {
-            ArgumentNullException.ThrowIfNull(url);
-            ArgumentNullException.ThrowIfNull(requiredXPath);
-            ArgumentNullException.ThrowIfNull(objectToLookFor);
-
             IWebDriver? driver = null;
 
             try
@@ -1119,10 +1074,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             bool isAllowedToFail = true,
             int timeoutSeconds = 60)
         {
-            ArgumentNullException.ThrowIfNull(url);
-            ArgumentNullException.ThrowIfNull(xpath);
-            ArgumentNullException.ThrowIfNull(objectToLookFor);
-
             var (htmlDocument, _) = await GetHtmlDocumentUsingSeleniumAsync(
                 url: url,
                 requiredXPath: xpath,
@@ -1167,8 +1118,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             int? startChapter = null,
             int? endChapter = null)
         {
-            ArgumentNullException.ThrowIfNull(htmlDocument);
-
             Logger.Info("Getting chapter URLs and titles from table of contents");
 
             if (baseSiteUri == null)
@@ -1345,12 +1294,15 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 foreach (var chapterLink in chapterLinks)
                 {
                     currentChapter++;
+                    ReportChapterProcessing(chapterLink);
+#pragma warning disable CA2007
                     chapterDataBuffers.Add(await GetChapterDataWithSeleniumSafelyAsync(
                         driver,
                         chapterLink,
                         tempImageDirectory,
                         currentChapter,
-                        totalChapters).ConfigureAwait(false));
+                        totalChapters));
+#pragma warning restore CA2007
                 }
 
                 Console.Write("\r" + new string(' ', 80) + "\r"); // Clear the progress line
@@ -1412,6 +1364,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             foreach (var chapterLink in chapterLinks)
             {
                 currentChapter++;
+                ReportChapterProcessing(chapterLink);
                 try
                 {
                     var skipNavigation = false;
@@ -1540,6 +1493,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             {
                 await _semaphoreSlim.WaitAsync().ConfigureAwait(false);
                 semaphoreWasEntered = true;
+                ReportChapterProcessing(chapterLink);
 
                 var chapterDataBuffer = await GetChapterDataAsync(chapterLink.Url).ConfigureAwait(false);
                 chapterDataBuffer.SequenceNumber = chapterLink.ChapterNumber;
@@ -1598,7 +1552,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             var uriLastSegment = new Uri(chapterLink.Url).Segments.Last();
             var waitTarget = ScraperData.SiteConfig.HasImagesForChapterContent ? "Image content" : "Text content";
 
-#pragma warning disable CA2000 // Ownership is transferred to the caller on every handled return path.
+#pragma warning disable CA2000
             var chapterDataBuffer = new ChapterDataBuffer
             {
                 TempDirectory = tempImageDirectory,
@@ -1643,8 +1597,30 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 try
                 {
                     var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
-                    wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(
-                        By.XPath(ScraperData.SiteConfig.Selectors.ChapterContent!)));
+                    var chapterContentSelector = By.XPath(ScraperData.SiteConfig.Selectors.ChapterContent!);
+
+                    if (ScraperData.SiteConfig.HasImagesForChapterContent)
+                    {
+                        var imageUrlAttribute =
+                            ScraperData.SiteConfig.Selectors.ChapterContentImageUrlAttribute ?? string.Empty;
+                        wait.Until(currentDriver =>
+                        {
+                            try
+                            {
+                                var chapterImageElements = currentDriver.FindElements(chapterContentSelector);
+                                return AreChapterImageUrlsLoaded(chapterImageElements.Select(imageElement =>
+                                    imageElement.GetAttribute(imageUrlAttribute)));
+                            }
+                            catch (StaleElementReferenceException)
+                            {
+                                return false;
+                            }
+                        });
+                    }
+                    else
+                    {
+                        wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(chapterContentSelector));
+                    }
                 }
                 catch (WebDriverTimeoutException ex)
                 {
@@ -1720,13 +1696,15 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         {
             try
             {
+#pragma warning disable CA2007
                 return await GetChapterDataAsync(
                     driver,
                     chapterLink,
                     tempImageDirectory,
                     currentChapter,
                     totalChapters,
-                    skipNavigation).ConfigureAwait(false);
+                    skipNavigation);
+#pragma warning restore CA2007
             }
             catch (Exception exception)
             {
@@ -1755,6 +1733,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             if (!isValidHttpUrls)
             {
                 Logger.Error("Invalid page urls");
+                chapterDataBuffer.IsPartial = true;
                 return chapterDataBuffer;
             }
 
@@ -1764,7 +1743,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             foreach (var url in urls)
             {
                 Logger.Debug($"Getting page image from {url}");
-                stopwatch.Reset();
+                stopwatch.Restart();
                 var imagePath = await DownloadImageAsync(new Uri(url), tempImageDirectory).ConfigureAwait(false);
                 Logger.Debug($"Finished getting page image from {url} Time taken: {stopwatch.ElapsedMilliseconds} ms");
                 Console.Write($"\r Downloaded page {++counter}/{contentNodes.Count} - Time taken: {stopwatch.ElapsedMilliseconds} ms");
@@ -1775,6 +1754,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 });
             }
 
+            Console.WriteLine();
             Console.ResetColor();
 
             return chapterDataBuffer;
@@ -1912,7 +1892,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 string? description = null,
                 int? timeoutSeconds = null)
             {
-                ArgumentNullException.ThrowIfNull(xPath);
                 return new SeleniumPageStep(SeleniumPageStepType.Click, xPath, description, timeoutSeconds, null);
             }
 
@@ -1921,7 +1900,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 string? description = null,
                 int? timeoutSeconds = null)
             {
-                ArgumentNullException.ThrowIfNull(xPath);
                 return new SeleniumPageStep(SeleniumPageStepType.WaitForPresence, xPath, description, timeoutSeconds, null);
             }
 
@@ -1930,7 +1908,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 string? description = null,
                 int? timeoutSeconds = null)
             {
-                ArgumentNullException.ThrowIfNull(xPath);
                 return new SeleniumPageStep(SeleniumPageStepType.WaitForClickable, xPath, description, timeoutSeconds, null);
             }
 
@@ -1939,7 +1916,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 string? description = null,
                 int? timeoutSeconds = null)
             {
-                ArgumentNullException.ThrowIfNull(customAction);
                 return new SeleniumPageStep(SeleniumPageStepType.Custom, "(custom)", description, timeoutSeconds, customAction);
             }
         }
@@ -1962,7 +1938,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         // child class).
 #pragma warning disable CA1052
 #pragma warning disable RCS1102
-        public class NovelDataInitializer
+        internal abstract class NovelDataInitializer
 #pragma warning restore RCS1102
 #pragma warning restore CA1052
         {
@@ -1991,10 +1967,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 HtmlDocument htmlDocument,
                 ScraperData scraperData)
             {
-                ArgumentNullException.ThrowIfNull(novelDataBuffer);
-                ArgumentNullException.ThrowIfNull(htmlDocument);
-                ArgumentNullException.ThrowIfNull(scraperData);
-
                 switch (attr)
                 {
                     case Attr.Title:
@@ -2272,8 +2244,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             /// <returns>A list of substrings, each containing characters from a single alphabet (Asian or Latin).</returns>
             public static IList<string> SplitByLanguage(string input)
             {
-                ArgumentNullException.ThrowIfNull(input);
-
                 List<string> result = new List<string>();
                 StringBuilder currentString = new StringBuilder();
                 bool? isLastCharAsian = null;
@@ -2301,15 +2271,13 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
             public static bool IsValidHttpUrl(string url)
             {
-                ArgumentNullException.ThrowIfNull(url);
-
                 return Uri.TryCreate(url, UriKind.Absolute, out var uriResult) &&
                        (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
             }
         }
     }
 
-    public sealed class ScraperData
+    internal sealed class ScraperData
     {
         public SiteConfiguration SiteConfig { get; set; } = null!;
 

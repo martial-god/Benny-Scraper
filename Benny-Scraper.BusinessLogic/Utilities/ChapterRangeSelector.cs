@@ -6,7 +6,7 @@ using NLog;
 
 namespace BennyScraper.BusinessLogic.Utilities;
 
-public static class ChapterRangeSelector
+internal static class ChapterRangeSelector
 {
     private const int _defaultMaxDisplayCount = 20;
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
@@ -18,9 +18,6 @@ public static class ChapterRangeSelector
     /// <param name="chapterTitles">The list of chapter titles used to display the first and last chapter in the range.</param>
     public static void DisplayRangeInfo(SelectedChapterRange range, IReadOnlyList<string> chapterTitles)
     {
-        ArgumentNullException.ThrowIfNull(range);
-        ArgumentNullException.ThrowIfNull(chapterTitles);
-
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine($"\nSelected chapters: {range}");
         if (chapterTitles.Count >= range.End)
@@ -45,9 +42,6 @@ public static class ChapterRangeSelector
     /// <param name="isLoggedIn">Whether the user is currently authenticated with the site.</param>
     public static void ConfirmPremiumChapters(SelectedChapterRange range, IList<ChapterLink> chapterLinks, IList<UserPremiumCurrency>? userCurrencies, bool isLoggedIn)
     {
-        ArgumentNullException.ThrowIfNull(range);
-        ArgumentNullException.ThrowIfNull(chapterLinks);
-
         var selectedLinks = chapterLinks.Skip(range.Begin - 1).Take(range.Count).ToList();
         var selectedPremium = selectedLinks.Where(cl => cl.PremiumInfo.IsPremium).ToList();
 
@@ -195,8 +189,6 @@ public static class ChapterRangeSelector
     /// <returns>The chapter range selected by the user, or null if all chapters should be downloaded.</returns>
     public static SelectedChapterRange? PromptUserForRange(IList<ChapterLink> chapterLinks, IList<UserPremiumCurrency>? userCurrencies, bool isLoggedIn)
     {
-        ArgumentNullException.ThrowIfNull(chapterLinks);
-
         if (chapterLinks.Count == 0)
         {
             Console.WriteLine("No chapters available.");

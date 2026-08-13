@@ -1,6 +1,6 @@
 namespace BennyScraper.BusinessLogic.Config;
 
-public class SeleniumSettings
+internal sealed class SeleniumSettings
 {
     public int WebDriverTimeout { get; set; }
 }
