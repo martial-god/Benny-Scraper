@@ -99,7 +99,7 @@ FINALLY ABLE TO GENERATE AN EPUB FILE. Still a work in progress, as @Voice will 
 * Fixed bug that would not get chapters from pages newer than the last saved page when updating a novel.
 ---
 ## May Update
-05/01/2033
+05/01/2023
 ### Changing HttpNovelScraper.cs and SeleniumNovelScraper.cs to be base classes for the specific site scrapers / Goals for this month
 1. I tried to avoid this, but it seems like the best way to go about it. The base classes will contain the common methods and properties that are used by the specific site scrapers. The specific site scrapers will contain the methods and properties that are unique to the site.
 The only question now, is whether to use `abstract` or `virtual` methods.

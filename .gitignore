@@ -16,8 +16,11 @@
 # Mono auto generated files
 mono_crash.*
 
-# added by -hf
-GoogleDriveClient/client_access/client_secret.json
+# Retired project
+GoogleDriveClient/
+
+# JetBrains IDE settings
+**/.idea/
 
 # Build results
 [Dd]ebug/
@@ -364,4 +367,3 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/.idea/.idea.Benny-Scraper/.idea
