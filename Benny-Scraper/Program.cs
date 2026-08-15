@@ -456,13 +456,17 @@ internal static class Program
 
     private static Task HandleParseErrors(IEnumerable<Error> errors)
     {
-        foreach (var error in errors)
+        var parseErrors = errors.Where(error =>
+            error is not HelpRequestedError and
+            not HelpVerbRequestedError and
+            not VersionRequestedError);
+
+        foreach (var error in parseErrors)
         {
             Console.WriteLine($"Error: {error}");
         }
 
-        // Depending on your requirements, you can return a faulted task to signal an error.
-        return Task.FromResult(1);
+        return Task.CompletedTask;
     }
 
     private static async Task ListNovelsAsync(int page, int itemsPerPage, string searchKeyWord)
