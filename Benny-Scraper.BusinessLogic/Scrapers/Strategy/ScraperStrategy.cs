@@ -171,6 +171,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 Logger.Warn($"FlareSolverr not available at {flareSolverrUrl}");
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"⚠ FlareSolverr not available at {flareSolverrUrl}");
+                Console.WriteLine("  FlareSolverr is optional and is not included with Benny-Scraper.");
                 Console.WriteLine("  Cloudflare-protected sites may fail to load.");
                 Console.WriteLine(
                     "  To run FlareSolverr: docker run -d -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest");
@@ -702,50 +703,15 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                     Logger.Error($"Could not read error response body: {ex.Message}");
                 }
 
-                if (_flareSolverrEnabled && _flareSolverr != null &&
+                if (IsFlareSolverrEnabled &&
                     FlareSolverrService.IsCloudflareChallenge(response.StatusCode, errorContent))
                 {
-                    Logger.Debug($"Cloudflare challenge detected for {uri}. Using FlareSolverr to solve...");
-
-                    var flareSolverrResult = await _flareSolverr.SolveAsync(uri.ToString()).ConfigureAwait(false);
-                    if (flareSolverrResult?.Status == "ok" && flareSolverrResult.Solution != null)
+                    var (flareSolverrDocument, flareSolverrUri, _) =
+                        await TrySolveCloudflareChallengeAsync(uri).ConfigureAwait(false);
+                    if (flareSolverrDocument != null)
                     {
-                        var cookieHeader = FlareSolverrService.GetCookieHeader(flareSolverrResult);
-                        if (!string.IsNullOrEmpty(cookieHeader))
-                        {
-                            _httpClientFactory.AddCookiesFromHeader(uri, cookieHeader);
-                            Logger.Debug(
-                                $"Injected {flareSolverrResult.Solution.Cookies?.Count ?? 0} cookies from FlareSolverr");
-                        }
-
-                        _flareSolverrUserAgent = flareSolverrResult.Solution.UserAgent;
-
-                        var solvedHtmlDocument = new HtmlDocument();
-                        solvedHtmlDocument.LoadHtml(flareSolverrResult.Solution.Response);
-
-                        Logger.Debug($"Cloudflare challenge solved successfully for {uri}");
-
-                        var solvedCanonicalNode =
-                            solvedHtmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
-                        if (solvedCanonicalNode != null)
-                        {
-                            var solvedCanonicalUrl = solvedCanonicalNode.Attributes["href"]?.Value;
-                            if (!string.IsNullOrEmpty(solvedCanonicalUrl) && solvedCanonicalUrl != uri.ToString())
-                            {
-                                Logger.Debug(
-                                    $"Canonical URL detected. Old URL: {uri}, Canonical URL: {solvedCanonicalUrl}");
-                                uri = new Uri(solvedCanonicalUrl);
-                            }
-                        }
-
-                        return (solvedHtmlDocument, uri);
+                        return (flareSolverrDocument, flareSolverrUri);
                     }
-
-                    Logger.Error(
-                        $"FlareSolverr failed to solve challenge: {flareSolverrResult?.Message ?? "Unknown error"}");
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"✗ FlareSolverr failed to solve challenge");
-                    Console.ResetColor();
                 }
 
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
@@ -783,6 +749,55 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
 
             return (htmlDocument, uri);
+        }
+
+        protected async Task<(HtmlDocument? Document, Uri UpdatedUri, int StatusCode)>
+            TrySolveCloudflareChallengeAsync(Uri uri)
+        {
+            if (!IsFlareSolverrEnabled || _flareSolverr == null)
+            {
+                return (null, uri, 0);
+            }
+
+            Logger.Info($"Cloudflare challenge detected for {uri}. Switching to FlareSolverr.");
+
+            var flareSolverrResult = await _flareSolverr.SolveAsync(uri.ToString()).ConfigureAwait(false);
+            if (flareSolverrResult?.Status != "ok" || flareSolverrResult.Solution == null)
+            {
+                Logger.Error(
+                    $"FlareSolverr failed to solve challenge: {flareSolverrResult?.Message ?? "Unknown error"}");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ FlareSolverr failed to solve challenge");
+                Console.ResetColor();
+                return (null, uri, 0);
+            }
+
+            var cookieHeader = FlareSolverrService.GetCookieHeader(flareSolverrResult);
+            if (!string.IsNullOrEmpty(cookieHeader))
+            {
+                _httpClientFactory.AddCookiesFromHeader(uri, cookieHeader);
+                Logger.Debug(
+                    $"Injected {flareSolverrResult.Solution.Cookies?.Count ?? 0} cookies from FlareSolverr");
+            }
+
+            _flareSolverrUserAgent = flareSolverrResult.Solution.UserAgent;
+
+            var solvedHtmlDocument = new HtmlDocument();
+            solvedHtmlDocument.LoadHtml(flareSolverrResult.Solution.Response);
+
+            var solvedCanonicalNode = solvedHtmlDocument.DocumentNode.SelectSingleNode("//link[@rel='canonical']");
+            if (solvedCanonicalNode != null)
+            {
+                var solvedCanonicalUrl = solvedCanonicalNode.Attributes["href"]?.Value;
+                if (!string.IsNullOrEmpty(solvedCanonicalUrl) && solvedCanonicalUrl != uri.ToString())
+                {
+                    Logger.Debug($"Canonical URL detected. Old URL: {uri}, Canonical URL: {solvedCanonicalUrl}");
+                    uri = new Uri(solvedCanonicalUrl);
+                }
+            }
+
+            Logger.Debug($"FlareSolverr successfully loaded {uri}.");
+            return (solvedHtmlDocument, uri, flareSolverrResult.Solution.Status);
         }
 
         protected async Task<string> DownloadImageAsync(Uri uri, string tempImageDirectory)
@@ -960,7 +975,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
             try
             {
-                if (!reuseExistingDriver && _driverFactory.GetAllDrivers().IsEmpty)
+                if (reuseExistingDriver && !_driverFactory.GetAllDrivers().IsEmpty)
                 {
                     driver = _driverFactory.GetAllDrivers().Values.First();
                     Logger.Debug("Reusing existing Selenium driver");
@@ -1072,15 +1087,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 // (e.g., table of contents needs driver and so does chapter content scraping).
                 if (!reuseExistingDriver && driver != null)
                 {
-                    try
-                    {
-                        driver.Quit();
-                        driver.Dispose();
-                    }
-                    catch
-                    {
-                        // ignored
-                    }
+                    _driverFactory.DisposeDriver(driver);
                 }
             }
         }

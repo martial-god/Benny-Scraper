@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -26,6 +27,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? driverFactory = null)
     : ScraperStrategy(httpClientFactory, driverFactory)
 {
+    private static readonly char[] _progressCharacters = ['|', '/', '-', '\\'];
+
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
     {
         WriteIndented = true,
@@ -36,6 +39,9 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
     };
 
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+
+    public bool LastRequestUsedFlareSolverr { get; private set; }
+
     private readonly IDriverFactory _driverFactory = driverFactory ?? new DriverFactory();
     private HtmlDocument _htmlDocument = new HtmlDocument();
     private Uri _testUri = new Uri("about:blank");
@@ -153,6 +159,11 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.ResetColor();
 
         InitializeConfiguration();
+
+        if (cloudflareDetected)
+        {
+            _config.CloudflareProtection = CloudflareProtectionLevel.Detected;
+        }
 
         // InitializeConfiguration rebuilds _config, so apply the Selenium requirement afterwards.
         if (initialLoadUsedSelenium)
@@ -408,6 +419,8 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
     /// <returns>A tuple containing the loaded HTML document (or null on failure), the possibly-redirected URI, the HTTP status code, and whether Cloudflare protection was detected.</returns>
     public async Task<(HtmlDocument? Document, Uri UpdatedUri, int StatusCode, bool CloudflareDetected)> TestLoadHtmlAsync(Uri uri)
     {
+        LastRequestUsedFlareSolverr = false;
+
         try
         {
             using var client = _httpClientFactory.CreateClient();
@@ -446,6 +459,13 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 if (isCloudflareDetected)
                 {
                     Logger.Warn($"[TEST] Cloudflare protection detected");
+
+                    var (flareSolverrDocument, flareSolverrUri, flareSolverrStatusCode) = await TrySolveCloudflareChallengeAsync(uri).ConfigureAwait(false);
+                    if (flareSolverrDocument != null)
+                    {
+                        LastRequestUsedFlareSolverr = true;
+                        return (flareSolverrDocument, flareSolverrUri, flareSolverrStatusCode, true);
+                    }
                 }
 
                 return (null, uri, statusCode, isCloudflareDetected);
@@ -2338,11 +2358,24 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
 
             if (!string.IsNullOrEmpty(waitForXpath))
             {
+                var waitTimedOut = false;
+                using var progressCancellationTokenSource = new CancellationTokenSource();
+                var progressTask = DisplaySeleniumWaitProgressAsync(progressCancellationTokenSource.Token);
                 try
                 {
                     wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(waitForXpath)));
                 }
                 catch (WebDriverTimeoutException)
+                {
+                    waitTimedOut = true;
+                }
+                finally
+                {
+                    await progressCancellationTokenSource.CancelAsync().ConfigureAwait(false);
+                    await progressTask.ConfigureAwait(false);
+                }
+
+                if (waitTimedOut)
                 {
                     Logger.Warn($"Timed out waiting for XPath during Selenium load: {waitForXpath}");
                 }
@@ -2373,6 +2406,30 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
             Console.WriteLine($"✗ Failed to load page with Selenium: {ex.Message}");
             Console.ResetColor();
             return null;
+        }
+    }
+
+    private static async Task DisplaySeleniumWaitProgressAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var progressCharacterIndex = 0;
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                Console.Write(
+                    $"\rWaiting for configured content... {stopwatch.Elapsed:mm\\:ss} {_progressCharacters[progressCharacterIndex]} ");
+                progressCharacterIndex = (progressCharacterIndex + 1) % _progressCharacters.Length;
+                await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+        }
+        finally
+        {
+            Console.Write("\r                                                        \r");
         }
     }
 

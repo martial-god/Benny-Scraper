@@ -20,6 +20,8 @@ internal interface IDriverFactory
 
     IWebDriver GetDriverById(int id);
 
+    void DisposeDriver(IWebDriver driver);
+
     /// <summary>
     /// Disposes the driver registered under the given id and removes it from the internal driver dictionary.
     /// </summary>

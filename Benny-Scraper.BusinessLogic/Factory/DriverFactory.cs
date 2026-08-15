@@ -67,9 +67,18 @@ internal sealed class DriverFactory : IDriverFactory
                     chromeDriverService?.Dispose();
                 }
 
-                driver.Url = url;
-                _drivers[_counter] = driver;
-                _counter++;
+                var driverId = Interlocked.Increment(ref _counter);
+                _drivers[driverId] = driver;
+                try
+                {
+                    driver.Url = url;
+                }
+                catch
+                {
+                    DisposeDriverById(driverId);
+                    throw;
+                }
+
                 return driver;
 
             default:
@@ -132,10 +141,17 @@ internal sealed class DriverFactory : IDriverFactory
                     }
                 }
 
-                driver.Url = url;
-
                 int id = Interlocked.Increment(ref _counter);
                 _drivers.TryAdd(id, driver);
+                try
+                {
+                    driver.Url = url;
+                }
+                catch
+                {
+                    DisposeDriverById(id);
+                    throw;
+                }
 
                 return driver;
 
@@ -157,29 +173,75 @@ internal sealed class DriverFactory : IDriverFactory
     /// <returns>The <see cref="ConcurrentDictionary{TKey, TValue}"/> of all currently tracked driver instances, keyed by id.</returns>
     public ConcurrentDictionary<int, IWebDriver> GetAllDrivers() => _drivers;
 
+    public void DisposeDriver(IWebDriver driver)
+    {
+        var driverId = _drivers
+            .Where(driverEntry => ReferenceEquals(driverEntry.Value, driver))
+            .Select(driverEntry => (int?)driverEntry.Key)
+            .FirstOrDefault();
+
+        if (driverId.HasValue)
+        {
+            DisposeDriverById(driverId.Value);
+            return;
+        }
+
+        QuitAndDisposeDriver(driver);
+    }
+
     public void DisposeDriverById(int id)
     {
-        var driver = _drivers[id];
-        driver.Quit();
-        driver.Dispose();
-        _drivers.TryRemove(id, out _);
+        IWebDriver? driver = null;
+        try
+        {
+            if (_drivers.TryRemove(id, out driver))
+            {
+                QuitAndDisposeDriver(driver);
+                driver = null;
+            }
+        }
+        finally
+        {
+            driver?.Dispose();
+        }
     }
 
     public void DisposeAllDrivers()
     {
-        foreach (var driver in _drivers.Values)
+        foreach (var driverId in _drivers.Keys)
         {
+            IWebDriver? driver = null;
             try
             {
-                driver.Quit();
-                driver.Dispose();
+                if (_drivers.TryRemove(driverId, out driver))
+                {
+                    QuitAndDisposeDriver(driver);
+                    driver = null;
+                }
             }
-            catch
+            finally
             {
-                // ignored
+                driver?.Dispose();
             }
         }
+    }
 
-        _drivers.Clear();
+    private static void QuitAndDisposeDriver(IWebDriver driver)
+    {
+        try
+        {
+            driver.Quit();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            driver.Dispose();
+        }
+        catch
+        {
+        }
     }
 }

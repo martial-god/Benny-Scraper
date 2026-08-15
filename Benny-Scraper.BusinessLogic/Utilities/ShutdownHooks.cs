@@ -40,13 +40,17 @@ internal static class ShutdownHooks
             try
             {
                 _logger.Warn($"Shutting down: disposing Selenium drivers. Reason: {reason}");
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine("Tip: If the application was interrupted, check Task Manager for orphaned ChromeDriver processes.");
-                Console.ResetColor();
-                Console.ForegroundColor = ConsoleColor.DarkCyan;
-                Console.WriteLine("Or run 'taskkill /F /IM chromedriver.exe /T' on windows");
-                Console.ResetColor();
+                if (reason != "ProcessExit")
+                {
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine("If the application was interrupted, check Task Manager for orphaned ChromeDriver processes.");
+                    Console.ResetColor();
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine("On Windows, run 'taskkill /F /IM chromedriver.exe /T' if cleanup was unsuccessful.");
+                    Console.ResetColor();
+                }
+
                 if (ex != null)
                 {
                     _logger.Error(ex, "Unhandled exception triggered shutdown.");

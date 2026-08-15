@@ -1,29 +1,27 @@
 # Benny-Scraper
-Webscraper that sets out make listening to webnovels easier for myself. Turned into project that let users store all chapters of their favorite Mangas or Webnovels offline in one file. Creates Epubs of text based novels, and PDF and most forms of comic book archives like Cbz, at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project.
+WebScraper that sets out make listening to webnovels easier for myself. Turned into project that let users store all chapters of their favorite Mangas or Webnovels offline in one file or multiple files. Creates Epubs of text-based novels, and PDF and most forms of comic book archives like Cbz. at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project.
 
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)
 
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
 
 ## Getting Started
-https://lightnovelworld.com
-https://www.novelfull.com/
-https://mangakatana.com/
-1. For both sites, the url for the `Table of Contents` page for the novel is needed. 
-2. *Note* : all Epubs will be stored in your Documents folder BennyScrapedNovels/{Novel Name}, *unless changed through command line options*. Get an Epub Reader to read the contents, chrome extensions are available like `EPUB Reader`
-3. Click a novel and copy the url at the top ![chrome_Y234bE9Ce6](https://github.com/martial-god/PageShaver/assets/8980094/31b6190b-439a-4550-aaf3-3b05b3c24a13)![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
+1. Choose a site from the supported sites list by running `benny-scraper --sites`. (Make sure if on windows this is in the environment variables path. If on linux or macos, you can add it to your path using bash or zsh)
+2. The url for the **Table of Contents** page for the novel is needed. 
+3. Click a novel and copy the url at the top ![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
 
  ![chrome_fWN6VSKOKQ](https://github.com/martial-god/PageShaver/assets/8980094/7f97cd67-772c-4f60-a3d9-856337c3a987)
 
-
-4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on server response of the site. ![cmd_R4W67LuIR7](https://github.com/martial-god/PageShaver/assets/8980094/d682f498-54f3-40b1-ba6b-4998bd14b863)
-5. Test with Wuxiaworld not logging in `Benny-Scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon" -B 1 -E 120` ![WindowsTerminal_FQjbrmWZ4P](https://github.com/user-attachments/assets/d149373a-975d-46a6-aa29-c558eaf084b1)
+4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on the server response of the site. ![cmd_R4W67LuIR7](https://github.com/martial-god/PageShaver/assets/8980094/d682f498-54f3-40b1-ba6b-4998bd14b863)
+### 
+Test with Wuxiaworld not logging in
+`benny-scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon" -B 1 -E 120` ![WindowsTerminal_FQjbrmWZ4P](https://github.com/user-attachments/assets/d149373a-975d-46a6-aa29-c558eaf084b1)
 
 ## Errors
 So long as the error isn't highlighted while the application is running, they are just Warnings or Errors. Nothing Fatal
 
 ## Publishing for Linux, Mac, and Windows for standalone Builds
-`dotnet publish -c Release --self-contained true -r ubuntu.20.04-x64 -o C:\Users\Mime\Downloads\BennyScraperLinux`         // the path can be whichever you want
+`dotnet publish -c Release --self-contained true -r linux-x64 -o C:\Users\Mime\Downloads\BennyScraperLinux`         // the path can be whichever you want
 
 `dotnet publish -c Release --self-contained true -r osx-x64 -o /Users/myuser/Desktop/BennyScraperMac`   // add to Environment using bash or zsh
 
@@ -32,26 +30,32 @@ So long as the error isn't highlighted while the application is running, they ar
 ## USAGE AND OPTIONS
 * Make sure executable has been added to the environment variables
 ```bash
-dotnet Benny-Scraper.dll [COMMAND] [OPTIONS] [--] [VALUES]
+benny-scraper [COMMAND] [OPTIONS] [--] [VALUES]
 ```
 
 ### Quick Start - Download a Novel (yt-dlp style)
 ```bash
 # View all supported websites
-Benny-Scraper --sites
+benny-scraper --sites
 
 # Download entire novel (interactive mode)
-Benny-Scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon"
+benny-scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon"
 
 # Download chapters 1-50 (non-interactive, no prompts)
-Benny-Scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon" -B 1 -E 50
+benny-scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon" -B 1 -E 50
 
-# Download with login for premium chapters (shows browser)
-Benny-Scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon" --with-login -B 1 -E 100
+# Download with login for premium chapters (shows browser). Your credentials are NEVER stored.
+benny-scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon" --with-login -B 1 -E 100
 
 # Download from chapter 25 to the end
-Benny-Scraper "https://www.novelfull.com/my-novel.html" -B 25
+benny-scraper "https://www.novelfull.com/my-novel.html" -B 25
 ```
+
+### Adding a New Site
+Adding a new site should now be easier and can be done by someone with little to no coding experience, just some knowledge about `xpath`. The [sites](Benny-Scraper/sites) stores all the site configurations, running `benny-scraper --test-interactive` will guide you through the process.
+- Notes this doesn't work for all sites, for those create an issue, and I will add it.... eventually. For others protected by Cloudflare, try installing [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) as a proxy locally.
+1. Run `benny-scraper --test-interactive `
+2.
 
 ### Command Reference
 ```bash
@@ -120,7 +124,7 @@ Testing & Validation:
                                interactive mode.
 
   --test-interactive [URL]     Interactive mode for testing a new site. Guides you through testing each field and generates
-                               a JSON configuration.
+                               a JSON configuration that will be treated as a new site.
 
   --test-field [FIELD:XPATH]   Test a specific field with XPath. Example: --test-field "Title://h1[@class='title']" <URL>
 
@@ -232,7 +236,7 @@ Benny-Scraper --test-interactive "https://newnovelsite.com/novel/example"
 # Test a specific XPath selector
 Benny-Scraper --test-field "Title://h1[@class='novel-title']" "https://example.com/novel"
 
-# Validate existing site configuration
+# Validate existing site configuration against a live URL
 Benny-Scraper --validate-config "Wuxiaworld"
 
 # Validate all site configurations
@@ -259,9 +263,9 @@ Benny-Scraper "https://www.novelfull.com/martial-god-asura.html" -B 2500
 Benny-Scraper "https://www.wuxiaworld.com/novel/coiling-dragon" --with-login -B 1 -E 200
 
 # Archive collection: Download and organize multiple novels
-Benny-Scraper -n "D:\WebNovels" "https://www.novelfull.com/novel1.html"
-Benny-Scraper -n "D:\WebNovels" "https://www.novelfull.com/novel2.html"
-Benny-Scraper -l -S "Novel" -I 20
+Benny-Scraper -m "D:\Managas" "https://mangakatana.com/manga/the-return-of-the-crazy-demon.25882" # set save location for manga
+Benny-Scraper -n "D:\WebNovels" "https://www.novelfull.com/novel2.html" # change were novels without images are saved
+Benny-Scraper -l -S "Novel" -I 20 # list all novels containing "Novel" with 20 results per page
 
 # Update all your ongoing novels at once
 Benny-Scraper -U
@@ -272,3 +276,4 @@ For more information about each command and option, run:
 ```
 
 ## ✨ Contribute to This Project ✨
+Try adding a new site and see if it works, create a pull request with your new site configuration.

@@ -40,7 +40,7 @@ internal static class Program
 
     private static IConfiguration? Configuration { get; set; }
 
-    private static NovelScraperSettings? LoadedNovelScraperSettings { get; set; }
+    private static NovelScraperSettings? NovelScraperSettings { get; set; }
 
     // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
     private static async Task Main(string[] args)
@@ -50,10 +50,10 @@ internal static class Program
         SQLitePCL.Batteries.Init();
         var configuration = BuildConfiguration();
         Configuration = configuration;
-        LoadedNovelScraperSettings = BuildNovelScraperSettings(configuration);
+        NovelScraperSettings = BuildNovelScraperSettings(configuration);
 
         var builder = new ContainerBuilder();
-        ConfigureServices(builder, configuration, LoadedNovelScraperSettings);
+        ConfigureServices(builder, configuration, NovelScraperSettings);
         Container = builder.Build();
 
         // Ensure Selenium drivers (and other unmanaged resources) are disposed even on crash/exit.
@@ -840,7 +840,7 @@ internal static class Program
 
         try
         {
-            var siteConfig = LoadedNovelScraperSettings?.SiteConfigurations
+            var siteConfig = NovelScraperSettings?.SiteConfigurations
                 .FirstOrDefault(config => testUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
 
             // Guard: Check for inactive site first
@@ -857,13 +857,18 @@ internal static class Program
 
             using var httpClientFactory = new HttpClientFactory();
             using var testStrategy = new TestStrategy(httpClientFactory);
+            await ConfigureFlareSolverrForTestingAsync(testStrategy);
 
             var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await testStrategy.TestLoadHtmlAsync(testUri);
 
             // Guard: If document loaded successfully, handle success path
             if (htmlDocument != null)
             {
-                HandleSuccessfulTestConnection(htmlDocument, testUri, updatedUri);
+                HandleSuccessfulTestConnection(
+                    htmlDocument,
+                    testUri,
+                    updatedUri,
+                    testStrategy.LastRequestUsedFlareSolverr);
                 return;
             }
 
@@ -888,6 +893,8 @@ internal static class Program
         {
             using var httpClientFactory = new HttpClientFactory();
             using var testStrategy = new TestStrategy(httpClientFactory);
+            await ConfigureFlareSolverrForTestingAsync(testStrategy);
+
             await testStrategy.RunInteractiveTestAsync(testUri);
         }
         catch (Exception ex)
@@ -943,7 +950,7 @@ internal static class Program
     {
         try
         {
-            var novelScraperSettings = LoadedNovelScraperSettings;
+            var novelScraperSettings = NovelScraperSettings;
             var siteConfig = novelScraperSettings?.SiteConfigurations.FirstOrDefault(config =>
                 config.SiteName.Equals(configName, StringComparison.OrdinalIgnoreCase));
 
@@ -989,7 +996,7 @@ internal static class Program
     {
         try
         {
-            var novelScraperSettings = LoadedNovelScraperSettings;
+            var novelScraperSettings = NovelScraperSettings;
             var activeConfigs = novelScraperSettings?.SiteConfigurations.Where(siteConfiguration => siteConfiguration.IsActive).ToList();
 
             if (activeConfigs == null || activeConfigs.Count == 0)
@@ -1044,11 +1051,32 @@ internal static class Program
         }
     }
 
-    private static void HandleSuccessfulTestConnection(HtmlDocument htmlDocument, Uri testUri, Uri updatedUri)
+    private static async Task ConfigureFlareSolverrForTestingAsync(TestStrategy testStrategy)
+    {
+        var flareSolverrSettings = NovelScraperSettings?.FlareSolverrSettings;
+        if (flareSolverrSettings?.Enabled == true)
+        {
+            await testStrategy.EnableFlareSolverrAsync(flareSolverrSettings.Url);
+        }
+    }
+
+    private static void HandleSuccessfulTestConnection(
+        HtmlDocument htmlDocument,
+        Uri testUri,
+        Uri updatedUri,
+        bool usedFlareSolverr)
     {
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("✓ Successfully reached the site!");
         Console.ResetColor();
+
+        if (usedFlareSolverr)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("FlareSolverr was needed to bypass this site's Cloudflare protection.");
+            Console.WriteLine("Users must have FlareSolverr running to access this site the same way.");
+            Console.ResetColor();
+        }
 
         var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
         Console.WriteLine(titleNode != null
@@ -1144,6 +1172,13 @@ internal static class Program
         Console.WriteLine("  This site is protected by Cloudflare and is blocking HttpClient requests.");
         Console.ResetColor();
 
+        Console.ForegroundColor = ConsoleColor.Magenta;
+        Console.WriteLine("\nRECOMMENDATION:");
+        Console.WriteLine("  Start FlareSolverr and run this test again.");
+        Console.WriteLine("  Enable it under FlareSolverrSettings in appsettings.json.");
+        Console.WriteLine("  You can also use --test-interactive to try Selenium.");
+        Console.ResetColor();
+
         if (siteConfig == null)
         {
             return;
@@ -1157,31 +1192,13 @@ internal static class Program
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine("  Configuration matches - site is configured for JsChallenge protection.");
                     Console.ResetColor();
-
-                    if (siteConfig.EntireSiteRequiresSelenium)
-                    {
-                        return;
-                    }
-
-                    Console.ForegroundColor = ConsoleColor.Magenta;
-                    Console.WriteLine("\nRECOMMENDATION:");
-                    Console.WriteLine($"  Set \"entireSiteRequiresSelenium\": true for '{siteConfig.SiteName}' in its site configuration");
-                    Console.WriteLine("  (Selenium will be used automatically based on CloudflareProtection, but explicit setting is clearer)");
-                    Console.ResetColor();
                     return;
                 }
 
             // Handle Detected level (needs escalation)
             case CloudflareProtectionLevel.Detected:
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("  Site is configured as 'Detected' but is actually blocking requests.");
-                Console.ResetColor();
-
-                Console.ForegroundColor = ConsoleColor.Magenta;
-                Console.WriteLine("\nACTION REQUIRED:");
-                Console.WriteLine($"  Please update the site configuration for '{siteConfig.SiteName}':");
-                Console.WriteLine("  Change \"cloudflareProtection\": \"detected\" to \"jschallenge\"");
-                Console.WriteLine("  Set \"entireSiteRequiresSelenium\": true");
+                Console.WriteLine("  Configuration matches - Cloudflare protection was previously detected for this site.");
                 Console.ResetColor();
                 return;
 
@@ -1190,8 +1207,7 @@ internal static class Program
                 Console.ForegroundColor = ConsoleColor.Magenta;
                 Console.WriteLine("\nACTION REQUIRED:");
                 Console.WriteLine($"  Please update the site configuration for '{siteConfig.SiteName}':");
-                Console.WriteLine("  Set \"cloudflareProtection\": \"jschallenge\"");
-                Console.WriteLine("  Set \"entireSiteRequiresSelenium\": true");
+                Console.WriteLine("  Set \"cloudflareProtection\": \"detected\"");
                 Console.ResetColor();
                 break;
         }
@@ -1269,7 +1285,7 @@ internal static class Program
     private static async Task TestAllSitesAsync()
     {
         var supportedSites = GetSupportedSites();
-        var novelScraperSettings = LoadedNovelScraperSettings;
+        var novelScraperSettings = NovelScraperSettings;
 
         Console.WriteLine($"\n{'='}{new string('=', 60)}");
         Console.ForegroundColor = ConsoleColor.Cyan;
