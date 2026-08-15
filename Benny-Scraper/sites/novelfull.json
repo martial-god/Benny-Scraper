@@ -19,7 +19,6 @@
   "selectors": {
     "tableOfContents": {
       "chapterLinks": "//ul[@class='list-chapter']//a/@href",
-      "tableOfContentsPaginationListItems": "//ul[@class='pagination']/li",
       "lastTableOfContentsPage": "//li[@class='last']//a/@href",
       "lastTableOfContentPageNumberAttribute": "data-page",
       "latestChapterLink": "//ul[contains(@class, 'l-chapters')]//a[position()=1]",

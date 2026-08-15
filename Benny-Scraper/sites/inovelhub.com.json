@@ -1,0 +1,39 @@
+{
+  "siteName": "Inovelhub",
+  "urlPattern": "inovelhub.com",
+  "isActive": true,
+  "strategyName": "common",
+  "hasPagination": true,
+  "paginationType": "?page={0}",
+  "paginationQueryPartial": "?page=",
+  "hasNovelInfoOnDifferentPage": false,
+  "chaptersPerPage": 21,
+  "pageOffSet": 0,
+  "completedStatus": "completed",
+  "hasImagesForChapterContent": false,
+  "hasPremiumChapters": false,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": false,
+  "chapterContentRequiresSelenium": false,
+  "cloudflareProtection": "none",
+  "chapterSortOrder": "ascending",
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//div[@id='chapters']//a[contains(@href, '/chapter-')]/@href",
+      "lastTableOfContentsPage": "//div[@id='chapters']//div[2]/a[last()-1]/@href",
+      "premiumChapterSelectors": {},
+      "latestChapterLink": "/html/body/main/div/div[1]/div[2]/div[3]/a",
+      "novelStatus": "/html/body/main/div/div[1]/div[2]/div[2]/div[4]/a/text()",
+      "novelAuthor": "/html/body/main/div/div[1]/div[2]/div[2]/div[2]/a/text()",
+      "novelAlternativeNames": "/html/body/main/div/div[1]/div[2]/div[2]/div[1]/p/text()",
+      "novelGenres": "/html/body/main/div/div[1]/div[2]/div[2]/div[3]/div//a",
+      "novelTitle": "//h1/text()",
+      "novelDescription": "//div[@id='description']//p",
+      "novelThumbnailUrl": "/html/body/main/div/div[1]/div[1]/div[1]/img",
+      "thumbnailUrlAttribute": "src"
+    },
+    "userCurrencyBalances": {},
+    "chapterTitle": "//h1/text()",
+    "chapterContent": "//div[@id='chapter-content']//p"
+  }
+}

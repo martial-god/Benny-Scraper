@@ -527,25 +527,25 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             _semaphoreSlim = new SemaphoreSlim(concurrentRequestLimit);
         }
 
-        protected static int GetPageNumberFromUrlQuery(string url, Uri baseUri)
+        protected static int GetTableOfContentsPageNumber(string pageValue, Uri baseUri)
         {
-            bool result = Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out Uri? uriResult);
-            if (!result || uriResult == null || (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
+            if (int.TryParse(pageValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pageNumber))
             {
-                throw new ArgumentException("Invalid URL", nameof(url));
+                return pageNumber;
             }
 
-            // if the url is relative, then combine it with the base uri
-            if (!uriResult.IsAbsoluteUri)
+            bool result = Uri.TryCreate(baseUri, pageValue, out Uri? uriResult);
+            if (!result || uriResult == null ||
+                (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
             {
-                uriResult = new Uri(baseUri, uriResult);
+                throw new ArgumentException("Invalid page value", nameof(pageValue));
             }
 
             var pageNumberFromQuery = HttpUtility.ParseQueryString(uriResult.Query);
             if (pageNumberFromQuery.AllKeys.Contains("page"))
             {
-                var pageNumber = pageNumberFromQuery["page"];
-                if (int.TryParse(pageNumber, NumberStyles.Integer, CultureInfo.InvariantCulture, out int page))
+                var pageNumberFromUrl = pageNumberFromQuery["page"];
+                if (int.TryParse(pageNumberFromUrl, NumberStyles.Integer, CultureInfo.InvariantCulture, out int page))
                 {
                     return page;
                 }
@@ -2065,7 +2065,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                             }
                         }
 
-                        Console.WriteLine($"Checked for alternate names");
+                        Console.WriteLine($"Alternate Names: {string.Join(", ", novelDataBuffer.AlternativeNames)}");
                         break;
 
                     case Attr.NovelStatus:
@@ -2077,7 +2077,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                             novelDataBuffer.NovelStatus = statusNode.InnerText.Trim();
                             novelDataBuffer.IsNovelCompleted = novelDataBuffer.NovelStatus.ToLowerInvariant()
                                 .Contains(scraperData.SiteConfig.CompletedStatus, StringComparison.OrdinalIgnoreCase);
-                            Console.WriteLine($"NovelStatus: {novelDataBuffer.NovelStatus}");
+                            Console.WriteLine($"Novel Status: {novelDataBuffer.NovelStatus}");
                         }
 
                         break;
@@ -2116,25 +2116,37 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                             }
                         }
 
-                        novelDataBuffer.ThumbnailUrl = url;
+                        novelDataBuffer.ThumbnailUrl = absoluteUri.ToString();
+                        Console.WriteLine($"ThumbnailUrl: {novelDataBuffer.ThumbnailUrl}");
                         break;
 
                     case Attr.LastTableOfContentsPage:
                         try
                         {
+                            var lastTableOfContentsPageAttribute = scraperData.SiteConfig.Selectors.TableOfContents
+                                .LastTableOfContentPageNumberAttribute;
+                            lastTableOfContentsPageAttribute = string.IsNullOrWhiteSpace(lastTableOfContentsPageAttribute)
+                                ? "href"
+                                : lastTableOfContentsPageAttribute;
                             var lastTableOfContentsPageNode =
                                 htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig.Selectors
                                     .TableOfContents.LastTableOfContentsPage ?? string.Empty);
 
-                            // Guard: Check if node exists and has href attribute
-                            if (lastTableOfContentsPageNode == null ||
-                                lastTableOfContentsPageNode.Attributes["href"] == null)
+                            if (lastTableOfContentsPageNode == null)
                             {
                                 break;
                             }
 
-                            novelDataBuffer.LastTableOfContentsPageUrl =
-                                lastTableOfContentsPageNode.Attributes["href"].Value;
+                            var lastTableOfContentsPageValue = lastTableOfContentsPageNode
+                                .GetAttributeValue(lastTableOfContentsPageAttribute, string.Empty);
+                            if (string.IsNullOrWhiteSpace(lastTableOfContentsPageValue) &&
+                                !string.Equals(lastTableOfContentsPageAttribute, "href", StringComparison.OrdinalIgnoreCase))
+                            {
+                                lastTableOfContentsPageValue = lastTableOfContentsPageNode
+                                    .GetAttributeValue("href", string.Empty);
+                            }
+
+                            novelDataBuffer.LastTableOfContentsPageUrl = lastTableOfContentsPageValue;
                             Console.WriteLine(
                                 $"Last Table of Contents Page: {novelDataBuffer.LastTableOfContentsPageUrl}");
                             break;

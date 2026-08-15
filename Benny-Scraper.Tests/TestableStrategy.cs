@@ -22,6 +22,8 @@ internal sealed class TestableStrategy : ScraperStrategy
     {
     }
 
+    public static int GetPageNumber(string pageValue, Uri baseUri) => GetTableOfContentsPageNumber(pageValue, baseUri);
+
     public void ConfigureSort(ChapterSortOrder order)
         => ScraperData.SiteConfig = new SiteConfiguration { ChapterSortOrder = order };
 

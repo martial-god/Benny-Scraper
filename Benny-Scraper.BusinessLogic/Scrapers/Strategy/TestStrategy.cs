@@ -1376,14 +1376,107 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 ? cpp
                 : 50;
 
-            Console.Write("Page offset (0 or 1, default: 1): ");
+            Console.Write("Page offset (0 or 1, i.e. Is the first page on page 1 or page 2? if 1 chose 0, otherwise add the value will be added default: 1): ");
             var offset = Console.ReadLine()?.Trim();
             _config.PageOffSet = int.TryParse(offset, NumberStyles.Integer, CultureInfo.InvariantCulture, out int off) ? off : 1;
+
+            TestLastTableOfContentsPageField();
         }
         else
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("✓ No pagination");
+            Console.ResetColor();
+        }
+    }
+
+    private void TestLastTableOfContentsPageField()
+    {
+        while (true)
+        {
+            Console.WriteLine("\n[Last Table of Contents Page] (Required for pagination)");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("Select the link for the final chapter-list page. Both //a and //a/@href are supported.");
+            Console.WriteLine("Example: //a[@aria-label='Last']");
+            Console.ResetColor();
+            Console.Write("XPath: ");
+
+            var lastTableOfContentsPageXPath = Console.ReadLine()?.Trim();
+            if (string.IsNullOrWhiteSpace(lastTableOfContentsPageXPath))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Required when pagination is enabled");
+                Console.ResetColor();
+                continue;
+            }
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("Use 'href' for a link such as '?page=25', or 'data-page' when the number is stored separately.");
+            Console.ResetColor();
+            Console.Write("Attribute containing the last page number or URL (default: href): ");
+            var lastTableOfContentsPageAttribute = Console.ReadLine()?.Trim();
+            lastTableOfContentsPageAttribute = string.IsNullOrWhiteSpace(lastTableOfContentsPageAttribute)
+                ? "href"
+                : lastTableOfContentsPageAttribute;
+
+            try
+            {
+                var lastTableOfContentsPageNode = _htmlDocument.DocumentNode.SelectSingleNode(lastTableOfContentsPageXPath);
+                if (lastTableOfContentsPageNode == null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("✗ No last page link found");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    var lastTableOfContentsPageUrl = lastTableOfContentsPageNode
+                        .GetAttributeValue(lastTableOfContentsPageAttribute, string.Empty)
+                        .Trim();
+
+                    if (!string.IsNullOrWhiteSpace(lastTableOfContentsPageUrl))
+                    {
+                        var lastTableOfContentsPageNumber = GetTableOfContentsPageNumber(lastTableOfContentsPageUrl, _testUri);
+                        if (lastTableOfContentsPageNumber >= 0)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine($"✓ Last chapter-list page: {lastTableOfContentsPageNumber}");
+                            Console.ResetColor();
+                            Console.WriteLine($"  URL: {lastTableOfContentsPageUrl}");
+                            Console.Write("\nDoes the last page look correct? (y/n, default: y): ");
+
+                            var verificationResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
+                            if (verificationResponse == "y" || verificationResponse == "yes" || string.IsNullOrEmpty(verificationResponse))
+                            {
+                                _config.Selectors.TableOfContents.LastTableOfContentsPage = lastTableOfContentsPageXPath;
+                                _config.Selectors.TableOfContents.LastTableOfContentPageNumberAttribute = lastTableOfContentsPageAttribute;
+                                return;
+                            }
+
+                            continue;
+                        }
+
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("✗ The selected link does not contain a valid page number");
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"✗ The selected link does not have a '{lastTableOfContentsPageAttribute}' attribute");
+                        Console.ResetColor();
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"✗ Could not test the last page link: {exception.Message}");
+                Console.ResetColor();
+            }
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("Please enter another XPath.");
             Console.ResetColor();
         }
     }
@@ -1862,6 +1955,93 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                     fieldVerified = true;
                     break;
             }
+        }
+
+        if (!_config.HasImagesForChapterContent &&
+            !string.IsNullOrWhiteSpace(_config.Selectors.ChapterContent))
+        {
+            TestAlternativeChapterContentField();
+        }
+    }
+
+    private void TestAlternativeChapterContentField()
+    {
+        _config.Selectors.AlternativeChapterContent = null;
+
+        while (true)
+        {
+            Console.WriteLine("\n[Alternative Chapter Content]");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("Optional fallback used when the main selector finds too little chapter content.");
+            Console.WriteLine("Example: //div[@id='chapter-content']//p");
+            Console.ResetColor();
+            Console.Write("XPath (or press Enter to skip): ");
+
+            var alternativeChapterContentXPath = Console.ReadLine()?.Trim();
+            if (string.IsNullOrWhiteSpace(alternativeChapterContentXPath))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("⊘ Skipped");
+                Console.ResetColor();
+                return;
+            }
+
+            try
+            {
+                var alternativeChapterContentNodes = _chapterHtmlDocument!.DocumentNode
+                    .SelectNodes(alternativeChapterContentXPath);
+
+                if (alternativeChapterContentNodes == null || alternativeChapterContentNodes.Count == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("✗ No alternative chapter content found");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"✓ Found {alternativeChapterContentNodes.Count} paragraphs");
+                    Console.ResetColor();
+
+                    Console.WriteLine("\nFirst 3 paragraphs:");
+                    for (var index = 0; index < Math.Min(3, alternativeChapterContentNodes.Count); index++)
+                    {
+                        var text = alternativeChapterContentNodes[index].InnerText?.Trim();
+                        var preview = text is { Length: > 60 }
+                            ? string.Concat(text.AsSpan(0, 60), "...")
+                            : text;
+                        Console.WriteLine($"  [{index + 1}] {preview}");
+                    }
+
+                    Console.Write("\nAre you happy with this result? (y/n, default: y): ");
+                    var verificationResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
+                    if (verificationResponse == "y" || verificationResponse == "yes" || string.IsNullOrEmpty(verificationResponse))
+                    {
+                        _config.Selectors.AlternativeChapterContent = alternativeChapterContentXPath;
+                        return;
+                    }
+
+                    continue;
+                }
+            }
+            catch (Exception exception)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"✗ Invalid XPath: {exception.Message}");
+                Console.ResetColor();
+            }
+
+            Console.Write("Do you want to retry? (y/n, default: y): ");
+            var retryResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
+            if (retryResponse != "n" && retryResponse != "no")
+            {
+                continue;
+            }
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("⊘ Alternative chapter content skipped");
+            Console.ResetColor();
+            return;
         }
     }
 

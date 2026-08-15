@@ -52,7 +52,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
         {
             var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument).ConfigureAwait(false);
-            var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
+            var pageToStopAt = GetTableOfContentsPageNumber(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
 
             var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt).ConfigureAwait(false);
 

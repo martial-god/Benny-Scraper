@@ -56,7 +56,7 @@ internal sealed class CommonStrategy : ScraperStrategy
 
         if (ScraperData.SiteConfig.HasPagination && !string.IsNullOrEmpty(novelDataBuffer.LastTableOfContentsPageUrl))
         {
-            var pageToStopAt = GetPageNumberFromUrlQuery(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
+            var pageToStopAt = GetTableOfContentsPageNumber(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
             var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(ScraperData.SiteTableOfContents, true, pageToStopAt).ConfigureAwait(false);
 
             novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);

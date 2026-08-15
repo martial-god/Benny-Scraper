@@ -1,3 +1,6 @@
+using BennyScraper.BusinessLogic;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Scrapers.Strategy;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using Xunit;
@@ -81,5 +84,82 @@ public class TableOfContentsParsingTests
         Assert.EndsWith(tocCase.ExpectedFirstChapterUrlSuffix, novelDataBuffer.FirstChapter, StringComparison.Ordinal);
         Assert.EndsWith(tocCase.ExpectedCurrentChapterUrlSuffix, novelDataBuffer.CurrentChapterUrl, StringComparison.Ordinal);
         Assert.Equal(tocCase.ExpectedMostRecentChapterTitle, novelDataBuffer.MostRecentChapterTitle);
+    }
+
+    [Fact]
+    public async Task ExtractsLastTableOfContentsPageUsingConfiguredAttribute()
+    {
+        var scraperData = new ScraperData
+        {
+            BaseUri = new Uri("https://example.com"),
+            SiteTableOfContents = new Uri("https://example.com/novel/test"),
+            SiteConfig = new SiteConfiguration
+            {
+                HasPagination = true,
+                Selectors = new Selectors
+                {
+                    TableOfContents = new TableOfContentsSelectors
+                    {
+                        LastTableOfContentsPage = "//a[@class='last-page']",
+                        LastTableOfContentPageNumberAttribute = "data-page-url",
+                    },
+                },
+            },
+        };
+        var htmlDocument = TestConfig.Parse(
+            "<a class='last-page' data-page-url='25'>Last</a>");
+        using var novelDataBuffer = new NovelDataBuffer();
+
+        await NovelDataInitializer.FetchContentByAttributeAsync(
+            Attr.LastTableOfContentsPage,
+            novelDataBuffer,
+            htmlDocument,
+            scraperData);
+
+        Assert.Equal("25", novelDataBuffer.LastTableOfContentsPageUrl);
+    }
+
+    [Fact]
+    public async Task ExtractsConfiguredAttributeForExistingAttributeXPathConfiguration()
+    {
+        var scraperData = new ScraperData
+        {
+            BaseUri = new Uri("https://example.com"),
+            SiteTableOfContents = new Uri("https://example.com/novel/test"),
+            SiteConfig = new SiteConfiguration
+            {
+                HasPagination = true,
+                Selectors = new Selectors
+                {
+                    TableOfContents = new TableOfContentsSelectors
+                    {
+                        LastTableOfContentsPage = "//a[@class='last-page']/@href",
+                        LastTableOfContentPageNumberAttribute = "data-page",
+                    },
+                },
+            },
+        };
+        var htmlDocument = TestConfig.Parse(
+            "<a class='last-page' href='/novel/test?page=25#chapters' data-page='25'>Last</a>");
+        using var novelDataBuffer = new NovelDataBuffer();
+
+        await NovelDataInitializer.FetchContentByAttributeAsync(
+            Attr.LastTableOfContentsPage,
+            novelDataBuffer,
+            htmlDocument,
+            scraperData);
+
+        Assert.Equal("25", novelDataBuffer.LastTableOfContentsPageUrl);
+    }
+
+    [Theory]
+    [InlineData("25", 25)]
+    [InlineData("/novel/test?page=25#chapters", 25)]
+    [InlineData("https://example.com/novel/test?page=3#chapters", 3)]
+    public void ExtractsPageNumberFromAbsoluteOrRelativeUrl(string url, int expectedPageNumber)
+    {
+        var pageNumber = TestableStrategy.GetPageNumber(url, new Uri("https://example.com"));
+
+        Assert.Equal(expectedPageNumber, pageNumber);
     }
 }
