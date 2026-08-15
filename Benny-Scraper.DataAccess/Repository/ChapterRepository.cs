@@ -1,38 +1,24 @@
-﻿
-
-using Benny_Scraper.DataAccess.Data;
-using Benny_Scraper.DataAccess.Repository.IRepository;
-using Benny_Scraper.Models;
+using BennyScraper.DataAccess.Data;
+using BennyScraper.DataAccess.Repository.IRepository;
+using BennyScraper.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace Benny_Scraper.DataAccess.Repository
+namespace BennyScraper.DataAccess.Repository;
+
+internal sealed class ChapterRepository(Database db) : Repository<Chapter>(db), IChapterRepository
 {
-    public class ChapterRepository : Repository<Chapter>, IChapterRepository
+    private readonly Database _db = db;
+
+    public void Update(Chapter obj) => _db.Chapters.Update(obj);
+
+    public void AddRange(ICollection<Chapter> chapters) => _db.Chapters.AddRange(chapters);
+
+    public async Task<Chapter> GetLastSavedChapterAsyncByNovelId(Guid novelId)
     {
-        private Database _db;
-
-        /// <summary>
-        /// Values will be passed in by the UnitOfWork class
-        /// </summary>
-        /// <param name="db"></param>
-        public ChapterRepository(Database db) : base(db)
-        {
-            _db = db;
-        }
-
-        public void Update(Chapter chapter)
-        {
-            _db.Chapters.Update(chapter);
-        }
-
-        public void AddRange(ICollection<Chapter> chapters)
-        {
-            _db.Chapters.AddRange(chapters);
-        }
-
-        public async Task<Chapter> GetLastSavedChapterAsyncByNovelId(Guid novelId)
-        {
-            return await _db.Chapters.Where(c => c.NovelId == novelId).OrderByDescending(c => c.DateLastModified).FirstOrDefaultAsync();
-        }
+        return await _db.Chapters
+            .AsNoTracking()
+            .Where(c => c.NovelId == novelId)
+            .OrderByDescending(c => c.DateLastModified)
+            .FirstAsync().ConfigureAwait(false);
     }
 }

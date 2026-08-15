@@ -1,39 +1,41 @@
-﻿using OpenQA.Selenium;
 using System.Collections.Concurrent;
+using OpenQA.Selenium;
 
-namespace Benny_Scraper.BusinessLogic.Factory.Interfaces
+namespace BennyScraper.BusinessLogic.Factory.Interfaces;
+
+internal interface IDriverFactory
 {
-    public interface IDriverFactory
-    {
-        /// <summary>
-        /// Creates a driver and adds each driver to a dictonry of <int, IWebDriver><
-        /// </summary>
-        /// <param name="browser">a positive integer</param>
-        /// <param name="isHeadless"></param>
-        /// <param name="url"></param>
-        /// <returns></returns>
-        /// <exception cref="ArgumentException"></exception>
-        IWebDriver CreateDriver(string url, int browser = 0, bool isHeadless = false);
+    /// <summary>
+    /// Creates a Chrome WebDriver instance, navigates it to the given URL, registers it in the internal driver
+    /// dictionary keyed by an auto-incrementing id, and returns it.
+    /// </summary>
+    /// <param name="url">The URL the driver should navigate to immediately after creation.</param>
+    /// <param name="browser">The browser to launch, as the underlying integer value of the <see cref="BennyScraper.BusinessLogic.Factory.Browser"/> enum. Only <see cref="BennyScraper.BusinessLogic.Factory.Browser.Chrome"/> (0) is currently supported.</param>
+    /// <param name="isHeadless">true to run Chrome without a visible window; otherwise, false.</param>
+    /// <returns>The created <see cref="IWebDriver"/> instance.</returns>
+    /// <exception cref="ArgumentException">The specified browser is not supported.</exception>
+    IWebDriver CreateDriver(string url, int browser = 0, bool isHeadless = false);
 
-        Task<IWebDriver> CreateDriverAsync(string url, int browser = 0, bool isHeadless = false);
-        IWebDriver GetDriverById(int id);
+    Task<IWebDriver> CreateDriverAsync(string url, int browser = 0, bool isHeadless = false);
 
-        /// <summary>
-        /// Gets a driver using an id
-        /// </summary>
-        /// <param name="id">a positive integer</param>
-        /// <returns></returns>
-        void DisposeDriverById(int id);
+    IWebDriver GetDriverById(int id);
 
-        /// <summary>
-        /// Gets dictionary that contains all drivers instances created. See <see cref="DisposeDriverById(int)"/>
-        /// </summary>
-        /// <returns></returns>
-        ConcurrentDictionary<int, IWebDriver> GetAllDrivers();
+    void DisposeDriver(IWebDriver driver);
 
-        /// <summary>
-        /// Deletes all drivers
-        /// </summary>
-        void DisposeAllDrivers();
-    }
+    /// <summary>
+    /// Disposes the driver registered under the given id and removes it from the internal driver dictionary.
+    /// </summary>
+    /// <param name="id">The id of the driver to dispose.</param>
+    void DisposeDriverById(int id);
+
+    /// <summary>
+    /// Gets dictionary that contains all drivers instances created. See <see cref="DisposeDriverById(int)"/>.
+    /// </summary>
+    /// <returns>The <see cref="ConcurrentDictionary{TKey, TValue}"/> of all currently tracked driver instances, keyed by id.</returns>
+    ConcurrentDictionary<int, IWebDriver> GetAllDrivers();
+
+    /// <summary>
+    /// Deletes all drivers.
+    /// </summary>
+    void DisposeAllDrivers();
 }

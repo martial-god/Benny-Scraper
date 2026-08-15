@@ -1,0 +1,43 @@
+{
+  "siteName": "wanderinginn",
+  "urlPattern": "wanderinginn.com",
+  "isActive": true,
+  "strategyName": "wanderinginn",
+  "hasPagination": false,
+  "paginationType": null,
+  "paginationQueryPartial": null,
+  "hasNovelInfoOnDifferentPage": true,
+  "chaptersPerPage": -1,
+  "pageOffSet": 0,
+  "completedStatus": null,
+  "hasImagesForChapterContent": false,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": false,
+  "chapterContentRequiresSelenium": false,
+  "cloudflareProtection": null,
+  "chapterSortOrder": "Ascending",
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//*[contains(@id, 'vol-')]/div[2]/div/div[2]//a/@href",
+      "chapterTitleInToc": null,
+      "tableOfContentsPaginationListItems": null,
+      "lastTableOfContentsPage": null,
+      "lastTableOfContentPageNumberAttribute": null,
+      "latestChapterLink": "//(//*[contains(@id,'vol-')]/div[2]/div/div[2]//a)[last()]/@href",
+      "novelStatus": null,
+      "novelAuthor": null,
+      "novelAlternativeNames": null,
+      "novelGenres": null,
+      "novelRating": null,
+      "novelTitle": null,
+      "totalRatings": null,
+      "novelDescription": null,
+      "novelThumbnailUrl": null,
+      "thumbnailUrlAttribute": null
+    },
+    "chapterTitle": "//title/text()",
+    "chapterContent": "//article[@class='twi-article']//p",
+    "alternativeChapterContent": "//p",
+    "chapterContentImageUrlAttribute": "data-url"
+  }
+}

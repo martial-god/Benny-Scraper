@@ -1,0 +1,201 @@
+root = true
+
+# ===================================================================
+# All files
+# ===================================================================
+[*]
+indent_style = space
+trim_trailing_whitespace = true
+charset = utf-8
+end_of_line = crlf
+
+# ===================================================================
+# C# files
+# ===================================================================
+[*.cs]
+indent_size = 4
+insert_final_newline = false
+max_line_length = 140
+
+# -------- Code style: braces required --------
+# IDE0011 — "Add braces" — applies to if/else/for/foreach/while/do/using/lock/fixed
+csharp_prefer_braces = true:error
+dotnet_diagnostic.IDE0011.severity = error
+
+# IDE0072 — "Add missing cases to pattern" — applies to switch expressions and switch statements with pattern matching
+dotnet_diagnostic.IDE0072.severity = warning # Add missing cases to pattern
+
+# ------- Code style: prefer explicit type for public members --------
+# CA1024 — "Use properties where appropriate" — applies to public methods that have no
+dotnet_diagnostic.CA1024.severity = none
+
+
+# -------- Code style: file-scoped namespaces, var, etc. --------
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_pattern_matching_over_is_with_cast_check = true:warning
+csharp_style_pattern_matching_over_as_with_null_check = true:warning
+
+# -------- Default access modifiers (encourage internal sealed) --------
+# CA1852 — types that can be sealed should be sealed
+dotnet_diagnostic.CA1852.severity = error
+
+# -------- Style enforcement on build --------
+dotnet_diagnostic.IDE0055.severity = warning
+
+# -------- Foward the cancellation token in async methods --------
+# CA2016 — Forward the 'CancellationToken' parameter to all methods that take one
+dotnet_diagnostic.CA2016.severity = warning
+
+# -------- StyleCop rules: line/brace formatting --------
+# SA1513 — ClosingBraceMustBeFollowedByBlankLine
+#   Forces blank line after closing brace of if/for/while/method/etc.
+dotnet_diagnostic.SA1513.severity = error
+
+# SA1508 — ClosingBracesMustNotBePrecededByBlankLine
+#   No blank line before final closing brace (no trailing newlines inside blocks).
+dotnet_diagnostic.SA1508.severity = error
+
+# SA1505 — OpeningBracesMustNotBeFollowedByBlankLine
+dotnet_diagnostic.SA1505.severity = error
+
+# SA1516 — ElementsMustBeSeparatedByBlankLine
+dotnet_diagnostic.SA1516.severity = warning
+
+# -------- StyleCop rules to disable (noisy / opinionated, not user policy) --------
+# SA1101 — PrefixLocalCallsWithThis  (we don't use this. prefix)
+dotnet_diagnostic.SA1101.severity = none
+# SA1633 — FileMustHaveHeader
+dotnet_diagnostic.SA1633.severity = none
+# SA1200 — UsingDirectivesMustBePlacedCorrectly  (we use file-scoped, top-of-file usings)
+dotnet_diagnostic.SA1200.severity = none
+# SA1309 — FieldNamesMustNotBeginWithUnderscore  (we use _camelCase for private fields)
+dotnet_diagnostic.SA1309.severity = none
+# SA1413 — UseTrailingCommasInMultiLineInitializers  (preference)
+dotnet_diagnostic.SA1413.severity = none
+# SA1402 — FileMayOnlyContainASingleType  (sometimes legitimate)
+dotnet_diagnostic.SA1402.severity = warning
+# SA1600 — ElementsMustBeDocumented  (not requiring doc on every internal type)
+dotnet_diagnostic.SA1600.severity = none
+# SA1601 — PartialElementsMustBeDocumented
+dotnet_diagnostic.SA1601.severity = none
+# SA1602 — EnumerationItemsMustBeDocumented
+dotnet_diagnostic.SA1602.severity = none
+
+# -------- CA rules to disable (URI-as-string: intentional for scraped hrefs + EF string columns) --------
+# CA1056 — URI properties should not be strings
+dotnet_diagnostic.CA1056.severity = none
+# CA1054 — URI parameters should not be strings
+dotnet_diagnostic.CA1054.severity = none
+# CA2234 — Pass System.Uri objects instead of strings
+dotnet_diagnostic.CA2234.severity = none
+# CA1724 — Benny-Scraper.Models.Configuration conflicts with System.Configuration.
+#   Renaming ripples through IConfigurationRepository/ConfigurationRepository, DI registrations,
+#   and appsettings.json binding; out of scope for this pass.
+dotnet_diagnostic.CA1724.severity = none
+# CA1303 — Do not pass literals as localized parameters. This app has no localization
+#   and never will; forcing every Console.Write*/exception message through a resource
+#   table is pure noise here.
+dotnet_diagnostic.CA1303.severity = none
+# CA1031 — Do not catch general exception types. Many of these are intentional
+#   best-effort cleanup/dispose paths (driver teardown, temp-file deletion) where any
+#   failure should be logged and swallowed, not rethrown as a specific type.
+dotnet_diagnostic.CA1031.severity = none
+# CA1308 — Normalize strings to uppercase. This rule exists for security-sensitive
+#   string comparisons; most hits here are cosmetic casing (file extensions, display
+#   text) where uppercasing would be actively wrong (e.g. ".CBZ" instead of ".cbz").
+dotnet_diagnostic.CA1308.severity = none
+
+dotnet_diagnostic.CA1862.severity = none
+
+# -------- Security analyzer category --------
+dotnet_analyzer_diagnostic.category-Security.severity = error
+
+# -------- Naming conventions --------
+# Interfaces start with I
+dotnet_naming_rule.interfaces_start_with_i.severity = error
+dotnet_naming_rule.interfaces_start_with_i.symbols = interfaces
+dotnet_naming_rule.interfaces_start_with_i.style = i_prefix
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.i_prefix.required_prefix = I
+dotnet_naming_style.i_prefix.capitalization = pascal_case
+
+# Private fields = _camelCase
+dotnet_naming_rule.private_fields_underscore_camel.severity = warning
+dotnet_naming_rule.private_fields_underscore_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore_camel.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# Exclude Tests
+[Benny-Scraper.Tests/**.cs]
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1515.severity = none
+
+# Exclude Program.cs
+[Benny-Scraper/Program.cs]
+dotnet_diagnostic.CA2007.severity = none
+
+# Exclude Migrations
+[Benny-Scraper.DataAccess/Migrations/**.cs]
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.SA1122.severity = none
+dotnet_diagnostic.SA1300.severity = none
+dotnet_diagnostic.CA1825.severity = none
+
+# EF Core supplies the ModelBuilder used by this framework override.
+[Benny-Scraper.DataAccess/Data/Database.cs]
+dotnet_diagnostic.CA1062.severity = none
+
+
+# ===================================================================
+# Scraper strategies: Strategy + Initializer pair is a deliberate one-file-per-site
+# convention (see CLAUDE.md "Strategy + Initializer pair") — the XyzInitializer lives
+# in an `Impl` namespace inside the same file as its XyzStrategy. SA1402 would otherwise
+# force splitting that intentional pairing apart.
+# ===================================================================
+[Benny-Scraper.BusinessLogic/Scrapers/Strategy/*.cs]
+dotnet_diagnostic.SA1402.severity = none
+dotnet_diagnostic.SA1403.severity = none
+dotnet_diagnostic.SA1201.severity = none
+
+# ReSharper: "Expression is always true/false according to nullable reference types'
+# annotations" — false positive. HtmlAgilityPack 1.12.4 ships no net8.0+ lib asset, so
+# this net10.0 project actually references lib/net7.0/HtmlAgilityPack.dll, whose
+# SelectSingleNode/SelectNodes are declared non-nullable (the `?` only exists under
+# #if NET8_0_OR_GREATER in source, which never got compiled into a shipped binary).
+# The methods still return null at runtime on no match; keep the null checks.
+resharper_condition_is_always_true_or_false_according_to_nullable_api_contract_highlighting = none
+
+# ===================================================================
+# CommandLineOptions: properties are populated by reflection by the
+# CommandLine library (CommandLineParser), never via a constructor or
+# object initializer, so `required`/nullable annotations don't fit the
+# way this type is actually instantiated.
+# ===================================================================
+[Benny-Scraper/CommandlineOptions.cs]
+dotnet_diagnostic.CS8618.severity = none
+
+# ===================================================================
+# XML / Project files
+# ===================================================================
+[*.{xml,csproj,props,targets,xaml,config}]
+indent_size = 2
+tab_width = 2
+
+# ===================================================================
+# JSON / YAML
+# ===================================================================
+[*.{json,yml,yaml}]
+indent_size = 2
+
+# ===================================================================
+# Markdown
+# ===================================================================
+[*.md]
+trim_trailing_whitespace = false

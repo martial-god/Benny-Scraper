@@ -1,137 +1,247 @@
-﻿using Benny_Scraper.BusinessLogic.Factory.Interfaces;
+using System.Collections.Concurrent;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
-using System.Collections.Concurrent;
-using WebDriverManager.DriverConfigs.Impl;
 
-namespace Benny_Scraper.BusinessLogic.Factory
+namespace BennyScraper.BusinessLogic.Factory;
+
+internal enum Browser
 {
-    public enum Broswer
+    Chrome
+}
+
+internal sealed class DriverFactory : IDriverFactory
+{
+    private readonly ConcurrentDictionary<int, IWebDriver> _drivers = new(); // thread-safe version of the dictionary, no need to worry about multiple threads making changes
+    private int _counter;
+
+    /// <summary>
+    /// Creates a Chrome WebDriver instance, navigates it to the given URL, registers it in the internal driver
+    /// dictionary keyed by an auto-incrementing id, and returns it.
+    /// </summary>
+    /// <param name="url">The URL the driver should navigate to immediately after creation.</param>
+    /// <param name="browser">The browser to launch, as the underlying integer value of the <see cref="Browser"/> enum. Only <see cref="Browser.Chrome"/> (0) is currently supported.</param>
+    /// <param name="isHeadless">true to run Chrome without a visible window; otherwise, false.</param>
+    /// <returns>The created <see cref="IWebDriver"/> instance.</returns>
+    /// <exception cref="ArgumentException">The browser parameter must be 0 (Chrome).</exception>
+    public IWebDriver CreateDriver(string url, int browser, bool isHeadless)
     {
-        Chrome,
-        Firefox,
-        Edge,
-        IE
+        switch (browser)
+        {
+            case (int)Browser.Chrome:
+                ChromeDriverService? chromeDriverService = null;
+                ChromeDriver driver;
+                try
+                {
+                    chromeDriverService = ChromeDriverService.CreateDefaultService(); // needs to be first in order to have the driver ready when called asycnhronously
+                    chromeDriverService.HideCommandPromptWindow = true; // hides command prompt window https://stackoverflow.com/questions/53218843/stop-chromedriver-console-window-from-appearing-selenium-c-sharp
+                    var chromeOptions = new ChromeOptions();
+                    chromeOptions.AddArguments("--no-sandbox", "--disable-web-security", "--disable-gpu", "--hide-scrollbars", "window-size=1920,1080");
+
+                    if (isHeadless)
+                    {
+                        chromeOptions.AddArgument("headless");
+                    }
+
+                    try
+                    {
+                        driver = new ChromeDriver(chromeDriverService, chromeOptions);
+                    }
+                    catch (WebDriverException ex) when (ex.Message.Contains("ChromeDriver only supports Chrome version", StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            "Chrome browser version mismatch detected.\n" +
+                            "Please update Google Chrome to the latest version:\n" +
+                            "  1. Open Chrome\n" +
+                            "  2. Click the menu (three dots) → Help → About Google Chrome\n" +
+                            "  3. Chrome will automatically update\n" +
+                            "  4. Restart Chrome, then run this application again.\n\n" +
+                            "The application will now exit.",
+                            ex);
+                    }
+
+                    chromeDriverService = null; // Ownership transferred to driver; ChromeDriver disposes its service internally.
+                }
+                finally
+                {
+                    chromeDriverService?.Dispose();
+                }
+
+                var driverId = Interlocked.Increment(ref _counter);
+                _drivers[driverId] = driver;
+                try
+                {
+                    driver.Url = url;
+                }
+                catch
+                {
+                    DisposeDriverById(driverId);
+                    throw;
+                }
+
+                return driver;
+
+            default:
+                // throwing resolves error since everything needs to return the correct type
+                throw new ArgumentException($"{browser} is not a valid value.");
+        }
     }
 
-    public class DriverFactory : IDriverFactory
+    /// <summary>
+    /// Creates a Chrome WebDriver instance asynchronously, navigates it to the given URL, and registers it in the
+    /// thread-safe <see cref="ConcurrentDictionary{TKey, TValue}"/> that contains all drivers.
+    /// </summary>
+    /// <param name="url">The URL the driver should navigate to immediately after creation.</param>
+    /// <param name="browser">The browser to launch, as the underlying integer value of the <see cref="Browser"/> enum. Only <see cref="Browser.Chrome"/> (0) is currently supported.</param>
+    /// <param name="isHeadless">true to run Chrome without a visible window; otherwise, false.</param>
+    /// <returns>A task that resolves to the created <see cref="IWebDriver"/> instance.</returns>
+    public async Task<IWebDriver> CreateDriverAsync(string url, int browser = 0, bool isHeadless = false)
     {
-        private ConcurrentDictionary<int, IWebDriver> _drivers; // thread-safe version of the dictionary, no need to worry about multiple threads making changes
-        private int _counter;
-
-
-        public DriverFactory()
+        switch (browser)
         {
-            _drivers = new ConcurrentDictionary<int, IWebDriver>();
-            _counter = 0;
-        }
-
-        /// <summary>
-        /// Creates a driver and adds each driver to a dictonry of <int, IWebDriver><
-        /// </summary>
-        /// <param name="browser">a positive integer</param>
-        /// <param name="isHeadless"></param>
-        /// <param name="url"></param>
-        /// <returns></returns>
-        /// <exception cref="ArgumentException"></exception>
-        public IWebDriver CreateDriver(string url, int browser, bool isHeadless)
-        {
-            switch (browser)
-            {
-                case (int)Broswer.Chrome:
-                    var chromeDriverService = ChromeDriverService.CreateDefaultService(); // needs to be first in order to have the driver ready when called asycnhronously
-                    chromeDriverService.HideCommandPromptWindow = true; // hides command prompt window https://stackoverflow.com/questions/53218843/stop-chromedriver-console-window-from-appearing-selenium-c-sharp
-                    new WebDriverManager.DriverManager().SetUpDriver(new ChromeConfig()); // should install a new chromedriver if there is an update
-                    var chromeOptions = new ChromeOptions();
-                    chromeOptions.AddArguments("--no-sandbox", "--disable-web-security", "--disable-gpu", "--hide-scrollbars", "window-size=1920,1080");
-
-                    if (isHeadless)
-                        chromeOptions.AddArgument("headless");
-                    IWebDriver driver = new ChromeDriver(chromeDriverService, chromeOptions);
-                    driver.Url = url;
-                    _drivers[_counter] = driver;
-                    _counter++;
-                    return driver;
-
-
-                default:
-                    // throwing resolves error since everything needs to return the correct type
-                    throw new ArgumentException($"{browser} is not a valid value.");
-            }
-        }
-
-        /// <summary>
-        /// Creates drivers and add them to a threadsafe ConcurrentDictionary that contains all drivers
-        /// </summary>
-        /// <param name="browser"></param>
-        /// <param name="isHeadless"></param>
-        /// <param name="url"></param>
-        /// <returns></returns>
-        public async Task<IWebDriver> CreateDriverAsync(string url, int browser, bool isHeadless)
-        {
-            switch (browser)
-            {
-                case (int)Broswer.Chrome:
-                    var chromeDriverService = ChromeDriverService.CreateDefaultService();
+            case (int)Browser.Chrome:
+                ChromeDriverService? chromeDriverService = null;
+                ChromeDriver driver;
+                try
+                {
+                    chromeDriverService = ChromeDriverService.CreateDefaultService();
                     chromeDriverService.HideCommandPromptWindow = true;
-                    new WebDriverManager.DriverManager().SetUpDriver(new ChromeConfig());
                     var chromeOptions = new ChromeOptions();
                     chromeOptions.AddArguments("--no-sandbox", "--disable-web-security", "--disable-gpu", "--hide-scrollbars", "window-size=1920,1080");
 
                     if (isHeadless)
+                    {
                         chromeOptions.AddArgument("headless");
+                    }
 
-                    // waits for driver to be created to prevent creating multiple on the same instance
-                    IWebDriver driver = await Task.Run(() => new ChromeDriver(chromeDriverService, chromeOptions));
+                    try
+                    {
+                        driver = await Task.Run(() => new ChromeDriver(chromeDriverService, chromeOptions)).ConfigureAwait(false);
+                    }
+                    catch (WebDriverException ex) when (ex.Message.Contains("ChromeDriver only supports Chrome version", StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            "Chrome browser version mismatch detected.\n" +
+                            "Please update Google Chrome to the latest version:\n" +
+                            "  1. Open Chrome\n" +
+                            "  2. Click the menu (three dots) → Help → About Google Chrome\n" +
+                            "  3. Chrome will automatically update\n" +
+                            "  4. Restart Chrome, then run this application again.\n\n" +
+                            "The application will now exit.",
+                            ex);
+                    }
+
+                    chromeDriverService = null; // Ownership transferred to driver; ChromeDriver disposes its service internally.
+                }
+                finally
+                {
+                    if (chromeDriverService != null)
+                    {
+                        await chromeDriverService.DisposeAsync().ConfigureAwait(false);
+                    }
+                }
+
+                int id = Interlocked.Increment(ref _counter);
+                _drivers.TryAdd(id, driver);
+                try
+                {
                     driver.Url = url;
+                }
+                catch
+                {
+                    DisposeDriverById(id);
+                    throw;
+                }
 
-                    int id = Interlocked.Increment(ref _counter); // increment the counter in a thread-safe way atomatically
-                    _drivers.TryAdd(id, driver); // thread safe way off adding to ConcurrentDictionary
+                return driver;
 
-                    return driver;
+            default:
+                throw new ArgumentException($"{browser} is not a valid value.");
+        }
+    }
 
-                default:
-                    throw new ArgumentException($"{browser} is not a valid value.");
-            }
+    /// <summary>
+    /// Gets a driver using an id.
+    /// </summary>
+    /// <param name="id">a positive integer.</param>
+    /// <returns>The <see cref="IWebDriver"/> instance registered under the given id.</returns>
+    public IWebDriver GetDriverById(int id) => _drivers[id];
+
+    /// <summary>
+    /// Gets dictionary that contains all drivers instances created. See <see cref="DisposeDriverById(int)"/>.
+    /// </summary>
+    /// <returns>The <see cref="ConcurrentDictionary{TKey, TValue}"/> of all currently tracked driver instances, keyed by id.</returns>
+    public ConcurrentDictionary<int, IWebDriver> GetAllDrivers() => _drivers;
+
+    public void DisposeDriver(IWebDriver driver)
+    {
+        var driverId = _drivers
+            .Where(driverEntry => ReferenceEquals(driverEntry.Value, driver))
+            .Select(driverEntry => (int?)driverEntry.Key)
+            .FirstOrDefault();
+
+        if (driverId.HasValue)
+        {
+            DisposeDriverById(driverId.Value);
+            return;
         }
 
-        /// <summary>
-        /// Gets a driver using an id
-        /// </summary>
-        /// <param name="id">a positive integer</param>
-        /// <returns></returns>
-        public IWebDriver GetDriverById(int id)
-        {
-            return _drivers[id];
-        }
+        QuitAndDisposeDriver(driver);
+    }
 
-        /// <summary>
-        /// Gets dictionary that contains all drivers instances created. See <see cref="DisposeDriverById(int)"/>
-        /// </summary>
-        /// <returns></returns>
-        public ConcurrentDictionary<int, IWebDriver> GetAllDrivers()
+    public void DisposeDriverById(int id)
+    {
+        IWebDriver? driver = null;
+        try
         {
-            return _drivers;
-        }
-
-        public void DisposeDriverById(int id)
-        {
-            var driver = _drivers[id];
-            driver.Dispose();
-            driver.Quit();
-            _drivers.TryRemove(id, out var value);
-        }
-
-
-        public void DisposeAllDrivers()
-        {
-            foreach (IWebDriver driver in _drivers.Values)
+            if (_drivers.TryRemove(id, out driver))
             {
-                driver.Dispose(); // Clears up unmanaged resources.
-                driver.Quit(); // will also call Dispose
+                QuitAndDisposeDriver(driver);
+                driver = null;
             }
+        }
+        finally
+        {
+            driver?.Dispose();
+        }
+    }
 
-            _drivers.Clear();
+    public void DisposeAllDrivers()
+    {
+        foreach (var driverId in _drivers.Keys)
+        {
+            IWebDriver? driver = null;
+            try
+            {
+                if (_drivers.TryRemove(driverId, out driver))
+                {
+                    QuitAndDisposeDriver(driver);
+                    driver = null;
+                }
+            }
+            finally
+            {
+                driver?.Dispose();
+            }
+        }
+    }
+
+    private static void QuitAndDisposeDriver(IWebDriver driver)
+    {
+        try
+        {
+            driver.Quit();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            driver.Dispose();
+        }
+        catch
+        {
         }
     }
 }

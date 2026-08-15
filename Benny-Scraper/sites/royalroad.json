@@ -1,0 +1,52 @@
+{
+  "siteName": "Royalroad",
+  "urlPattern": "royalroad.com",
+  "isActive": true,
+  "strategyName": "royalroad",
+  "hasPagination": false,
+  "paginationType": null,
+  "paginationQueryPartial": null,
+  "hasNovelInfoOnDifferentPage": false,
+  "chaptersPerPage": 0,
+  "pageOffSet": 0,
+  "completedStatus": "completed",
+  "hasImagesForChapterContent": false,
+  "hasPremiumChapters": false,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": false,
+  "chapterContentRequiresSelenium": false,
+  "cloudflareProtection": "none",
+  "chapterSortOrder": "ascending",
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//tr[@class='chapter-row']/td[1]/a",
+      "chapterTitleInToc": null,
+      "premiumChapterSelectors": {
+        "premiumCost": null,
+        "premiumIndicator": null
+      },
+      "tableOfContentsPaginationListItems": null,
+      "lastTableOfContentsPage": null,
+      "lastTableOfContentPageNumberAttribute": null,
+      "latestChapterLink": "",
+      "novelStatus": "//div[@class='fiction-info']//span[contains(@class, 'bg-blue-hoki')][2]/text()",
+      "novelAuthor": "//h4/span[2]/a/text()",
+      "novelAlternativeNames": null,
+      "novelGenres": "//span[@class='tags']//a/text()",
+      "novelRating": null,
+      "novelTitle": "//h1/text()",
+      "totalRatings": null,
+      "novelDescription": "//div[@class='description']//p/text()",
+      "novelThumbnailUrl": "//div[@class='cover-art-container']/img",
+      "thumbnailUrlAttribute": "src"
+    },
+    "userCurrencyBalances": {},
+    "chapterTitle": "//h1/text()",
+    "chapterContent": "//div[contains(@class, 'author-note')]//p | //div[@class='chapter-inner chapter-content']//p | //div[@class='chapter-inner chapter-content']//div[contains(@style, 'margin')]",
+    "alternativeChapterContent": null,
+    "chapterContentImageUrlAttribute": null,
+    "nextChapterButton": "//a[contains(@class, 'btn-primary') and contains(@href, '/chapter/')]"
+  },
+  "premiumInfo": null,
+  "minimumChapterParagraphThreshold": null
+}

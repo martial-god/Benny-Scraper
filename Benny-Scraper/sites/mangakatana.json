@@ -1,0 +1,42 @@
+{
+  "siteName": "mangakatana",
+  "urlPattern": "mangakatana.com",
+  "isActive": true,
+  "strategyName": "mangakatana",
+  "hasPagination": false,
+  "paginationType": null,
+  "paginationQueryPartial": null,
+  "hasNovelInfoOnDifferentPage": false,
+  "chaptersPerPage": -1,
+  "pageOffSet": 0,
+  "completedStatus": "completed",
+  "hasImagesForChapterContent": true,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": false,
+  "chapterContentRequiresSelenium": true,
+  "cloudflareProtection": null,
+  "chapterSortOrder": "Descending",
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//*[@id='single_book']/div[@class='chapters']/table/tbody//tr/td/div/a",
+      "tableOfContentsPaginationListItems": null,
+      "lastTableOfContentsPage": null,
+      "lastTableOfContentPageNumberAttribute": null,
+      "latestChapterLink": "//*[@id='single_book']/div[@class='chapters']/table/tbody/tr[1]/td[1]/div/a",
+      "novelStatus": "//*[@id='single_book']/div[2]/div/ul/li[4]/div[2]",
+      "novelAuthor": "//*[@id='single_book']/div[2]/div/ul/li[2]/div[2]/a/text()",
+      "novelAlternativeNames": "//*[@id='single_book']/div[2]/div/ul/li[1]/div[2]/div/text()",
+      "novelGenres": "//*[@id='single_book']/div[2]/div/ul/li[3]/div[2]/div/a/text()",
+      "novelRating": null,
+      "novelTitle": "//*[@id='single_book']/div[2]/div/h1/text()",
+      "totalRatings": null,
+      "novelDescription": "//*[@id='single_book']/div[3]/p",
+      "novelThumbnailUrl": "//*[@id='single_book']/div[1]/div/img",
+      "thumbnailUrlAttribute": "src"
+    },
+    "chapterTitle": "//*[@id='breadcrumb_wrap']/ol/li[3]/span",
+    "chapterContent": "//*[@id='imgs']//img[@data-src]",
+    "alternativeChapterContent": null,
+    "chapterContentImageUrlAttribute": "data-src"
+  }
+}

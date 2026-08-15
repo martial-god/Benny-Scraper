@@ -1,0 +1,42 @@
+{
+  "siteName": "noveldrama",
+  "urlPattern": "noveldrama.com",
+  "isActive": true,
+  "strategyName": "noveldrama",
+  "hasPagination": true,
+  "paginationType": "?page={0}",
+  "paginationQueryPartial": "?page=",
+  "hasNovelInfoOnDifferentPage": false,
+  "chaptersPerPage": 36,
+  "pageOffSet": 0,
+  "completedStatus": "completed",
+  "hasImagesForChapterContent": false,
+  "entireSiteRequiresSelenium": false,
+  "tableOfContentsRequiresSelenium": false,
+  "chapterContentRequiresSelenium": false,
+  "cloudflareProtection": null,
+  "chapterSortOrder": "Ascending",
+  "selectors": {
+    "tableOfContents": {
+      "chapterLinks": "//*[@id='chapter-list']//a/@href",
+      "tableOfContentsPaginationListItems": "//div[@class='pagination-container']/ul/li",
+      "lastTableOfContentsPage": "//*[@id='chapters']/div[2]/div[2]/div/ul/li[last()]/a/@href",
+      "lastTableOfContentPageNumberAttribute": null,
+      "latestChapterLink": "/html/body/section[2]/div/div[1]/div[1]/div/div/div[2]/table/tbody/tr[6]/td[2]/a",
+      "novelStatus": "/html/body/section[2]/div/div[1]/div[1]/div/div/div[2]/table/tbody/tr[5]/td[2]",
+      "novelAuthor": "/html/body/section[2]/div/div[1]/div[1]/div/div/div[2]/table/tbody/tr[1]/td[2]/a/text()",
+      "novelAlternativeNames": null,
+      "novelGenres": "/html/body/section[2]/div/div[1]/div[1]/div/div/div[2]/table/tbody/tr[2]/td[2]/a/text()",
+      "novelRating": null,
+      "novelTitle": "/html/body/section[2]/div/div[1]/div[1]/div/div/div[2]/h1",
+      "totalRatings": null,
+      "novelDescription": "//div[@id='bookinfo']//p | //div[@id='bookinfo']//h2",
+      "novelThumbnailUrl": "/html/body/section[2]/div/div[1]/div[1]/div/div/div[1]/div/div/img",
+      "thumbnailUrlAttribute": "data-src"
+    },
+    "chapterTitle": "/html/body/section[2]/div/div[1]/div/div/h2",
+    "chapterContent": "//div[contains(@class, 'readerbody-wg')]//p",
+    "alternativeChapterContent": "//p",
+    "chapterContentImageUrlAttribute": null
+  }
+}

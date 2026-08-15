@@ -1,218 +1,102 @@
-﻿
-using Benny_Scraper.DataAccess.Data;
-using Benny_Scraper.DataAccess.Repository.IRepository;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 using System.Linq.Expressions;
+using BennyScraper.DataAccess.Data;
+using BennyScraper.DataAccess.Repository.IRepository;
+using Microsoft.EntityFrameworkCore;
 
-namespace Benny_Scraper.DataAccess.Repository
+namespace BennyScraper.DataAccess.Repository;
+
+internal class Repository<T> : IRepository<T>
+    where T : class
 {
-    public class Repository<GenericDbObject> : IRepository<GenericDbObject> where GenericDbObject : class
+    private readonly DbSet<T> _dbSet;
+
+    // adds the database context
+    private readonly Database _db;
+
+    protected Repository(Database db)
     {
-        // adds the database context
-        private readonly Database _db;
-        internal DbSet<GenericDbObject> _dbSet;
+        _db = db;
 
-        public Repository(Database db)
+        // make it so we don't have to keep using _db.Set.Add() or other methods
+        this._dbSet = _db.Set<T>(); // set the dbset to the db set of the generic object. This is how we can use the generic repository
+    }
+
+    public async Task AddAsync(T entity) => await _dbSet.AddAsync(entity).ConfigureAwait(false);
+
+    /// <summary>
+    /// Gets the object by id.
+    /// </summary>
+    /// <param name="id">The id of the object.</param>
+    /// <returns>The object with the specified id.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if no object with the specified id is found.</exception>
+    public async Task<T> GetByIdAsync(Guid id) =>
+        await _dbSet.FindAsync(id).ConfigureAwait(false)
+        ?? throw new InvalidOperationException($"No {typeof(T).Name} found with id {id}.");
+
+    /// <summary>
+    /// Gets all objects of type T, optionally filtered, ordered, and including related properties.
+    /// </summary>
+    /// <param name="filter">Ex: filter: obj => obj.IsActive.</param>
+    /// <param name="orderBy">Ex: orderBy: q => q.OrderBy(obj => obj.Name).</param>
+    /// <param name="includeProperties">Comma-separated list of related properties to include.</param>
+    /// <returns>A list of objects of type T.</returns>
+    public async Task<IEnumerable<T>> GetAllAsync(
+        Expression<Func<T, bool>>? filter = null,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        string? includeProperties = null)
+    {
+        IQueryable<T> query = _dbSet;
+        if (filter != null)
         {
-            _db = db;
-            // make it so we don't have to keep using _db.Set.Add() or other methods
-            this._dbSet = _db.Set<GenericDbObject>(); // set the dbset to the db set of the generic object. This is how we can use the generic repository
-        }
-
-        public void Add(GenericDbObject entity)
-        {
-            _dbSet.Add(entity);
-        }
-
-        public void AddRange(IEnumerable<GenericDbObject> entities)
-        {
-            _dbSet.AddRange(entities);
-        }
-
-        public async Task AddAsync(GenericDbObject entity, CancellationToken cancellation = default)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            await _dbSet.AddAsync(entity);
-        }
-
-        public async Task AddRangeAsync(IEnumerable<GenericDbObject> entities, CancellationToken cancellation = default)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            await _dbSet.AddRangeAsync(entities);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="id">A non empty guid</param>
-        /// <returns></returns>
-        public GenericDbObject GetById(Guid id)
-        {
-            try
-            {
-                return _dbSet.Find(new object[] { id });
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="id">A non-empty guid</param>
-        /// <returns></returns>
-        public async Task<GenericDbObject> GetByIdAsync(Guid id, CancellationToken cancellation = default)
-        {
-            try
-            {
-                cancellation.ThrowIfCancellationRequested();
-                return await _dbSet.FindAsync(new object[] { id }, cancellation);
-
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
-        /// <param name="orderBy">Ex: orderBy: o => o.OrderByDescending(obj => obj.DateCreated)</param>
-        /// <param name="includedProperties"></param>
-        /// <returns></returns>
-        public IEnumerable<GenericDbObject> GetAll(Expression<Func<GenericDbObject, bool>>? filter = null,
-            Func<IQueryable<GenericDbObject>, IOrderedQueryable<GenericDbObject>>? orderBy = null,
-            string? includedProperties = null)
-        {
-            IQueryable<GenericDbObject> query = _dbSet;
-            if (filter != null)
-            {
-                query = query.Where(filter);
-            }
-
-            if (orderBy != null)
-            {
-                query = orderBy(query);
-            }
-
-            if (includedProperties != null)
-            {
-                // Will not break if there are commas seperating properties, including ,,,
-                foreach (var includedProp in includedProperties.Split(new char[] {','}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    query = query.Include(includedProp);
-                }
-            }
-            return query.ToList();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
-        /// <param name="orderBy"></param>
-        /// <param name="includeProperties"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public async Task<IEnumerable<GenericDbObject>> GetAllAsync(Expression<Func<GenericDbObject, bool>>? filter = null,
-            Func<IQueryable<GenericDbObject>, IOrderedQueryable<GenericDbObject>>? orderBy = null,
-            string? includeProperties = null,
-            CancellationToken cancellationToken = default
-            )
-        {
-            IQueryable<GenericDbObject> query = _dbSet;
-            if (filter != null)
-            {
-                query = query.Where(filter);
-            }
-
-            if (orderBy != null)
-            {
-                query = orderBy(query);
-            }
-
-            if (includeProperties != null)
-            {
-                // Will not break if there are commas seperating properties, including ,,,
-                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    query = query.Include(includeProp); // Include property so that our js files don't break when trying to get data from GetAll() from the API get
-                }
-            }
-            cancellationToken.ThrowIfCancellationRequested();
-            return await query.ToListAsync(cancellationToken);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
-        /// <param name="includeProperties"></param>
-        /// <returns></returns>
-        public GenericDbObject GetFirstOrDefault(Expression<Func<GenericDbObject, bool>> filter, string? includeProperties = null)
-        {
-            IQueryable<GenericDbObject> query = _dbSet;
             query = query.Where(filter);
-            if (includeProperties != null)
-            {
-                // Will not brak is there are commas seperating properties, including ,,,
-                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    query = query.Include(includeProp); // Include property so that our js files don't break when trying to get data from GetAll() from the API get
-                }
-            }
-            return query.FirstOrDefault(); // might return null
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="filter">Ex: filter: obj => obj.IsActive,</param>
-        /// <param name="includeProperties"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public Task<GenericDbObject> GetFirstOrDefaultAsync(Expression<Func<GenericDbObject, bool>> filter,
-            string? includeProperties = null,
-            CancellationToken cancellationToken = default)
+        if (orderBy != null)
         {
-            IQueryable<GenericDbObject> query = _dbSet;
-            query = query.Where(filter);
-            if (includeProperties != null)
-            {
-                // Will not brak is there are commas seperating properties, including ,,,
-                foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    query = query.Include(includeProp); // Include property so that our js files don't break when trying to get data from GetAll() from the API get
-                }
-            }
-
-            cancellationToken.ThrowIfCancellationRequested(); // will cancell this task
-            return query.FirstOrDefaultAsync(cancellationToken); // might return null
+            query = orderBy(query);
         }
 
-        public void Remove(GenericDbObject entity)
+        if (includeProperties == null)
         {
-            _dbSet.Remove(entity);
-        }        
-
-        public void RemoveRange(IEnumerable<GenericDbObject> entity)
-        {
-            _dbSet.RemoveRange(entity);
+            return await query.ToListAsync().ConfigureAwait(false);
         }
 
-        public void RemoveById(Guid id)
+        // Will not break if there are commas seperating properties, including ,,,
+        query = includeProperties.Split([','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Aggregate(query, (current, includeProp) => current.Include(includeProp)); // Sames as ForEach, but more efficient and less code. For each property in the includeProperties string, we include it in the query.
+
+        return await query.ToListAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Gets the first object of type T that matches the specified filter, optionally including related properties.
+    /// </summary>
+    /// <param name="filter">Ex: filter: obj => obj.IsActive.</param>
+    /// <param name="includeProperties">Comma-separated list of related properties to include.</param>
+    /// <returns>The first object of type T that matches the filter, or null if no match is found.</returns>
+    public Task<T?> GetFirstOrDefaultAsync(
+        Expression<Func<T, bool>> filter,
+        string? includeProperties = null)
+    {
+        IQueryable<T> query = _dbSet;
+        query = query.Where(filter);
+        if (includeProperties != null)
         {
-            throw new NotImplementedException();
+            // Will not brak is there are commas seperating properties, including ,,,
+            query = includeProperties.Split([','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Aggregate(query, (current, includeProp) => current.Include(includeProp));
         }
 
-        public Task RemoveByIdAsync(Guid id, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }        
+        return query.FirstOrDefaultAsync(); // might return null
+    }
+
+    public void Remove(T entity)
+    {
+        _dbSet.Remove(entity);
+    }
+
+    public void RemoveRange(IEnumerable<T> entity)
+    {
+        _dbSet.RemoveRange(entity);
     }
 }

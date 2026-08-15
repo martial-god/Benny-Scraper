@@ -1,115 +1,98 @@
-﻿using System.Text;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy.Impl;
-using Benny_Scraper.Models;
+using System.Text;
+using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
+using BennyScraper.Models;
 using HtmlAgilityPack;
 
-namespace Benny_Scraper.BusinessLogic.Scrapers.Strategy
+namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
+
+internal sealed class MangaKakalotStrategy : ScraperStrategy
 {
-    /// <summary>
-    /// Strategy for https://mangakakalot.to/
-    /// </summary>
-    public class MangaKakalotInitializer : NovelDataInitializer
+    public override async Task<NovelDataBuffer> ScrapeAsync()
     {
-        public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
+        Logger.Info($"Getting novel data for {GetType().Name}");
+        SetBaseUri(ScraperData.SiteTableOfContents);
+        var (htmlDocument, uri) = await LoadHtmlAsync(ScraperData.SiteTableOfContents).ConfigureAwait(false);
+
+        try
         {
-            int.TryParse(scraperData.SiteTableOfContents?.Segments.Last().Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
-            StringBuilder queryBuilder = new StringBuilder(scraperData?.BaseUri?.ToString());
-            queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
-            queryBuilder.Append(novelId);
-            Uri uriQueryForChapterUrls = new Uri(queryBuilder.ToString());
-            var (htmlDocumentForChapterUrls, uri) = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls);
+            var novelDataBuffer = await BuildNovelDataAsync(htmlDocument).ConfigureAwait(false);
+            novelDataBuffer.NovelUrl = uri.ToString();
 
-            var attributesToFetch = new List<Attr>()
-            {
-                Attr.Title,
-                Attr.Author,
-                Attr.NovelStatus,
-                Attr.Genres,
-                Attr.AlternativeNames,
-                Attr.Description,
-                Attr.ThumbnailUrl,
-                Attr.ChapterUrls,
-                Attr.CurrentChapter
-            };
-
-            foreach (var attribute in attributesToFetch)
-            {
-                if (attribute == Attr.ChapterUrls)
-                {
-                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForChapterUrls, scraperData);
-                    if (novelDataBuffer.ChapterUrls.Any())
-                    {
-                        // chapters are in reverse order
-                        novelDataBuffer.ChapterUrls.Reverse();
-                        novelDataBuffer.ChapterUrls = novelDataBuffer.ChapterUrls.Select(partialUrl => new Uri(scraperData.BaseUri, partialUrl).ToString()).ToList();
-                        novelDataBuffer.FirstChapter = novelDataBuffer.ChapterUrls.First();
-                    }
-                }
-                else if (attribute == Attr.CurrentChapter)
-                {
-                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocumentForChapterUrls, scraperData);
-                    novelDataBuffer.CurrentChapterUrl = new Uri(scraperData.BaseUri, novelDataBuffer.CurrentChapterUrl).ToString();
-                }
-                else
-                {
-                    FetchContentByAttribute(attribute, novelDataBuffer, htmlDocument, scraperData);
-                }
-            }
+            return novelDataBuffer;
         }
-
+        catch (Exception e)
+        {
+            Logger.Error($"Error while getting novel data. {e}");
+            throw;
+        }
     }
 
-    public class MangaKakalotStrategy : ScraperStrategy
+    protected override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
     {
-        public override async Task<NovelDataBuffer> ScrapeAsync()
+        var novelDataBuffer = new NovelDataBuffer();
+        try
         {
-            Logger.Info($"Getting novel data for {this.GetType().Name}");
-            SetBaseUri(_scraperData.SiteTableOfContents);
-
-            var (htmlDocument, uri) = await LoadHtmlAsync(_scraperData.SiteTableOfContents);
-
-            try
-            {
-                NovelDataBuffer novelDataBuffer = await BuildNovelDataAsync(htmlDocument);
-                novelDataBuffer.NovelUrl = uri.ToString();
-
-                return novelDataBuffer;
-            }
-            catch (Exception e)
-            {
-                Logger.Error($"Error while getting novel data. {e}");
-                throw;
-            }
-        }
-
-        public override async Task<NovelDataBuffer> FetchNovelDataFromTableOfContentsAsync(HtmlDocument htmlDocument)
-        {
-            var novelDataBuffer = new NovelDataBuffer();
-            try
-            {
-                await Task.WhenAll(MangaKakalotInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, _scraperData, this));
-                return novelDataBuffer;
-            }
-            catch (Exception e)
-            {
-                Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
-            }
-
+            await Task.WhenAll(MangaKakalotInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this)).ConfigureAwait(false);
             return novelDataBuffer;
         }
-
-        public override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument)
+        catch (Exception e)
         {
-            throw new NotImplementedException();
+            Logger.Error($"Error occurred while getting novel data from table of contents. Error: {e}");
         }
 
-        #region Private Methods
-        private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
-        {
-            var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument);
-            return novelDataBuffer;
-        }
-        #endregion
+        return novelDataBuffer;
+    }
 
+    protected override NovelDataBuffer FetchNovelDataFromTableOfContents(HtmlDocument htmlDocument) => throw new NotImplementedException();
+
+    private async Task<NovelDataBuffer> BuildNovelDataAsync(HtmlDocument htmlDocument)
+    {
+        var novelDataBuffer = await FetchNovelDataFromTableOfContentsAsync(htmlDocument).ConfigureAwait(false);
+        return novelDataBuffer;
+    }
+}
+
+/// <summary>
+/// Strategy for https://mangakakalot.to/.
+/// </summary>
+internal abstract class MangaKakalotInitializer : NovelDataInitializer
+{
+    public static async Task FetchNovelContentAsync(NovelDataBuffer novelDataBuffer, HtmlDocument htmlDocument, ScraperData scraperData, ScraperStrategy scraperStrategy)
+    {
+        _ = int.TryParse(scraperData.SiteTableOfContents.Segments[^1].Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Last(), out int novelId);
+
+        var queryBuilder = new StringBuilder(scraperData.BaseUri.ToString());
+        queryBuilder.Append("ajax/manga/list-chapter-volume?id=");
+        queryBuilder.Append(novelId);
+        var uriQueryForChapterUrls = new Uri(queryBuilder.ToString());
+        var (htmlDocumentForChapterUrls, _) = await scraperStrategy.LoadHtmlPublicAsync(uriQueryForChapterUrls).ConfigureAwait(false);
+
+        var attributesToFetch = new List<Attr>()
+        {
+            Attr.Title,
+            Attr.Author,
+            Attr.NovelStatus,
+            Attr.Genres,
+            Attr.AlternativeNames,
+            Attr.Description,
+            Attr.ThumbnailUrl,
+            Attr.CurrentChapter
+        };
+
+        foreach (var attribute in attributesToFetch)
+        {
+            if (attribute == Attr.CurrentChapter)
+            {
+                await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocumentForChapterUrls, scraperData).ConfigureAwait(false);
+                novelDataBuffer.CurrentChapterUrl = new Uri(scraperData.BaseUri, novelDataBuffer.CurrentChapterUrl).ToString();
+            }
+            else
+            {
+                await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
+            }
+        }
+
+        scraperStrategy.ExtractChapterUrlsAndTitles(htmlDocumentForChapterUrls, novelDataBuffer, scraperData);
+        scraperStrategy.SortChapters(novelDataBuffer);
     }
 }

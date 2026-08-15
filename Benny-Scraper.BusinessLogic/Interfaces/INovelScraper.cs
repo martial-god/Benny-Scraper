@@ -1,11 +1,11 @@
-﻿using Benny_Scraper.BusinessLogic.Config;
-using Benny_Scraper.BusinessLogic.Scrapers.Strategy;
-using Benny_Scraper.Models;
+using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-namespace Benny_Scraper.BusinessLogic.Interfaces
+namespace BennyScraper.BusinessLogic.Interfaces;
+
+internal interface INovelScraper
 {
-    public interface INovelScraper
-    {
-        public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig);       
-    }
+    public ScraperStrategy? GetScraperStrategy(Uri novelTableOfContentsUri, SiteConfiguration siteConfig);
+
+    public IReadOnlyList<string> GetSupportedSites();
 }

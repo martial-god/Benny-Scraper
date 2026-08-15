@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Benny_Scraper.Models;
+using BennyScraper.Models;
 
-namespace Benny_Scraper.BusinessLogic.FileGenerators.Interfaces
+namespace BennyScraper.BusinessLogic.FileGenerators.Interfaces;
+
+internal interface IComicBookArchiveGenerator
 {
-    public interface IComicBookArchiveGenerator
-    {
-        public string CreateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration);
-        public string UpdateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration);
-    }
+    public string CreateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration, string filenameSuffix = "");
+
+    public string UpdateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration);
 }

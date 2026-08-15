@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+namespace BennyScraper.BusinessLogic.Config;
 
-namespace Benny_Scraper.BusinessLogic.Config
+internal sealed class SeleniumSettings
 {
-    public class SeleniumSettings
-    {
-        public int WebDriverTimeout { get; set; }
-    }
+    public int WebDriverTimeout { get; set; }
 }

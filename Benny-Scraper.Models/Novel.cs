@@ -1,92 +1,70 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Benny_Scraper.Models
+namespace BennyScraper.Models;
+
+public enum NovelFileType
 {
-    public class Novel
-    {
-        [Key]
-        public Guid Id { get; set; }
-        [Column("novel_id")]
-        public ICollection<Chapter> Chapters { get; set; }
+    Epub,
+    Pdf,
+    Cbz,
+    Cbr,
+    Cb7,
+    Cbt,
+    Cba
+}
 
-        [Required]
-        public string Title { get; set; }
+public class Novel
+{
+    [Key]
+    public Guid Id { get; init; }
 
-        public string? Author { get; set; }
+    [Column("novel_id")]
+    public ICollection<Chapter> Chapters { get; } = new List<Chapter>();
 
-        [StringLength(50)] public string SiteName { get; set; }
-        public string Url { get; set; }
-        public string? Genre { get; set; }
-        public string? Description { get; set; }
+    public ICollection<ChapterRange> ChapterRanges { get; } = new List<ChapterRange>();
 
-        public string FirstChapter { get; set; }
-        public string CurrentChapter { get; set; }
-        public string CurrentChapterUrl { get; set; }
-        public int? TotalChapters { get; set; }
-        public DateTime DateCreated { get; set; }
-        public DateTime DateLastModified { get; set; }
+    [Required]
+    public string Title { get; init; } = string.Empty;
 
-        //[DatabaseGenerated(DatabaseGeneratedOption.Computed)] // will need to create a constraint to default the value to 0
-        public bool LastChapter { get; set; }
-        public string? LastTableOfContentsUrl { get; set; }
-        public string? Status { get; set; }
+    public string? Author { get; init; }
 
-        public string? SaveLocation { get; set; }
-        public bool SavedFileIsSplit { get; set; }
-        public NovelFileType FileType { get; set; }
-    }
+    [StringLength(50)]
+    public string SiteName { get; init; } = string.Empty;
 
-    public enum NovelFileType
-    {
-        Epub,
-        Pdf,
-        Cbz,
-        Cbr,
-        Cb7,
-        Cbt,
-        Cba
-    }
+    public string Url { get; set; } = string.Empty;
+
+    public string? Genre { get; set; }
+
+    public string? Description { get; set; }
+
+    public string FirstChapter { get; set; } = string.Empty;
+
+    public string CurrentChapter { get; set; } = string.Empty;
+
+    public string CurrentChapterUrl { get; set; } = string.Empty;
+
+    public int TotalChapters { get; set; }
 
     /// <summary>
-    /// Class for storing pertinent data about a novel, usually things found on table of centents page like title description, genres, etc.
+    /// Gets a value indicating whether this novel has chapter ranges (partial download).
     /// </summary>
-    public class NovelDataBuffer : IDisposable
-    {
-        public NovelDataBuffer()
-        {
-            ChapterUrls = new List<string>();
-            Description = new List<string>();
-            Genres = new List<string>();
-            AlternativeNames = new List<string>();
-            NovelUrl = string.Empty;
-        }
+    public bool IsPartialDownload => ChapterRanges.Count > 0;
 
-        public string Title { get; set; }
-        public List<string> ChapterUrls { get; set; }
-        public string NovelStatus { get; set; }
-        public string LastTableOfContentsPageUrl { get; set; }
-        public bool IsNovelCompleted { get; set; }
-        public string ThumbnailUrl { get; set; }
-        public double Rating { get; set; }
-        public int TotalRatings { get; set; }
-        public List<string>? Description { get; set; }
-        public string Author { get; set; }
-        public List<string> Genres { get; set; }
-        public List<string> AlternativeNames { get; set; }
-        public string MostRecentChapterTitle { get; set; }
-        public string CurrentChapterUrl { get; set; }
-        public string FirstChapter { get; set; }
-        public byte[]? ThumbnailImage { get; set; }
-        public string NovelUrl { get; set; }
+    public DateTime DateCreated { get; init; }
 
-        public void Dispose()
-        {
-            ChapterUrls.Clear();
-            Description?.Clear();
-            Genres.Clear();
-            AlternativeNames.Clear();
-            ThumbnailImage = null;
-        }
-    }
+    public DateTime DateLastModified { get; set; }
+
+    // [DatabaseGenerated(DatabaseGeneratedOption.Computed)] // will need to create a constraint to default the value to 0
+    public bool LastChapter { get; set; }
+
+    public string? LastTableOfContentsUrl { get; set; }
+
+    public string? Status { get; set; }
+
+    public string? SaveLocation { get; set; }
+
+    public bool SavedFileIsSplit { get; set; }
+
+    public NovelFileType FileType { get; set; }
 }
