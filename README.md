@@ -10,7 +10,7 @@ MangaKatana is currently the best site to get mangas as the others scramble the 
 2. The url for the **Table of Contents** page for the novel is needed. 
 3. Click a novel and copy the url at the top ![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
 
- ![chrome_fWN6VSKOKQ](https://github.com/martial-god/PageShaver/assets/8980094/7f97cd67-772c-4f60-a3d9-856337c3a987)
+ ![chrome_fWN6VSKOKQ](https://github.com/martial-god/PageShaver/assets/8980094/7f97cd67-772c-4f60-a3d9-856337c3a987) 
 
 4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on the server response of the site. ![cmd_R4W67LuIR7](https://github.com/martial-god/PageShaver/assets/8980094/d682f498-54f3-40b1-ba6b-4998bd14b863)
 ### 
