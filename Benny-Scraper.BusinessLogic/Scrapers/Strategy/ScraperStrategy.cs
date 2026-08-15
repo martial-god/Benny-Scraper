@@ -554,6 +554,34 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             return -1;
         }
 
+        protected static Uri GetPaginatedTableOfContentsUri(
+            Uri tableOfContentsUri,
+            string paginationType,
+            int pageNumber)
+        {
+            var paginationValue = string.Format(CultureInfo.InvariantCulture, paginationType, pageNumber);
+            if (Uri.TryCreate(paginationValue, UriKind.Absolute, out var absolutePaginationUri))
+            {
+                return absolutePaginationUri;
+            }
+
+            var uriBuilder = new UriBuilder(tableOfContentsUri);
+            if (paginationValue.StartsWith('?'))
+            {
+                uriBuilder.Query = paginationValue[1..];
+                return uriBuilder.Uri;
+            }
+
+            if (paginationValue.StartsWith('&'))
+            {
+                uriBuilder.Query = uriBuilder.Query.TrimStart('?') + paginationValue;
+                return uriBuilder.Uri;
+            }
+
+            var tableOfContentsUrl = tableOfContentsUri.GetLeftPart(UriPartial.Query);
+            return new Uri(tableOfContentsUrl + paginationValue + tableOfContentsUri.Fragment);
+        }
+
         /// <summary>
         /// Decodes sites that use HTML encoded characters like class="&#x70;&#x61;&#x67;&#x69;&#x6E;&#x61;&#x74;&#x69;.
         /// </summary>
@@ -839,17 +867,20 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         {
             var chapterLinks = new List<ChapterLink>();
             var tocSelector = ScraperData.SiteConfig.Selectors.TableOfContents;
-            var baseTableOfContentUrl = tableOfContentUri + ScraperData.SiteConfig.PaginationType;
-            var lastTableOfContentsUrl = string.Format(CultureInfo.InvariantCulture, baseTableOfContentUrl, pageToStopAt);
+            var paginationType = ScraperData.SiteConfig.PaginationType ?? string.Empty;
+            var lastTableOfContentsUrl = GetPaginatedTableOfContentsUri(
+                tableOfContentUri,
+                paginationType,
+                pageToStopAt).ToString();
 
             for (var i = pageToStartAt; i <= pageToStopAt; i++)
             {
-                var pageUrl = string.Format(CultureInfo.InvariantCulture, baseTableOfContentUrl, i);
+                var pageUri = GetPaginatedTableOfContentsUri(tableOfContentUri, paginationType, i);
                 var isPageNew = i > pageToStartAt;
                 try
                 {
-                    Logger.Info($"Navigating to {pageUrl}");
-                    var (htmlDocument, _) = await LoadHtmlAsync(new Uri(pageUrl)).ConfigureAwait(false);
+                    Logger.Info($"Navigating to {pageUri}");
+                    var (htmlDocument, _) = await LoadHtmlAsync(pageUri).ConfigureAwait(false);
 
                     var linkNodes = htmlDocument.DocumentNode.SelectNodes(tocSelector?.ChapterLinks ?? string.Empty);
                     if (linkNodes == null)
@@ -907,7 +938,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 }
                 catch (HttpRequestException e)
                 {
-                    Logger.Error($"Error occurred while navigating to {pageUrl}. Error: {e}");
+                    Logger.Error($"Error occurred while navigating to {pageUri}. Error: {e}");
                 }
             }
 

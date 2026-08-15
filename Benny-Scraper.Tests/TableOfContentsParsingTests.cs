@@ -162,4 +162,14 @@ public class TableOfContentsParsingTests
 
         Assert.Equal(expectedPageNumber, pageNumber);
     }
+
+    [Fact]
+    public void PaginationReplacesExistingPageQueryAndKeepsFragment()
+    {
+        var tableOfContentsUri = new Uri("https://example.com/novel/test?page=1#chapters");
+
+        var pageUri = TestableStrategy.GetPaginatedUri(tableOfContentsUri, "?page={0}", 3);
+
+        Assert.Equal("https://example.com/novel/test?page=3#chapters", pageUri.ToString());
+    }
 }
