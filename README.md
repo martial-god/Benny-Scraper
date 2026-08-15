@@ -1,36 +1,82 @@
 # Benny-Scraper
-WebScraper that sets out make listening to webnovels easier for myself. Turned into project that let users store all chapters of their favorite Mangas or Webnovels offline in one file or multiple files. Creates Epubs of text-based novels, and PDF and most forms of comic book archives like Cbz. at this moment, the goal is to make adding other sites extremely easy using the `appsettings.json` in Benny-Scraper project.
+Benny-Scraper started as a way to make listening to web novels easier and grew into an application for storing manga and web novels offline. It creates EPUB files for text-based novels and PDF or comic book archives such as CBZ for image-based chapters. Site configurations are stored as individual JSON files in the [`sites`](Benny-Scraper/sites) directory, making compatible sites easier to add without writing a new scraper strategy.
 
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)
 
 MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
 
+## Requirements
+
+- A Benny-Scraper release for your operating system, or the .NET 10 SDK when building from source.
+- Google Chrome for sites and tests that require Selenium.
+- [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) is optional, but is required for some Cloudflare-protected sites. It runs as a separate application and is commonly installed using Docker.
+
+FlareSolverr can be enabled or disabled in `appsettings.json`:
+
+```json
+"FlareSolverrSettings": {
+  "Enabled": true,
+  "Url": "http://localhost:8191",
+  "MaxTimeout": 60000
+}
+```
+
+## Installation
+
+1. Download the appropriate archive from the [Releases](https://github.com/martial-god/Benny-Scraper/releases) page.
+2. Extract the archive to a permanent location.
+3. Run `Benny-Scraper.exe` on Windows or `Benny-Scraper` on Linux and macOS.
+4. Optionally add that directory to your PATH so you can run `benny-scraper` from any terminal.
+
+To build and run directly from source:
+
+```bash
+dotnet restore Benny-Scraper.sln
+dotnet run --project Benny-Scraper/Benny-Scraper.csproj -- --help
+```
+
 ## Getting Started
-1. Choose a site from the supported sites list by running `benny-scraper --sites`. (Make sure if on windows this is in the environment variables path. If on linux or macos, you can add it to your path using bash or zsh)
-2. The url for the **Table of Contents** page for the novel is needed. 
-3. Click a novel and copy the url at the top ![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
+1. Add the executable to your PATH, then run `benny-scraper --sites` to view the supported sites.
+2. Open a novel's **Table of Contents** page in your browser.
+3. Copy the URL from the browser address bar. ![chrome_044SXb9GQL](https://github.com/martial-god/PageShaver/assets/8980094/579ffd1b-f5fb-4a1a-9d30-b83a9c743ca2)
 
  ![chrome_fWN6VSKOKQ](https://github.com/martial-god/PageShaver/assets/8980094/7f97cd67-772c-4f60-a3d9-856337c3a987) 
 
-4. Paste copied url into application, then wait until message about epub has been generated. Speed depends on the server response of the site. ![cmd_R4W67LuIR7](https://github.com/martial-god/PageShaver/assets/8980094/d682f498-54f3-40b1-ba6b-4998bd14b863)
-### 
-Test with Wuxiaworld not logging in
+4. Pass the copied URL to Benny-Scraper and wait for the output file to be generated. Speed depends on the response time of the site. ![cmd_R4W67LuIR7](https://github.com/martial-god/PageShaver/assets/8980094/d682f498-54f3-40b1-ba6b-4998bd14b863)
+
+Test Wuxiaworld without logging in:
+
 `benny-scraper "https://www.wuxiaworld.com/novel/nine-star-hegemon" -B 1 -E 120` ![WindowsTerminal_FQjbrmWZ4P](https://github.com/user-attachments/assets/d149373a-975d-46a6-aa29-c558eaf084b1)
 
 ## Errors
-So long as the error isn't highlighted while the application is running, they are just Warnings or Errors. Nothing Fatal
+
+Warnings usually indicate a recoverable problem, such as a failed chapter or an unavailable selector. Benny-Scraper continues when possible and records failed chapters so they can be retried. Fatal errors stop the current operation. Check the log file for complete details.
+
+## Application Data
+
+- Downloads are saved to `Documents/BennyScrapedNovels` unless a different location is configured.
+- The database is stored under the operating system's application data directory in `BennyScraper/Database`.
+- Logs are stored under the operating system's application data directory in `BennyScraper/logs` and are retained for up to 14 days.
+
+Back up the database before installing a major update or clearing the database.
 
 ## Publishing for Linux, Mac, and Windows for standalone Builds
-`dotnet publish -c Release --self-contained true -r linux-x64 -o C:\Users\Mime\Downloads\BennyScraperLinux`         // the path can be whichever you want
 
-`dotnet publish -c Release --self-contained true -r osx-x64 -o /Users/myuser/Desktop/BennyScraperMac`   // add to Environment using bash or zsh
+Run these commands from the repository root. The output paths can be changed.
 
-`dotnet publish -c Release --self-contained true -r win-x64 -o C:\Users\Mime\Downloads\BennyScraper`
+```bash
+dotnet publish Benny-Scraper/Benny-Scraper.csproj -c Release --self-contained true -r linux-x64 -o publish/linux-x64
+dotnet publish Benny-Scraper/Benny-Scraper.csproj -c Release --self-contained true -r osx-x64 -o publish/osx-x64
+dotnet publish Benny-Scraper/Benny-Scraper.csproj -c Release --self-contained true -r osx-arm64 -o publish/osx-arm64
+dotnet publish Benny-Scraper/Benny-Scraper.csproj -c Release --self-contained true -r win-x64 -o publish/win-x64
+```
+
+On Linux or macOS, make the executable runnable with `chmod +x Benny-Scraper` and add its directory to your PATH if you want to run it from anywhere.
 
 ## USAGE AND OPTIONS
 * Make sure executable has been added to the environment variables
 ```bash
-benny-scraper [COMMAND] [OPTIONS] [--] [VALUES]
+benny-scraper [OPTIONS] [URL]
 ```
 
 ### Quick Start - Download a Novel (yt-dlp style)
@@ -52,10 +98,16 @@ benny-scraper "https://www.novelfull.com/my-novel.html" -B 25
 ```
 
 ### Adding a New Site
-Adding a new site should now be easier and can be done by someone with little to no coding experience, just some knowledge about `xpath`. The [sites](Benny-Scraper/sites) stores all the site configurations, running `benny-scraper --test-interactive` will guide you through the process.
-- Notes this doesn't work for all sites, for those create an issue, and I will add it.... eventually. For others protected by Cloudflare, try installing [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) as a proxy locally.
-1. Run `benny-scraper --test-interactive `
-2.
+Adding a new site requires little to no coding experience, but some knowledge of XPath is helpful. The [`sites`](Benny-Scraper/sites) directory stores each site configuration, and `--test-interactive` guides you through creating one.
+
+1. Run `benny-scraper --test-interactive "https://example.com/novel/example"` using a table-of-contents URL.
+2. Enter and validate each XPath when prompted.
+3. Review the generated JSON file in the `sites` directory.
+4. Run `benny-scraper --validate-config "SiteName"` and provide a live test URL.
+5. Test the configuration by downloading a novel.
+6. If the site works with `CommonStrategy`, only the new JSON file needs to be included in a pull request.
+
+This process will not work for every site. Sites with custom navigation or authentication may require a dedicated strategy. For Cloudflare-protected sites, try running FlareSolverr locally before testing the site.
 
 ### Command Reference
 ```bash
@@ -85,18 +137,25 @@ Database Management:
   -U, --update-all             Updates all non-completed novels in database with ones found online. Will only update ones
                                that were not modified the same day.
 
-  -i, --novel-info-by-id       Gets the detailed saved information about a novel, including save location
+  -i, --novel-info-by-id [GUID]    Gets detailed saved information about a novel, including its save location.
 
   --clear-database             Clear all novels and chapters from database.
 
-  -d, --delete-novel-by-id     Deletes a novel by its ID
+  -d, --delete-novel-by-id [GUID]  Deletes a novel by its ID.
 
-  -r, --recreate-epub-by-id    Recreates Epub novel using the [ID].
+  -r, --recreate-epub-by-id [GUID] Recreates an EPUB novel using its ID.
+
+  --retry-failed [GUID]        Retries missing or failed chapters for one saved novel. Combine with --with-login when
+                               retrying premium chapters that require an authenticated browser session.
+
+  --retry-all-failed           Retries missing or failed chapters for every saved novel. Can be combined with --with-login.
 
 Configuration:
   -c, --concurrent-request     Set the number [INT] of concurrent requests to a website. Default is 2, value will be limited
                                to number of CPU cores on your computer. *Some websites may block your ip if too many requests
                                are made in a short time*
+
+  --get-concurrent             Display the saved concurrent request limit.
 
   -s, --save-location          Set default save location [PATH]. Overridden by specific 'manga' or 'novel' locations if set.
 
@@ -105,13 +164,16 @@ Configuration:
   -n, --novel-save-location    Set novel-specific save location [PATH]. Overrides 'save-location'.
 
   -e, --manga-extension        (Default: -1) Default extension for mangas (any image based novel) [INT] *count starts a 0*.
-                               Default is PDF.
+                               0=PDF, 1=CBZ, 2=CBR, 3=CB7, 4=CBT, 5=CBA. Default is PDF.
 
   -f, --single-file            Choose how to save Mangas: as a single file containing all chapters (Y), or as individual
                                files for each chapter (N).
 
   -L, --update-novel-saved-location-by-id    Updates the saved location of a novel by its [ID]. Useful when a file has been
                                              moved, or never added due to previous bug.
+
+  -x, --novel-extension-by-id [GUID]         Change the file type of a saved novel.
+                                             0=EPUB, 1=PDF, 2=CBZ, 3=CBR, 4=CB7, 5=CBT, 6=CBA.
 
   --get-extension              Gets the saved default extensions for mangas.
 
@@ -128,6 +190,13 @@ Testing & Validation:
 
   --test-field [FIELD:XPATH]   Test a specific field with XPath. Example: --test-field "Title://h1[@class='title']" <URL>
 
+  --fields                     List all field names supported by --test-field, grouped by table-of-contents and chapter fields.
+
+  --use-selenium               Use Selenium with --test-field for content that is rendered by JavaScript.
+
+  --show-browser               Show the browser while using Selenium with --test-field. Without this option, Selenium runs
+                               in headless mode.
+
   --validate-config [NAME]     Validate an existing site configuration by name. Tests all selectors against a live URL.
 
   --validate-all-configs       Validate all active site configurations. Tests selectors for each configured site.
@@ -136,6 +205,7 @@ General:
   --help                       Display this help screen.
 
   --version                    Display version information.
+```
 
 ### Usage Examples
 
@@ -199,6 +269,15 @@ Benny-Scraper -d [NOVEL-ID]
 # Recreate EPUB from database
 Benny-Scraper -r [NOVEL-ID]
 
+# Retry failed chapters for one novel
+Benny-Scraper --retry-failed [NOVEL-ID]
+
+# Retry premium chapters with a visible login session
+Benny-Scraper --retry-failed [NOVEL-ID] --with-login
+
+# Retry failed chapters for every saved novel
+Benny-Scraper --retry-all-failed
+
 # Clear entire database
 Benny-Scraper --clear-database
 ```
@@ -215,11 +294,23 @@ Benny-Scraper -m "C:\Users\YourName\Documents\Manga"
 # Set default manga extension (0=PDF, 1=CBZ, 2=CBR, etc.)
 Benny-Scraper -e 1
 
+# Display the current manga extension
+Benny-Scraper --get-extension
+
 # Set concurrent request limit (be careful - some sites rate limit)
 Benny-Scraper -c 5
 
+# Display the current concurrent request limit
+Benny-Scraper --get-concurrent
+
+# Save manga as one file containing all selected chapters
+Benny-Scraper -f y
+
 # Update save location for existing novel
 Benny-Scraper -L [NOVEL-ID]
+
+# Change the file type of a saved novel
+Benny-Scraper -x [NOVEL-ID]
 ```
 
 #### 🧪 Testing & Validation
@@ -235,6 +326,12 @@ Benny-Scraper --test-interactive "https://newnovelsite.com/novel/example"
 
 # Test a specific XPath selector
 Benny-Scraper --test-field "Title://h1[@class='novel-title']" "https://example.com/novel"
+
+# List the supported field names
+Benny-Scraper --fields
+
+# Test JavaScript-rendered chapter content in a visible browser
+Benny-Scraper --test-field "ChapterContent://div[@id='chapter-content']" "https://example.com/chapter-1" --use-selenium --show-browser
 
 # Validate existing site configuration against a live URL
 Benny-Scraper --validate-config "Wuxiaworld"
@@ -272,7 +369,9 @@ Benny-Scraper -U
 ```
 
 For more information about each command and option, run:
-  dotnet Benny-Scraper.dll [COMMAND] --help
+
+```bash
+benny-scraper --help
 ```
 
 ## ✨ Contribute to This Project ✨
