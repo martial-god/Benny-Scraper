@@ -45,6 +45,19 @@ internal static class Program
     // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
     private static async Task Main(string[] args)
     {
+        Parsed<CommandLineOptions>? parsedCommandLineOptions = null;
+        if (args.Length > 0)
+        {
+            var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
+            if (parserResult is NotParsed<CommandLineOptions> notParsedCommandLineOptions)
+            {
+                await HandleParseErrors(notParsedCommandLineOptions.Errors).ConfigureAwait(false);
+                return;
+            }
+
+            parsedCommandLineOptions = (Parsed<CommandLineOptions>)parserResult;
+        }
+
         SetupLogger(LogLevel.Info);
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         SQLitePCL.Batteries.Init();
@@ -61,16 +74,16 @@ internal static class Program
 
         await using var scope = Container!.BeginLifetimeScope();
         var dbInitializer = scope.Resolve<DbInitializer>();
-        var dbChangesMade = dbInitializer.Initialize();
+        var databaseChangesMade = await dbInitializer.InitializeAsync().ConfigureAwait(false);
 
-        if (dbChangesMade)
+        if (databaseChangesMade)
         {
             _logger.Info("Database Initialized");
         }
 
-        if (args.Length > 0)
+        if (parsedCommandLineOptions != null)
         {
-            await RunAsync(args);
+            await HandleOptionsAsync(parsedCommandLineOptions.Value).ConfigureAwait(false);
         }
         else
         {
@@ -203,14 +216,6 @@ internal static class Program
             var elapsedTime = stopwatch.Elapsed;
             _logger.Info($"Elapsed time: {elapsedTime}");
         }
-    }
-
-    private static async Task RunAsync(string[] args)
-    {
-        var result = Parser.Default.ParseArguments<CommandLineOptions>(args);
-        await result.MapResult(
-            async options => await HandleOptionsAsync(options),
-            HandleParseErrors);
     }
 
     private static async Task HandleOptionsAsync(CommandLineOptions options)

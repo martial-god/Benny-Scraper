@@ -22,6 +22,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +36,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Benny-Scraper.BusinessLogic\Benny-Scraper.BusinessLogic.csproj" />
+    <ProjectReference Include="..\Benny-Scraper.DataAccess\Benny-Scraper.DataAccess.csproj" />
     <ProjectReference Include="..\Benny-Scraper.Models\Benny-Scraper.Models.csproj" />
   </ItemGroup>
 

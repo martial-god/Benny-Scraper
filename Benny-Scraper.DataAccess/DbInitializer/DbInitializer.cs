@@ -13,18 +13,18 @@ internal sealed class DbInitializer
         _db = db;
     }
 
-    public bool Initialize()
+    public async Task<bool> InitializeAsync()
     {
         bool changesMade = false;
         try
         {
-            if (_db.Database.GetPendingMigrations().Any())
+            if ((await _db.Database.GetPendingMigrationsAsync().ConfigureAwait(false)).Any())
             {
-                _db.Database.Migrate();
+                await _db.Database.MigrateAsync().ConfigureAwait(false);
                 changesMade = true;
             }
 
-            if (SeedData().Result)
+            if (await SeedDataAsync().ConfigureAwait(false))
             {
                 changesMade = true;
             }
@@ -37,7 +37,7 @@ internal sealed class DbInitializer
         return changesMade;
     }
 
-    private async Task<bool> SeedData()
+    private async Task<bool> SeedDataAsync()
     {
         bool dataSeeded = false;
         using var transaction = await _db.Database.BeginTransactionAsync().ConfigureAwait(false);

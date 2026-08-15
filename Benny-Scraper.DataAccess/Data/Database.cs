@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using BennyScraper.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -76,7 +77,12 @@ public class Database(DbContextOptions<Database> options) : DbContext(options)
         modelBuilder.Entity<Page>().Property(x => x.Id).HasColumnName("id");
         modelBuilder.Entity<Page>().Property(x => x.ChapterId).HasColumnName("chapter_id");
         modelBuilder.Entity<Page>().Property(x => x.Url).HasColumnName("url");
-        modelBuilder.Entity<Page>().Property(x => x.Image).HasColumnName("image");
+        modelBuilder.Entity<Page>()
+            .Property(x => x.Image)
+            .HasConversion(
+                image => image!.ToArray(),
+                image => new ReadOnlyCollection<byte>(image))
+            .HasColumnName("image");
         modelBuilder.Entity<Page>()
             .HasOne(x => x.Chapter)
             .WithMany(x => x.Pages)
