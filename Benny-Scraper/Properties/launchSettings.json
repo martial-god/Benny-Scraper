@@ -6,7 +6,6 @@
     },
     "Benny-Scraper": {
       "commandName": "Project",
-      "commandLineArgs": "https://inovelhub.com/novel/extras-rebirth-i-will-create-a-good-ending-for-the-heroines#chapters -B 1",
       "nativeDebugging": true
     }
   }
