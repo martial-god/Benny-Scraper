@@ -8,6 +8,45 @@ namespace BennyScraper.Tests;
 public sealed class ChapterDownloadResilienceTests
 {
     [Fact]
+    public async Task ImageChapterUsesHttpWhenSeleniumIsNotRequired()
+    {
+        using var httpMessageHandler = new ControlledChapterHttpMessageHandler();
+        var httpClientFactory = new ControlledHttpClientFactory(httpMessageHandler);
+        using var scraperStrategy = new TestableStrategy(httpClientFactory);
+        var tableOfContentsUri = new Uri("https://example.com/novel");
+        scraperStrategy.ConfigureChapterDownloads(
+            CreateImageSiteConfiguration(),
+            tableOfContentsUri,
+            concurrentRequestLimit: 1);
+
+        var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(
+            [new ChapterLink { Url = "https://example.com/image-chapter", Title = "Chapter 1", ChapterNumber = 1 }]);
+
+        try
+        {
+            var chapterDataBuffer = Assert.Single(chapterDataBuffers);
+            var page = Assert.Single(chapterDataBuffer.Pages!);
+
+            Assert.False(chapterDataBuffer.IsPartial);
+            Assert.Equal("https://example.com/chapter-page.jpg", page.Url);
+            Assert.Equal([1, 2, 3, 4], await File.ReadAllBytesAsync(page.ImagePath));
+        }
+        finally
+        {
+            var tempImageDirectory = chapterDataBuffers.FirstOrDefault()?.TempDirectory;
+            foreach (var chapterDataBuffer in chapterDataBuffers)
+            {
+                chapterDataBuffer.Dispose();
+            }
+
+            if (!string.IsNullOrEmpty(tempImageDirectory) && Directory.Exists(tempImageDirectory))
+            {
+                Directory.Delete(tempImageDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task SuccessfulChapterResultsRemainWhenAnotherChapterRequestFails()
     {
         using var httpMessageHandler = new ControlledChapterHttpMessageHandler();
@@ -67,12 +106,38 @@ public sealed class ChapterDownloadResilienceTests
         };
     }
 
+    private static SiteConfiguration CreateImageSiteConfiguration()
+    {
+        return new SiteConfiguration
+        {
+            SiteName = "Image Test",
+            UrlPattern = "example.com",
+            HasImagesForChapterContent = true,
+            ChapterContentRequiresSelenium = false,
+            Selectors =
+            {
+                ChapterTitle = "//h1",
+                ChapterContent = "//div[@class='chapter-content']/img",
+                ChapterContentImageUrlAttribute = "src"
+            }
+        };
+    }
+
     private sealed class ControlledChapterHttpMessageHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
+            if (request.RequestUri?.AbsolutePath.EndsWith(".jpg", StringComparison.Ordinal) == true)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent([1, 2, 3, 4]),
+                    RequestMessage = request
+                });
+            }
+
             if (request.RequestUri?.AbsolutePath.Contains("failing", StringComparison.Ordinal) == true)
             {
                 return Task.FromException<HttpResponseMessage>(
@@ -80,12 +145,15 @@ public sealed class ChapterDownloadResilienceTests
             }
 
             var chapterName = request.RequestUri?.Segments.Last().Trim('/') ?? "unknown";
+            var chapterContent = request.RequestUri?.AbsolutePath.Contains("image-chapter", StringComparison.Ordinal) == true
+                ? "<img src=\"https://example.com/chapter-page.jpg\">"
+                : $"<p>Successfully scraped {chapterName} with enough text for validation.</p>";
             var html = $"""
                         <html>
                           <body>
                             <h1>{chapterName}</h1>
                             <div class="chapter-content">
-                              <p>Successfully scraped {chapterName} with enough text for validation.</p>
+                              {chapterContent}
                             </div>
                           </body>
                         </html>

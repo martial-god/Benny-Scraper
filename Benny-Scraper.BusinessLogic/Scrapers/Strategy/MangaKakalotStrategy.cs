@@ -76,12 +76,12 @@ internal abstract class MangaKakalotInitializer : NovelDataInitializer
             Attr.AlternativeNames,
             Attr.Description,
             Attr.ThumbnailUrl,
-            Attr.CurrentChapter
+            Attr.CurrentChapterUrl
         };
 
         foreach (var attribute in attributesToFetch)
         {
-            if (attribute == Attr.CurrentChapter)
+            if (attribute == Attr.CurrentChapterUrl)
             {
                 await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocumentForChapterUrls, scraperData).ConfigureAwait(false);
                 novelDataBuffer.CurrentChapterUrl = new Uri(scraperData.BaseUri, novelDataBuffer.CurrentChapterUrl).ToString();

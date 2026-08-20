@@ -125,7 +125,7 @@ internal sealed class NovelBinStrategy : ScraperStrategy
             NovelDataInitializer.Attr.TotalRatings,
             NovelDataInitializer.Attr.Description,
             NovelDataInitializer.Attr.ThumbnailUrl,
-            NovelDataInitializer.Attr.CurrentChapter
+            NovelDataInitializer.Attr.CurrentChapterUrl
         };
 
         await NovelBinInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, this, attributesToFetch).ConfigureAwait(false);

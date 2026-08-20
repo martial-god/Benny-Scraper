@@ -105,7 +105,7 @@ internal abstract class NovelDramaInitializer : NovelDataInitializer
             Attr.ThumbnailUrl,
             Attr.LastTableOfContentsPage,
             Attr.FirstChapterUrl,
-            Attr.CurrentChapter
+            Attr.CurrentChapterUrl
         };
 
         foreach (var attribute in attributesToFetch)

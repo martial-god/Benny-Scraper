@@ -59,6 +59,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         private FlareSolverrService? _flareSolverr;
         private bool _flareSolverrEnabled;
         private string? _flareSolverrUserAgent;
+        private volatile bool _useFlareSolverrForPageLoads;
 
         private SemaphoreSlim _semaphoreSlim; // limit the number of concurrent requests, prevent posssible rate limiting
 
@@ -156,14 +157,19 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// docker run -d --name=flaresolverr -p 8191:8191 -e LOG_LEVEL=info ghcr.io/flaresolverr/flaresolverr:latest.
         /// </summary>
         /// <param name="flareSolverrUrl">FlareSolverr URL (default: http://localhost:8191).</param>
+        /// <param name="useForAllPageLoads">Whether every page load should use FlareSolverr immediately.</param>
         /// <returns>True if FlareSolverr is available and enabled.</returns>
-        public async Task<bool> EnableFlareSolverrAsync(string flareSolverrUrl = "http://localhost:8191")
+        public async Task<bool> EnableFlareSolverrAsync(
+            string flareSolverrUrl = "http://localhost:8191",
+            bool useForAllPageLoads = false)
         {
+            _useFlareSolverrForPageLoads = false;
             _flareSolverr = new FlareSolverrService(flareSolverrUrl);
             _flareSolverrEnabled = await _flareSolverr.CheckHealthAsync().ConfigureAwait(false);
 
             if (_flareSolverrEnabled)
             {
+                _useFlareSolverrForPageLoads = useForAllPageLoads;
                 Logger.Debug($"FlareSolverr enabled at {flareSolverrUrl}");
             }
             else
@@ -191,6 +197,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             _flareSolverr?.Dispose();
             _flareSolverr = null;
             _flareSolverrUserAgent = null;
+            _useFlareSolverrForPageLoads = false;
             Logger.Info("FlareSolverr disabled");
         }
 
@@ -450,7 +457,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             {
                 Logger.Info("Getting chapters data");
 
-                // Use Selenium for sites with images or if chapter content requires Selenium. Not thread safe, so don't use tasks.
+                // Selenium is not thread safe, so don't use tasks when the site requires a browser.
                 if (ShouldUseSeleniumForChapters())
                 {
                     if (ShouldUseSpaNavigation())
@@ -490,8 +497,15 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 }
                 else
                 {
-                    // I haven't ran into a httpclient site that requires premium so no need to pass the entire chapterLink yet.
-                    await ProcessChaptersWithHttpClient(chapterLinks, chapterDataBuffers).ConfigureAwait(false);
+                    if (ScraperData.SiteConfig.HasImagesForChapterContent)
+                    {
+                        tempImageDirectory = CommonHelper.CreateTempDirectory();
+                    }
+
+                    await ProcessChaptersWithHttpClient(
+                        chapterLinks,
+                        chapterDataBuffers,
+                        tempImageDirectory).ConfigureAwait(false);
                 }
 
                 for (var i = 0; i < chapterDataBuffers.Count && i < chapterLinks.Count; i++)
@@ -626,6 +640,20 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         protected async Task<(HtmlDocument Document, Uri UpdatedUri)> LoadHtmlAsync(Uri uri)
         {
+            var flareSolverrWasAttempted = false;
+            if (_useFlareSolverrForPageLoads && IsFlareSolverrEnabled)
+            {
+                flareSolverrWasAttempted = true;
+                var (flareSolverrDocument, flareSolverrUri, _) =
+                    await TrySolveCloudflareChallengeAsync(uri, false).ConfigureAwait(false);
+                if (flareSolverrDocument != null)
+                {
+                    return (flareSolverrDocument, flareSolverrUri);
+                }
+
+                Logger.Warn($"FlareSolverr could not load {uri}. Falling back to HttpClient for this request.");
+            }
+
             using var client = _httpClientFactory.CreateClient();
             using var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
 
@@ -676,34 +704,18 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             // Guard: Handle unsuccessful response
             if (!response.IsSuccessStatusCode)
             {
-                Logger.Error($"Request failed to {uri}");
-                Logger.Error($"Status Code: {(int)response.StatusCode} {response.StatusCode}");
-                Logger.Error(
-                    $"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(";", h.Value)}"))}");
-
                 string? errorContent = null;
                 try
                 {
                     errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                    if (string.IsNullOrEmpty(errorContent))
-                    {
-                    }
-                    else if (errorContent.Length < 1000)
-                    {
-                        Logger.Error($"Response Body: {errorContent}");
-                    }
-                    else
-                    {
-                        Logger.Error($"Response Body (truncated): {errorContent.Substring(0, 1000)}...");
-                    }
                 }
                 catch (Exception ex)
                 {
                     Logger.Error($"Could not read error response body: {ex.Message}");
                 }
 
-                if (IsFlareSolverrEnabled &&
+                if (!flareSolverrWasAttempted &&
+                    IsFlareSolverrEnabled &&
                     FlareSolverrService.IsCloudflareChallenge(response.StatusCode, errorContent))
                 {
                     var (flareSolverrDocument, flareSolverrUri, _) =
@@ -712,6 +724,18 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                     {
                         return (flareSolverrDocument, flareSolverrUri);
                     }
+                }
+
+                Logger.Error($"Request failed to {uri}");
+                Logger.Error($"Status Code: {(int)response.StatusCode} {response.StatusCode}");
+                Logger.Error(
+                    $"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(";", h.Value)}"))}");
+
+                if (!string.IsNullOrEmpty(errorContent))
+                {
+                    Logger.Error(errorContent.Length < 1000
+                        ? $"Response Body: {errorContent}"
+                        : $"Response Body (truncated): {errorContent.Substring(0, 1000)}...");
                 }
 
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
@@ -752,14 +776,16 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         }
 
         protected async Task<(HtmlDocument? Document, Uri UpdatedUri, int StatusCode)>
-            TrySolveCloudflareChallengeAsync(Uri uri)
+            TrySolveCloudflareChallengeAsync(Uri uri, bool cloudflareChallengeDetected = true)
         {
             if (!IsFlareSolverrEnabled || _flareSolverr == null)
             {
                 return (null, uri, 0);
             }
 
-            Logger.Info($"Cloudflare challenge detected for {uri}. Switching to FlareSolverr.");
+            Logger.Info(cloudflareChallengeDetected
+                ? $"Cloudflare challenge detected for {uri}. Switching to FlareSolverr."
+                : $"Loading {uri} directly with FlareSolverr because it was required earlier in this scraping session.");
 
             var flareSolverrResult = await _flareSolverr.SolveAsync(uri.ToString()).ConfigureAwait(false);
             if (flareSolverrResult?.Status != "ok" || flareSolverrResult.Solution == null)
@@ -781,6 +807,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
 
             _flareSolverrUserAgent = flareSolverrResult.Solution.UserAgent;
+            _useFlareSolverrForPageLoads = true;
 
             var solvedHtmlDocument = new HtmlDocument();
             solvedHtmlDocument.LoadHtml(flareSolverrResult.Solution.Response);
@@ -811,8 +838,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 using var client = _httpClientFactory.CreateClient();
 
                 using var requestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-                var userAgent =
-                    _userAgents[Interlocked.Increment(ref _userAgentIndex) % _userAgents.Count];
+                var userAgent = _flareSolverrUserAgent ?? _userAgents[Interlocked.Increment(ref _userAgentIndex) % _userAgents.Count];
 
                 // Add realistic browser headers for image downloads
                 requestMessage.Headers.Add("User-Agent", userAgent);
@@ -1127,12 +1153,12 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         /// <summary>
         /// Determines whether Selenium should be used for scraping chapter content.
-        /// Returns true if the site has images for chapter content or if chapter content requires Selenium.
+        /// Image chapters can use HTTP when their image elements are present in the returned HTML.
         /// </summary>
         /// <returns>True if Selenium should be used to fetch chapter content; otherwise, false.</returns>
         protected virtual bool ShouldUseSeleniumForChapters()
         {
-            return ScraperData.SiteConfig.HasImagesForChapterContent
+            return ScraperData.SiteConfig.EntireSiteRequiresSelenium
                    || ScraperData.SiteConfig.ChapterContentRequiresSelenium;
         }
 
@@ -1513,18 +1539,22 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         private async Task ProcessChaptersWithHttpClient(
             IList<ChapterLink> chapterLinks,
-            List<ChapterDataBuffer> chapterDataBuffers)
+            List<ChapterDataBuffer> chapterDataBuffers,
+            string tempImageDirectory)
         {
             Logger.Debug("Using HttpClient to get chapters data");
 
-            var chapterTasks = chapterLinks.Select(GetChapterDataWithHttpClientSafelyAsync);
+            var chapterTasks = chapterLinks.Select(chapterLink =>
+                GetChapterDataWithHttpClientSafelyAsync(chapterLink, tempImageDirectory));
             var chapterResults = await Task.WhenAll(chapterTasks).ConfigureAwait(false);
             chapterDataBuffers.AddRange(chapterResults);
 
             Logger.Info("Finished getting chapters data");
         }
 
-        private async Task<ChapterDataBuffer> GetChapterDataWithHttpClientSafelyAsync(ChapterLink chapterLink)
+        private async Task<ChapterDataBuffer> GetChapterDataWithHttpClientSafelyAsync(
+            ChapterLink chapterLink,
+            string tempImageDirectory)
         {
             var semaphoreWasEntered = false;
             try
@@ -1533,7 +1563,9 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 semaphoreWasEntered = true;
                 ReportChapterProcessing(chapterLink);
 
-                var chapterDataBuffer = await GetChapterDataAsync(chapterLink.Url).ConfigureAwait(false);
+                var chapterDataBuffer = await GetChapterDataAsync(
+                    chapterLink.Url,
+                    tempImageDirectory).ConfigureAwait(false);
                 chapterDataBuffer.SequenceNumber = chapterLink.ChapterNumber;
                 if (string.IsNullOrWhiteSpace(chapterDataBuffer.Title))
                 {
@@ -1547,7 +1579,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 Logger.Error(
                     exception,
                     $"Failed to process chapter {chapterLink.Url}. Recording the failed chapter and continuing.");
-                return CreateFailedChapterDataBuffer(chapterLink);
+                return CreateFailedChapterDataBuffer(chapterLink, tempImageDirectory);
             }
             finally
             {
@@ -1590,7 +1622,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             var uriLastSegment = new Uri(chapterLink.Url).Segments.Last();
             var waitTarget = ScraperData.SiteConfig.HasImagesForChapterContent ? "Image content" : "Text content";
 
-#pragma warning disable CA2000
+#pragma warning disable CA2000 // Dispose objects before losing scope. I don't dispose the chapterDataBuffer yet
+#pragma warning disable CA2000 // Dispose objects before losing scope. I don't dispose the chapterDataBuffer yet
             var chapterDataBuffer = new ChapterDataBuffer
             {
                 TempDirectory = tempImageDirectory,
@@ -1798,12 +1831,17 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             return chapterDataBuffer;
         }
 
-        private async Task<ChapterDataBuffer> GetChapterDataAsync(string url)
+        private async Task<ChapterDataBuffer> GetChapterDataAsync(string url, string tempImageDirectory)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var chapterDataBuffer = new ChapterDataBuffer();
+#pragma warning disable CA2000
+            var chapterDataBuffer = new ChapterDataBuffer
+            {
+                TempDirectory = tempImageDirectory
+            };
+#pragma warning restore CA2000
 
             try
             {
@@ -1817,8 +1855,24 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                     titleNode != null ? NormalizeChapterTitle(titleNode.InnerText) : "Unknown Title";
                 Logger.Debug($"Chapter title: {chapterDataBuffer.Title}");
 
-                var paragraphNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig.Selectors.ChapterContent ?? string.Empty);
-                chapterDataBuffer = AddTextContentToChapterDataBuffer(htmlDocument, chapterDataBuffer, paragraphNodes, url);
+                var contentNodes = htmlDocument.DocumentNode.SelectNodes(ScraperData.SiteConfig.Selectors.ChapterContent ?? string.Empty);
+                if (ScraperData.SiteConfig.HasImagesForChapterContent)
+                {
+                    chapterDataBuffer = await AddImagePagesContentToChapterDataBuffer(
+                        chapterDataBuffer,
+                        contentNodes,
+                        stopwatch,
+                        tempImageDirectory).ConfigureAwait(false);
+                }
+                else
+                {
+                    chapterDataBuffer = AddTextContentToChapterDataBuffer(
+                        htmlDocument,
+                        chapterDataBuffer,
+                        contentNodes,
+                        url);
+                }
+
                 Logger.Info($"Finished processing chapter data. Time taken: {stopwatch.ElapsedMilliseconds} ms");
             }
             catch (Exception ex)
@@ -1995,7 +2049,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 LastTableOfContentsPage,
                 ChapterUrls,
                 FirstChapterUrl,
-                CurrentChapter,
+                CurrentChapterUrl,
                 AlternateLastTableOfContentsPage
             }
 
@@ -2262,7 +2316,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         // TODO: Implement
                         break;
 
-                    case Attr.CurrentChapter:
+                    case Attr.CurrentChapterUrl:
                         var latestChapterNode =
                             htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig.Selectors.TableOfContents.LatestChapterLink ?? string.Empty);
 

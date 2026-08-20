@@ -15,6 +15,7 @@
   "entireSiteRequiresSelenium": false,
   "tableOfContentsRequiresSelenium": false,
   "chapterContentRequiresSelenium": false,
+  "requiresFlareSolverr": false,
   "cloudflareProtection": "none",
   "chapterSortOrder": "ascending",
   "selectors": {

@@ -7,12 +7,16 @@ using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 
 namespace BennyScraper.BusinessLogic.FileGenerators;
 
 internal static class PdfGenerator
 {
     public const string PdfFileExtension = ".pdf";
+    private const int _maximumJpegDimension = 65_500;
+    private const double _maximumPdfPageDimension = 14_400;
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
     /// <summary>
@@ -91,35 +95,33 @@ internal static class PdfGenerator
                             .Sum(pageCount => pageCount.Value)
                         : document.PageCount;
 
-                    if (chapterAlreadyExists)
+                    var pagesAdded = 0;
+                    foreach (var imagePath in imagePaths)
+                    {
+                        int? insertionIndex = currentPageCountsByChapterNumber != null ? pageIndex + pagesAdded : null;
+                        if (TryAddImageToPdf(document, imagePath, insertionIndex))
+                        {
+                            pagesAdded++;
+                            imagePathsToDelete.Add(imagePath);
+                        }
+                    }
+
+                    if (chapterAlreadyExists && pagesAdded > 0)
                     {
                         var originalPageCount = currentPageCountsByChapterNumber![chapterNumber];
                         for (var pageNumber = 0; pageNumber < originalPageCount; pageNumber++)
                         {
-                            document.Pages.RemoveAt(pageIndex);
+                            document.Pages.RemoveAt(pageIndex + pagesAdded);
                         }
                     }
 
-                    for (var imageIndex = 0; imageIndex < imagePaths.Count; imageIndex++)
+                    if (currentPageCountsByChapterNumber != null && pagesAdded > 0)
                     {
-                        var imagePath = imagePaths[imageIndex];
-                        using var image = Image.Load(imagePath);
-                        using var imageStream = ConvertImageToStream(image);
-                        using var img = XImage.FromStream(imageStream);
-                        var page = currentPageCountsByChapterNumber != null && pageIndex + imageIndex < document.PageCount
-                            ? document.Pages.Insert(pageIndex + imageIndex)
-                            : document.AddPage();
-                        page.Width = XUnit.FromPoint(img.PixelWidth);
-                        page.Height = XUnit.FromPoint(img.PixelHeight);
-
-                        using var gfx = XGraphics.FromPdfPage(page);
-                        gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
-                        imagePathsToDelete.Add(imagePath);
+                        currentPageCountsByChapterNumber[chapterNumber] = pagesAdded;
                     }
-
-                    if (currentPageCountsByChapterNumber != null)
+                    else if (chapterAlreadyExists)
                     {
-                        currentPageCountsByChapterNumber![chapterNumber] = imagePaths.Count;
+                        _logger.Warn($"No replacement images for chapter {chapter.Title} could be added. The existing PDF pages were kept.");
                     }
                 }
 
@@ -172,23 +174,21 @@ internal static class PdfGenerator
 
             foreach (var pageData in chapter.Pages)
             {
-                using var image = SixLabors.ImageSharp.Image.Load(pageData.ImagePath);
-                var pdfPage = document.AddPage();
-                pdfPage.Width = XUnit.FromPoint(image.Width);
-                pdfPage.Height = XUnit.FromPoint(image.Height);
-
-                var gfx = XGraphics.FromPdfPage(pdfPage);
-
-                using var imageStream = ConvertImageToStream(image);
-                using var xImage = XImage.FromStream(imageStream);
-                gfx.DrawImage(xImage, 0, 0, pdfPage.Width.Point, pdfPage.Height.Point);
+                TryAddImageToPdf(document, pageData.ImagePath);
             }
 
             var baseFilename = $"{novel.Title} - {chapter.Title}";
             var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{novel.Title} - {filenameSuffix} - {chapter.Title}";
             var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
             var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
-            document.Save(pdfFilePath);
+            if (document.PageCount > 0)
+            {
+                document.Save(pdfFilePath);
+            }
+            else
+            {
+                _logger.Warn($"PDF was not created for chapter {chapter.Title} because none of its images could be processed.");
+            }
         }
 
         return pdfDirectoryPath;
@@ -296,15 +296,10 @@ internal static class PdfGenerator
 
             foreach (var imagePath in imagePaths)
             {
-                using var image = Image.Load(imagePath);
-                using var imageStream = ConvertImageToStream(image);
-                using var img = XImage.FromStream(imageStream);
-                var page = document.AddPage();
-                page.Width = XUnit.FromPoint(img.PixelWidth);
-                page.Height = XUnit.FromPoint(img.PixelHeight);
-                var gfx = XGraphics.FromPdfPage(page);
-                gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
-                File.Delete(imagePath);
+                if (TryAddImageToPdf(document, imagePath))
+                {
+                    File.Delete(imagePath);
+                }
             }
         }
 
@@ -314,16 +309,81 @@ internal static class PdfGenerator
         var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{baseFilename} - {filenameSuffix}";
         var sanitizedTitle = CommonHelper.SanitizeFileName(filename, true);
         var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
+        if (document.PageCount == 0)
+        {
+            throw new InvalidOperationException($"PDF was not created for {novel.Title} because none of its images could be processed.");
+        }
+
         document.Save(pdfFilePath);
         _logger.Debug($"PDF saved to {pdfFilePath}");
         return pdfFilePath;
     }
 
+    private static bool TryAddImageToPdf(PdfDocument document, string imagePath, int? insertionIndex = null)
+    {
+        PdfPage? pdfPage = null;
+        try
+        {
+            using var image = Image.Load(imagePath);
+            ResizeImageForJpeg(image, imagePath);
+            using var imageStream = ConvertImageToStream(image);
+            using var pdfImage = XImage.FromStream(imageStream);
+            pdfPage = insertionIndex.HasValue && insertionIndex.Value < document.PageCount
+                ? document.Pages.Insert(insertionIndex.Value)
+                : document.AddPage();
+            SetPdfPageSize(pdfPage, pdfImage);
+
+            using var graphics = XGraphics.FromPdfPage(pdfPage);
+            graphics.DrawImage(pdfImage, 0, 0, pdfPage.Width.Point, pdfPage.Height.Point);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (pdfPage != null)
+            {
+                document.Pages.Remove(pdfPage);
+            }
+
+            _logger.Error(exception, $"Could not add image {imagePath} to the PDF. Skipping this image.");
+            Console.WriteLine($"Could not add image to the PDF. Skipping: {imagePath}");
+            return false;
+        }
+    }
+
+    private static void ResizeImageForJpeg(Image image, string imagePath)
+    {
+        if (image is { Width: <= _maximumJpegDimension, Height: <= _maximumJpegDimension })
+        {
+            return;
+        }
+
+        var scale = Math.Min(_maximumJpegDimension / (double)image.Width, _maximumJpegDimension / (double)image.Height);
+        var resizedWidth = Math.Max(1, (int)Math.Floor(image.Width * scale));
+        var resizedHeight = Math.Max(1, (int)Math.Floor(image.Height * scale));
+        _logger.Debug($"Resizing oversized image {imagePath} from {image.Width}x{image.Height} to {resizedWidth}x{resizedHeight} for PDF creation.");
+        image.Mutate(context => context.Resize(resizedWidth, resizedHeight));
+    }
+
+    private static void SetPdfPageSize(PdfPage pdfPage, XImage image)
+    {
+        var scale = Math.Min(1, _maximumPdfPageDimension / Math.Max(image.PixelWidth, image.PixelHeight));
+        pdfPage.Width = XUnit.FromPoint(image.PixelWidth * scale);
+        pdfPage.Height = XUnit.FromPoint(image.PixelHeight * scale);
+    }
+
     private static MemoryStream ConvertImageToStream(Image image)
     {
         var memoryStream = new MemoryStream();
-        image.Save(memoryStream, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder());
-        memoryStream.Position = 0;
-        return memoryStream;
+        try
+        {
+            image.Save(memoryStream, new JpegEncoder());
+            memoryStream.Position = 0;
+            return memoryStream;
+        }
+        catch
+        {
+            memoryStream.Dispose();
+            throw;
+        }
     }
 }

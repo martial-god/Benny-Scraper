@@ -1,0 +1,11 @@
+services:
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
+    environment:
+      LOG_LEVEL: info
+      LOG_HTML: "false"
+      CAPTCHA_SOLVER: none
+      TZ: ${TZ:-UTC}
+    ports:
+      - "127.0.0.1:8191:8191"
+    restart: unless-stopped

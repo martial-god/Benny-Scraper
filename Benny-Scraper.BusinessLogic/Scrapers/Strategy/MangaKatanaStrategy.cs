@@ -71,7 +71,7 @@ internal abstract class MangaKatanaInitializer : NovelDataInitializer
             Attr.AlternativeNames,
             Attr.Description,
             Attr.ThumbnailUrl,
-            Attr.CurrentChapter
+            Attr.CurrentChapterUrl
         };
 
         foreach (var attribute in attributesToFetch)

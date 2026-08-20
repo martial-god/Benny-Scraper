@@ -58,6 +58,8 @@ internal sealed class SiteConfiguration
     /// </summary>
     public bool HasNovelInfoOnDifferentPage { get; set; }
 
+    public string? TableOfContentsPath { get; set; }
+
     /// <summary>
     /// Gets or sets the approximate number of chapters per TOC page for paginated sites.
     /// Use -1/0 for sites where this value is not applicable.
@@ -100,6 +102,8 @@ internal sealed class SiteConfiguration
     /// This is separate from <see cref="HasImagesForChapterContent"/>.
     /// </summary>
     public bool ChapterContentRequiresSelenium { get; set; }
+
+    public bool RequiresFlareSolverr { get; set; }
 
     /// <summary>
     /// Gets or sets the Cloudflare protection level expected for the site.

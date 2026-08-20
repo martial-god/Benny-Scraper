@@ -56,8 +56,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 NovelDataInitializer.Attr.NovelStatus,
                 NovelDataInitializer.Attr.Description,
                 NovelDataInitializer.Attr.ThumbnailUrl,
-                NovelDataInitializer.Attr.Genres,
-                NovelDataInitializer.Attr.CurrentChapter
+                NovelDataInitializer.Attr.Genres
             };
             try
             {
@@ -143,19 +142,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             {
                 foreach (var attribute in attributesToFetch)
                 {
-                    // Fetch the thumbnail from WebNovelWorld because LightNovelWorld returns HTTP 403 for it.
-                    if (attribute == Attr.ThumbnailUrl)
-                    {
-                        using var client = scraperData.HttpClientFactory?.CreateClient() ?? new HttpClient();
-                        var response = await client.GetAsync($"https://webnovelworld.org{scraperData.SiteTableOfContents.AbsolutePath}").ConfigureAwait(false);
-                        var htmlDocumentForThumbnail = new HtmlDocument();
-                        htmlDocumentForThumbnail.LoadHtml(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-                        await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocumentForThumbnail, scraperData).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
-                    }
+                    await FetchContentByAttributeAsync(attribute, novelDataBuffer, htmlDocument, scraperData).ConfigureAwait(false);
                 }
             }
         }

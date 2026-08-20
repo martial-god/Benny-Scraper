@@ -56,12 +56,7 @@ internal sealed class NovelProcessor(
 
         scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
 
-        // Enable FlareSolverr if configured (for Cloudflare bypass)
-        if (_novelScraperSettings.FlareSolverrSettings?.Enabled == true)
-        {
-            var flareSolverrUrl = _novelScraperSettings.FlareSolverrSettings.Url ?? "http://localhost:8191";
-            await scraperStrategy.EnableFlareSolverrAsync(flareSolverrUrl).ConfigureAwait(false);
-        }
+        await ConfigureFlareSolverrAsync(scraperStrategy, siteConfig).ConfigureAwait(false);
 
         if (siteConfig.HasPremiumChapters)
         {
@@ -169,11 +164,7 @@ internal sealed class NovelProcessor(
 
         scraperStrategy.SetVariables(siteConfig, novelUri, configuration);
 
-        if (_novelScraperSettings.FlareSolverrSettings?.Enabled == true)
-        {
-            var flareSolverrUrl = _novelScraperSettings.FlareSolverrSettings.Url ?? "http://localhost:8191";
-            await scraperStrategy.EnableFlareSolverrAsync(flareSolverrUrl).ConfigureAwait(false);
-        }
+        await ConfigureFlareSolverrAsync(scraperStrategy, siteConfig).ConfigureAwait(false);
 
         // Handle login for premium sites
         if (siteConfig.HasPremiumChapters && withLogin)
@@ -731,7 +722,7 @@ internal sealed class NovelProcessor(
             : novelDataBuffer.ChapterLinks;
 
         scraperStrategy.SetSessionAuthenticated(novelDataBuffer.IsLoggedIn);
-        IEnumerable<ChapterDataBuffer> chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chaptersToDownload).ConfigureAwait(false);
+        var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chaptersToDownload).ConfigureAwait(false);
         newNovel.Chapters.ReplaceWith(CreateChapters(chapterDataBuffers, newNovel.Id));
         NovelChapterStateUpdater.UpdateDownloadedChapterBoundaries(newNovel);
 
@@ -1254,6 +1245,32 @@ internal sealed class NovelProcessor(
         return siteConfigurations.Any(config =>
             config.IsActive &&
             novelTableOfContentsUri.Host.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task ConfigureFlareSolverrAsync(ScraperStrategy scraperStrategy, SiteConfiguration siteConfiguration)
+    {
+        var flareSolverrSettings = _novelScraperSettings.FlareSolverrSettings;
+        if (flareSolverrSettings?.Enabled != true)
+        {
+            if (siteConfiguration.RequiresFlareSolverr)
+            {
+                throw new InvalidOperationException(
+                    $"{siteConfiguration.SiteName} requires FlareSolverr. Enable it in appsettings.json and run 'docker compose up -d flaresolverr'.");
+            }
+
+            return;
+        }
+
+        var flareSolverrUrl = flareSolverrSettings.Url ?? "http://localhost:8191";
+        var flareSolverrIsAvailable = await scraperStrategy.EnableFlareSolverrAsync(
+            flareSolverrUrl,
+            siteConfiguration.RequiresFlareSolverr).ConfigureAwait(false);
+
+        if (siteConfiguration.RequiresFlareSolverr && !flareSolverrIsAvailable)
+        {
+            throw new InvalidOperationException(
+                $"{siteConfiguration.SiteName} requires FlareSolverr, but it is not available at {flareSolverrUrl}. Run 'docker compose up -d flaresolverr' and try again.");
+        }
     }
 
     private SiteConfiguration GetSiteConfiguration(Uri novelTableOfContentsUri)

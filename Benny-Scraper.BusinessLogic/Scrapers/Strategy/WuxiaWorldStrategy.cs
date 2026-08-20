@@ -47,7 +47,7 @@ internal sealed class WuxiaWorldStrategy : ScraperStrategy
                 NovelDataInitializer.Attr.Author,
                 NovelDataInitializer.Attr.NovelStatus,
                 NovelDataInitializer.Attr.Description,
-                NovelDataInitializer.Attr.CurrentChapter,
+                NovelDataInitializer.Attr.CurrentChapterUrl,
                 NovelDataInitializer.Attr.Genres
             };
             var attributesToFetchUsingSelenium = new List<NovelDataInitializer.Attr>()

@@ -21,6 +21,39 @@ FlareSolverr can be enabled or disabled in `appsettings.json`:
 }
 ```
 
+### Running FlareSolverr with Docker
+
+Benny-Scraper continues to run normally from your terminal and uses your locally installed Chrome. Docker is only used to run FlareSolverr.
+
+1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows or macOS. On Linux, install Docker Engine and the Docker Compose plugin.
+2. Open a terminal in the extracted Benny-Scraper directory containing `compose.yaml`.
+3. Start FlareSolverr:
+
+```bash
+docker compose up -d flaresolverr
+```
+
+4. Verify that the container is running:
+
+```bash
+docker compose ps
+```
+
+5. Use Benny-Scraper normally:
+
+```bash
+benny-scraper "https://example.com/novel"
+```
+
+FlareSolverr will restart automatically with Docker unless you stop it. These commands can be used to view its logs or remove the container:
+
+```bash
+docker compose logs -f flaresolverr
+docker compose down
+```
+
+The Compose file exposes FlareSolverr only on `127.0.0.1:8191`. Do not expose its service to the internet.
+
 ## Installation
 
 1. Download the appropriate archive from the [Releases](https://github.com/martial-god/Benny-Scraper/releases) page.
@@ -107,7 +140,7 @@ Adding a new site requires little to no coding experience, but some knowledge of
 5. Test the configuration by downloading a novel.
 6. If the site works with `CommonStrategy`, only the new JSON file needs to be included in a pull request.
 
-This process will not work for every site. Sites with custom navigation or authentication may require a dedicated strategy. For Cloudflare-protected sites, try running FlareSolverr locally before testing the site.
+This process will not work for every site. Sites with custom navigation or authentication may require a dedicated strategy. For Cloudflare-protected sites, try running FlareSolverr locally before testing the site. When FlareSolverr is the only successful way to load the table of contents or chapter content, the generated configuration sets `requiresFlareSolverr` to `true`.
 
 ### Command Reference
 ```bash

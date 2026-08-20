@@ -6,7 +6,8 @@
     },
     "Benny-Scraper": {
       "commandName": "Project",
-      "nativeDebugging": true
+      "nativeDebugging": true,
+      "commandLineArgs": "https://novelfire.net/book/the-villains-pov -E 80"
     }
   }
 }

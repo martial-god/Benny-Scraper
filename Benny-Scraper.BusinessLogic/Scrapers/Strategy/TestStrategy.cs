@@ -160,6 +160,8 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
 
         InitializeConfiguration();
 
+        _config.RequiresFlareSolverr = LastRequestUsedFlareSolverr;
+
         if (cloudflareDetected)
         {
             _config.CloudflareProtection = CloudflareProtectionLevel.Detected;
@@ -594,7 +596,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Title:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelTitle))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelTitle}");
             Console.ResetColor();
         }
@@ -609,7 +611,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Author:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAuthor))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAuthor}");
             Console.ResetColor();
         }
@@ -624,7 +626,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Description:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelDescription))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelDescription}");
             Console.ResetColor();
         }
@@ -639,7 +641,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Genres:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelGenres))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelGenres}");
             Console.ResetColor();
         }
@@ -654,7 +656,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Status:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelStatus))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelStatus}");
             Console.ResetColor();
         }
@@ -669,7 +671,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Alternative Names:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelAlternativeNames))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelAlternativeNames}");
             Console.ResetColor();
         }
@@ -684,7 +686,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Thumbnail:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.NovelThumbnailUrl))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.NovelThumbnailUrl}");
             Console.ResetColor();
         }
@@ -700,7 +702,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         Console.WriteLine($"Chapter Links:");
         if (!string.IsNullOrEmpty(siteConfig.Selectors.TableOfContents.ChapterLinks))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  XPath: {siteConfig.Selectors.TableOfContents.ChapterLinks}");
             Console.ResetColor();
         }
@@ -792,7 +794,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         await TestFieldAsync(
             "Current Chapter Link",
             "//*[@id='en-chapters']/li[1]/a",
-            Attr.CurrentChapter,
+            Attr.CurrentChapterUrl,
             xpath => _config.Selectors.TableOfContents.LatestChapterLink = xpath,
             false).ConfigureAwait(false);
         await TestFieldAsync(RequireTocField("Genres")).ConfigureAwait(false);
@@ -961,7 +963,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (!fieldVerified)
         {
             Console.WriteLine($"\n[{fieldName}]");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"Example: {exampleXPath}");
             Console.ResetColor();
 
@@ -994,7 +996,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
                     Console.WriteLine("⊘ Skipped");
                     Console.ResetColor();
                 }
@@ -1145,7 +1147,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (!fieldVerified)
         {
             Console.WriteLine($"\n[Thumbnail URL]");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Example: //img[@class='cover']");
             Console.ResetColor();
             Console.ForegroundColor = ConsoleColor.DarkYellow;
@@ -1156,7 +1158,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
             var xpath = Console.ReadLine()?.Trim();
             if (string.IsNullOrEmpty(xpath))
             {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine("⊘ Skipped");
                 Console.ResetColor();
                 return;
@@ -1164,7 +1166,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
 
             _config.Selectors.TableOfContents.NovelThumbnailUrl = xpath;
 
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Common attributes: src, data-src, data-lazy");
             Console.ResetColor();
             Console.Write("Attribute name (default: src): ");
@@ -1219,7 +1221,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (!linksVerified)
         {
             Console.WriteLine($"\n[Chapter Links] (Required)");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Example: //ul[@class='chapters']//a/@href");
             Console.ResetColor();
             Console.Write("XPath: ");
@@ -1381,7 +1383,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
 
         if (_config.HasPagination)
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Example: ?page={0}  or  /page-{0}");
             Console.ResetColor();
             Console.Write("Pagination format: ");
@@ -1415,7 +1417,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (true)
         {
             Console.WriteLine("\n[Last Table of Contents Page] (Required for pagination)");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Select the link for the final chapter-list page. Both //a and //a/@href are supported.");
             Console.WriteLine("Example: //a[@aria-label='Last']");
             Console.ResetColor();
@@ -1430,7 +1432,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 continue;
             }
 
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Use 'href' for a link such as '?page=25', or 'data-page' when the number is stored separately.");
             Console.ResetColor();
             Console.Write("Attribute containing the last page number or URL (default: href): ");
@@ -1495,7 +1497,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 Console.ResetColor();
             }
 
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Please enter another XPath.");
             Console.ResetColor();
         }
@@ -1504,7 +1506,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
     private void TestCompletedStatusSetting()
     {
         Console.WriteLine($"\n[Completed Status]");
-        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
         Console.WriteLine("What text indicates a completed novel? (e.g., 'Completed', 'Finished')");
         Console.ResetColor();
         Console.Write("Completed status text (or press Enter for null): ");
@@ -1525,7 +1527,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
     private void TestChapterSortOrderSetting()
     {
         Console.WriteLine($"\n[Chapter Sort Order]");
-        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
         Console.WriteLine("How are chapters ordered on this site's table of contents page?");
         Console.ResetColor();
         Console.WriteLine("  1. Ascending (oldest first) (default)");
@@ -1550,7 +1552,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
     private async Task TestNovelRatingFieldAsync()
     {
         Console.WriteLine($"\n[Novel Rating]");
-        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
         Console.WriteLine("XPath for the novel's rating score (e.g., 4.5 out of 5)");
         Console.ResetColor();
         Console.ForegroundColor = ConsoleColor.DarkYellow;
@@ -1561,7 +1563,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         var xpath = Console.ReadLine()?.Trim();
         if (string.IsNullOrEmpty(xpath))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("⊘ Skipped");
             Console.ResetColor();
             return;
@@ -1576,7 +1578,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
     private async Task TestTotalRatingsFieldAsync()
     {
         Console.WriteLine($"\n[Total Ratings]");
-        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
         Console.WriteLine("XPath for the total number of ratings/votes");
         Console.ResetColor();
         Console.ForegroundColor = ConsoleColor.DarkYellow;
@@ -1587,7 +1589,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         var xpath = Console.ReadLine()?.Trim();
         if (string.IsNullOrEmpty(xpath))
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("⊘ Skipped");
             Console.ResetColor();
             return;
@@ -1634,14 +1636,14 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
 
         if (response != "y" && response != "yes")
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("⊘ Chapter content testing skipped");
             Console.ResetColor();
             return;
         }
 
         Console.WriteLine("\nProvide a chapter page URL to test on:");
-        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
         Console.WriteLine("Example: https://www.wuxiaworld.com/novel/keyboard-immortal/ki-chapter-1");
         Console.ResetColor();
         Console.Write("Chapter URL: ");
@@ -1656,7 +1658,13 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         }
 
         Console.WriteLine($"\nLoading chapter page: {chapterUrl}");
+        var chapterPageLoadedWithSelenium = false;
         var (chapterHtml, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(chapterUri).ConfigureAwait(false);
+
+        if (cloudflareDetected)
+        {
+            _config.CloudflareProtection = CloudflareProtectionLevel.Detected;
+        }
 
         if (chapterHtml == null)
         {
@@ -1665,14 +1673,50 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
             if (cloudflareDetected)
             {
                 Console.WriteLine("✗ Cloudflare protection detected");
+                Console.WriteLine(IsFlareSolverrEnabled
+                    ? "✗ FlareSolverr could not load this chapter page"
+                    : "✗ FlareSolverr is not available");
             }
 
             Console.ResetColor();
-            return;
+
+            Console.Write("\nTry loading the chapter page with Selenium instead? (y/n): ");
+            var seleniumResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
+            if (seleniumResponse != "y" && seleniumResponse != "yes")
+            {
+                return;
+            }
+
+            chapterHtml = await LoadPageWithSeleniumAsync(chapterUri, headless: false).ConfigureAwait(false);
+            if (chapterHtml == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Selenium could not load the chapter page either");
+                Console.ResetColor();
+                return;
+            }
+
+            _config.ChapterContentRequiresSelenium = true;
+            updatedUri = chapterUri;
+            chapterPageLoadedWithSelenium = true;
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("✓ Marked site as requiring Selenium for chapter content");
+            Console.ResetColor();
+        }
+        else if (LastRequestUsedFlareSolverr)
+        {
+            _config.RequiresFlareSolverr = true;
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("FlareSolverr was needed to load this chapter page.");
+            Console.WriteLine("Users must have FlareSolverr running to scrape chapter content from this site.");
+            Console.ResetColor();
         }
 
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✓ Chapter page loaded successfully (Status: {statusCode})\n");
+        Console.WriteLine(chapterPageLoadedWithSelenium
+            ? "✓ Chapter page loaded successfully with Selenium\n"
+            : $"✓ Chapter page loaded successfully (Status: {statusCode})\n");
         Console.ResetColor();
 
         _chapterHtmlDocument = chapterHtml;
@@ -1690,7 +1734,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (!fieldVerified)
         {
             Console.WriteLine($"\n[Chapter Title]");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Example: //h1[@class='chapter-title']/text()");
             Console.ResetColor();
             Console.ForegroundColor = ConsoleColor.DarkYellow;
@@ -1701,7 +1745,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
             var xpath = Console.ReadLine()?.Trim();
             if (string.IsNullOrEmpty(xpath))
             {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine("⊘ Skipped");
                 Console.ResetColor();
                 return;
@@ -1825,7 +1869,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (!fieldVerified)
         {
             Console.WriteLine($"\n[Chapter Content]");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             var success = false;
 
             if (_config.HasImagesForChapterContent)
@@ -1840,7 +1884,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 var xpath = Console.ReadLine()?.Trim();
                 if (string.IsNullOrEmpty(xpath))
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
                     Console.WriteLine("⊘ Skipped");
                     Console.ResetColor();
                     return;
@@ -1871,7 +1915,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                             Console.WriteLine($"  [{i + 1}] {src}");
                         }
 
-                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.ForegroundColor = ConsoleColor.DarkYellow;
                         Console.WriteLine("\nCommon image attributes: src, data-src, data-url");
                         Console.ResetColor();
                         Console.Write("Image URL attribute (default: src): ");
@@ -1899,7 +1943,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 var xpath = Console.ReadLine()?.Trim();
                 if (string.IsNullOrEmpty(xpath))
                 {
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
                     Console.WriteLine("⊘ Skipped");
                     Console.ResetColor();
                     return;
@@ -1991,7 +2035,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (true)
         {
             Console.WriteLine("\n[Alternative Chapter Content]");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Optional fallback used when the main selector finds too little chapter content.");
             Console.WriteLine("Example: //div[@id='chapter-content']//p");
             Console.ResetColor();
@@ -2000,7 +2044,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
             var alternativeChapterContentXPath = Console.ReadLine()?.Trim();
             if (string.IsNullOrWhiteSpace(alternativeChapterContentXPath))
             {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine("⊘ Skipped");
                 Console.ResetColor();
                 return;
@@ -2058,7 +2102,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 continue;
             }
 
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("⊘ Alternative chapter content skipped");
             Console.ResetColor();
             return;
@@ -2072,7 +2116,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         while (!fieldVerified)
         {
             Console.WriteLine($"\n[Next Chapter Button]");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("XPath for the 'next chapter' navigation link/button.");
             Console.WriteLine("Used for SPA-style sites that navigate via next-chapter buttons instead of TOC links.");
             Console.WriteLine("Example: //a[@class='next-chap']");
@@ -2085,7 +2129,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
             var xpath = Console.ReadLine()?.Trim();
             if (string.IsNullOrEmpty(xpath))
             {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine("⊘ Skipped");
                 Console.ResetColor();
                 return;
@@ -2768,7 +2812,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
                 Console.ResetColor();
 
                 // Show fallback: test as absolute XPath
-                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine("\nTrying as absolute XPath for reference:");
                 Console.ResetColor();
                 var absoluteNodes = htmlDocument.DocumentNode.SelectNodes(xpath);
@@ -2954,7 +2998,7 @@ internal abstract class TestStrategyInitializer : NovelDataInitializer
     /// <summary>
     /// Single source of truth for deciding whether an extraction actually produced data for a given attribute.
     /// Shared by every field tester/validator so the per-attribute rules cannot drift apart.
-    /// Attributes without a dedicated buffer field (e.g. <see cref="Attr.CurrentChapter"/>) default to true.
+    /// Attributes without a dedicated buffer field (e.g. <see cref="Attr.CurrentChapterUrl"/>) default to true.
     /// </summary>
     /// <param name="attribute">The extracted attribute whose corresponding buffer value is checked.</param>
     /// <param name="novelDataBuffer">The buffer containing the extraction result.</param>
@@ -2975,7 +3019,7 @@ internal abstract class TestStrategyInitializer : NovelDataInitializer
             Attr.LastTableOfContentsPage => !string.IsNullOrEmpty(novelDataBuffer.LastTableOfContentsPageUrl),
             Attr.ChapterUrls => novelDataBuffer.ChapterLinks.Count > 0,
             Attr.FirstChapterUrl => !string.IsNullOrEmpty(novelDataBuffer.FirstChapter),
-            Attr.CurrentChapter => !string.IsNullOrEmpty(novelDataBuffer.CurrentChapterUrl),
+            Attr.CurrentChapterUrl => !string.IsNullOrEmpty(novelDataBuffer.CurrentChapterUrl),
             Attr.Category => false,
             Attr.AlternateLastTableOfContentsPage => false,
             _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Unknown novel-data attribute.")
@@ -3017,7 +3061,7 @@ internal abstract class TestStrategyInitializer : NovelDataInitializer
     {
         if (!hasSelector)
         {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine($"  ⊘ {fieldName}: Not configured (skipped)");
             Console.ResetColor();
             return (fieldName, true);
@@ -3054,7 +3098,7 @@ internal abstract class TestStrategyInitializer : NovelDataInitializer
                 Attr.LastTableOfContentsPage => $"  ✓ {fieldName}: {novelDataBuffer.LastTableOfContentsPageUrl}",
                 Attr.ChapterUrls => $"  ✓ {fieldName}: {novelDataBuffer.ChapterLinks.Count} chapter(s)",
                 Attr.FirstChapterUrl => $"  ✓ {fieldName}: {novelDataBuffer.FirstChapter}",
-                Attr.CurrentChapter => $"  ✓ {fieldName}: {novelDataBuffer.CurrentChapterUrl}",
+                Attr.CurrentChapterUrl => $"  ✓ {fieldName}: {novelDataBuffer.CurrentChapterUrl}",
                 Attr.Category => $"  ✓ {fieldName}: Found",
                 Attr.AlternateLastTableOfContentsPage => $"  ✓ {fieldName}: Found",
                 _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Unknown novel-data attribute.")
