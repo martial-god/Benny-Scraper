@@ -1,1 +1,140 @@
-# need to add release actions here.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore Benny-Scraper.sln
+
+      - name: Build
+        run: dotnet build Benny-Scraper.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test Benny-Scraper.Tests/Benny-Scraper.Tests.csproj --configuration Release --no-build --no-restore
+
+  publish:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: win-x64
+            operating-system: windows-latest
+            archive-extension: zip
+          - runtime: linux-x64
+            operating-system: ubuntu-latest
+            archive-extension: tar.gz
+          - runtime: osx-x64
+            operating-system: macos-15-intel
+            archive-extension: tar.gz
+          - runtime: osx-arm64
+            operating-system: macos-latest
+            archive-extension: tar.gz
+
+    runs-on: ${{ matrix.operating-system }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Publish self-contained application
+        shell: pwsh
+        run: |
+          $releaseVersion = "${{ github.ref_name }}".TrimStart("v")
+          dotnet publish Benny-Scraper/Benny-Scraper.csproj `
+            --configuration Release `
+            --runtime "${{ matrix.runtime }}" `
+            --self-contained true `
+            --output "publish/${{ matrix.runtime }}" `
+            -p:Version=$releaseVersion `
+            -p:InformationalVersion=$releaseVersion
+
+      - name: Create Windows archive
+        if: matrix.archive-extension == 'zip'
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "publish/${{ matrix.runtime }}/*" `
+            -DestinationPath "Benny-Scraper-${{ github.ref_name }}-${{ matrix.runtime }}.zip"
+
+      - name: Create Unix archive
+        if: matrix.archive-extension == 'tar.gz'
+        shell: bash
+        run: |
+          tar -C "publish/${{ matrix.runtime }}" \
+            -czf "$GITHUB_WORKSPACE/Benny-Scraper-${{ github.ref_name }}-${{ matrix.runtime }}.tar.gz" .
+
+      - name: Upload packaged application
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.runtime }}
+          path: Benny-Scraper-${{ github.ref_name }}-${{ matrix.runtime }}.${{ matrix.archive-extension }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download packaged applications
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create checksums
+        working-directory: release-assets
+        run: sha256sum Benny-Scraper-* > SHA256SUMS.txt
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+          elif [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release create "$GITHUB_REF_NAME" release-assets/* \
+              --verify-tag \
+              --generate-notes \
+              --prerelease \
+              --latest=false \
+              --title "Benny-Scraper $GITHUB_REF_NAME"
+          else
+            gh release create "$GITHUB_REF_NAME" release-assets/* \
+              --verify-tag \
+              --generate-notes \
+              --title "Benny-Scraper $GITHUB_REF_NAME"
+          fi

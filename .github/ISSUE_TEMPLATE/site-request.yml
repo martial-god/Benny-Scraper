@@ -1,0 +1,54 @@
+name: New site request
+description: Request support for a web novel or manga site that is not currently included.
+title: "[Site Request]: "
+labels:
+  - enhancement
+body:
+  - type: input
+    id: site
+    attributes:
+      label: Site
+      description: What site would you like Benny-Scraper to support?
+      placeholder: example.com
+    validations:
+      required: true
+
+  - type: input
+    id: test-url
+    attributes:
+      label: Public test URL
+      description: Provide a table-of-contents URL that can be tested without an account, if one is available.
+      placeholder: https://example.com/novel/example
+
+  - type: dropdown
+    id: content-type
+    attributes:
+      label: Content type
+      options:
+        - Web novel
+        - Manga/comic
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What have you tried?
+      description: If you used `--test-site` or `--test-interactive`, include the result here.
+
+  - type: textarea
+    id: access
+    attributes:
+      label: Access requirements
+      description: Mention whether chapters need an account, a paid subscription, Selenium, or FlareSolverr.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues for this site.
+          required: true
+        - label: I understand that a request does not guarantee the site can be supported.
+          required: true

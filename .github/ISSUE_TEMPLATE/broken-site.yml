@@ -1,0 +1,76 @@
+name: Broken supported site
+description: Report a site that is already included but no longer works correctly.
+title: "[Broken Site]: "
+labels:
+  - bug
+body:
+  - type: input
+    id: site
+    attributes:
+      label: Site
+      description: Which supported site is failing?
+      placeholder: novelfull.com
+    validations:
+      required: true
+
+  - type: input
+    id: test-url
+    attributes:
+      label: Test URL
+      description: Provide a table-of-contents or chapter URL that shows the problem. Do not include private account links.
+      placeholder: https://example.com/novel/example
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Explain what you expected and what Benny-Scraper did instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command used, if applicable
+      description: If you ran Benny-Scraper from a terminal, include the command after removing private information. Leave this blank if you used interactive mode.
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output or logs
+      description: Remove passwords, cookies, tokens, and other private information before pasting logs.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Benny-Scraper version
+      description: Run `benny-scraper --version`.
+      placeholder: "2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I tested with the latest available release.
+          required: true
+        - label: I removed credentials and other private information from the report.
+          required: true

@@ -1,9 +1,49 @@
-# Benny-Scraper
-Benny-Scraper started as a way to make listening to web novels easier and grew into an application for storing manga and web novels offline. It creates EPUB files for text-based novels and PDF or comic book archives such as CBZ for image-based chapters. Site configurations are stored as individual JSON files in the [`sites`](Benny-Scraper/sites) directory, making compatible sites easier to add without writing a new scraper strategy.
+# Benny-Scraper: Web Novel and Manga Downloader
 
+Benny-Scraper is an open-source command-line web novel and manga downloader. It saves web novels as EPUB files and manga as PDF or comic book archives such as CBZ. It runs on Windows, Linux, and macOS.
+
+I originally made this because I wanted an easier way to listen to web novels. It grew into a way to keep novels and manga offline and update them without downloading every old chapter again. The database, downloaded chapters, and generated files stay on your computer.
+
+Site configurations are stored as individual JSON files in the [`sites`](Benny-Scraper/sites) directory. Compatible sites can be added without creating another scraper strategy.
+
+[![Build](https://github.com/martial-god/Benny-Scraper/actions/workflows/build.yml/badge.svg)](https://github.com/martial-god/Benny-Scraper/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/martial-god/Benny-Scraper)](https://github.com/martial-god/Benny-Scraper/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)
+[![License](https://img.shields.io/github/license/martial-god/Benny-Scraper)](LICENSE)
 
-MangaKatana is currently the best site to get mangas as the others scramble the chapter images, I can only assume they are owned by the same people and will need to find a way to unscramble it.
+## What Makes It Different
+
+- Saved novels can be updated without downloading every old chapter again.
+- Successfully downloaded chapters remain saved when another chapter fails and can be retried later.
+- Text novels can be saved as EPUB, while manga can be saved as PDF, CBZ, CBR, CB7, CBT, or CBA.
+- The interactive testing commands help create and validate configurations for new sites.
+- Selenium and FlareSolverr are available for sites that cannot be loaded with a normal HTTP request.
+
+Benny-Scraper does not use a hosted scraping service. It runs on your computer and connects directly to the sites you choose.
+
+## Supported Sites
+
+| Site | Content | Output | Additional requirement |
+| --- | --- | --- | --- |
+| [Inovelhub](https://inovelhub.com) | Web novel | EPUB | None |
+| [mangakakalot](https://mangakakalot.to) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
+| [mangakatana](https://mangakatana.com) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
+| [mangareader](https://mangareader.to) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
+| [NovelBin](https://novelbin.me) | Web novel | EPUB | Chrome/Selenium |
+| [noveldrama](https://noveldrama.com) | Web novel | EPUB | None |
+| [novelfire](https://novelfire.net) | Web novel | EPUB | None |
+| [novelfull](https://novelfull.com) | Web novel | EPUB | FlareSolverr |
+| [NovLove](https://novlove.com) | Web novel | EPUB | Chrome/Selenium |
+| [Royalroad](https://royalroad.com) | Web novel | EPUB | None |
+| [Toonily](https://toonily.com) | Manga/comic | PDF or comic book archive | FlareSolverr |
+| [wanderinginn](https://wanderinginn.com) | Web novel | EPUB | None |
+| [Wuxiaworld](https://wuxiaworld.com) | Web novel | EPUB | Chrome/Selenium |
+
+Run `benny-scraper --sites` to see the active sites included with your installed version. Sites can change after a release, so this list does not guarantee that every external site is currently working.
+
+### Known Site Limitations
+
+MangaKatana currently gives me the most reliable manga results. Some other manga sites can return scrambled chapter images, so a completed download does not always mean the images are in the right order. External sites also change without notice. If a previously working site stops loading, please open a [broken site report](https://github.com/martial-god/Benny-Scraper/issues/new?template=broken-site.yml).
 
 ## Requirements
 
@@ -93,7 +133,20 @@ Warnings usually indicate a recoverable problem, such as a failed chapter or an 
 
 Back up the database before installing a major update or clearing the database.
 
-## Publishing for Linux, Mac, and Windows for standalone Builds
+## Creating a Release
+
+Pushing a version tag runs the GitHub release workflow. It builds and tests the application, publishes self-contained archives for Windows x64, Linux x64, macOS Intel, and macOS Apple Silicon, and then creates the GitHub release with generated release notes and SHA-256 checksums.
+
+Update the version in `Benny-Scraper.csproj`, commit the release changes, and then create and push the matching tag:
+
+```bash
+git tag v2.0.1
+git push origin v2.0.1
+```
+
+A tag containing a suffix, such as `v2.1.0-prerelease`, creates a prerelease. The workflow passes the tag version into the published application, so the tag and `benny-scraper --version` stay consistent. Do not reuse an existing tag; increase the version before creating another release.
+
+### Publishing Standalone Builds Manually
 
 Run these commands from the repository root. The output paths can be changed.
 
@@ -407,5 +460,8 @@ For more information about each command and option, run:
 benny-scraper --help
 ```
 
-## ✨ Contribute to This Project ✨
-Try adding a new site and see if it works, create a pull request with your new site configuration.
+## Contributing
+
+Try adding a new site and see if it works. If it uses `CommonStrategy`, the pull request may only need the new JSON file. See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks to run and the information to include.
+
+Only download content you are allowed to access. You are responsible for following the rules of the sites you use.

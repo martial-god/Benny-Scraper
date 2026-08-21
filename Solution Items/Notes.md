@@ -109,5 +109,10 @@ The only question now, is whether to use `abstract` or `virtual` methods.
 5. Share this on reddit, and how it goes.
 6. Ohh, and fix the issue where an epub is being overwritten when a novel is updated, with just the new chapters.
 
+## Future Idea: Browser Extension Bridge
+
+Create a browser extension that could pass rendered pages from the user's existing browser session to the local Benny-Scraper application. This could use the user's existing login and already completed browser challenges without operating a centralized service.
+Benny-Scraper would remain responsible for the local database, chapter updates, retries, and EPUB, PDF, or comic book archive generation. Communication should remain local through an authenticated localhost connection or native messaging.
+
 
 
