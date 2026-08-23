@@ -94,8 +94,8 @@ internal static class NovelChapterStateUpdater
             return;
         }
 
-        var firstAvailableChapter = novelDataBuffer.ChapterLinks.First();
-        var latestAvailableChapter = novelDataBuffer.ChapterLinks.Last();
+        var firstAvailableChapter = novelDataBuffer.ChapterLinks[0];
+        var latestAvailableChapter = novelDataBuffer.ChapterLinks[^1];
 
         novelDataBuffer.FirstChapter = firstAvailableChapter.Url;
 

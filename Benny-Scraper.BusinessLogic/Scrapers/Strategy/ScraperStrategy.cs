@@ -1010,6 +1010,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 else
                 {
                     driver = await _driverFactory.CreateDriverAsync(url, isHeadless: isHeadless).ConfigureAwait(false);
+                    Logger.Debug("Created new Selenium driver");
                 }
 
                 var stopwatch = Stopwatch.StartNew();
@@ -2320,7 +2321,6 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         var latestChapterNode =
                             htmlDocument.DocumentNode.SelectSingleNode(scraperData.SiteConfig.Selectors.TableOfContents.LatestChapterLink ?? string.Empty);
 
-                        // Extract chapter URL if href attribute exists
                         var currentChapterUrl = latestChapterNode.Attributes["href"].Value;
 
                         if (!IsValidHttpUrl(currentChapterUrl))

@@ -47,7 +47,6 @@ internal sealed class WuxiaWorldStrategy : ScraperStrategy
                 NovelDataInitializer.Attr.Author,
                 NovelDataInitializer.Attr.NovelStatus,
                 NovelDataInitializer.Attr.Description,
-                NovelDataInitializer.Attr.CurrentChapterUrl,
                 NovelDataInitializer.Attr.Genres
             };
             var attributesToFetchUsingSelenium = new List<NovelDataInitializer.Attr>()
@@ -162,11 +161,14 @@ internal sealed class WuxiaWorldStrategy : ScraperStrategy
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions
                         .ElementToBeClickable(By.XPath(chaptersTabXPath))).Click();
 
-                    const string collapsedSummariesXPath = "//*[@id='full-width-tabpanel-1']//div[@role='button' and @aria-expanded='false']";
+                    const string collapsedSummariesXPath = "//*[@id='full-width-tabpanel-1']//h3/button[@type='button' and @aria-expanded='false']";
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(collapsedSummariesXPath)));
 
                     var collapsedSummaries = driver.FindElements(By.XPath(collapsedSummariesXPath));
+                    Logger.Info($"Found {collapsedSummaries.Count} collapsed summaries");
                     var jsExecutor = (IJavaScriptExecutor)driver;
+
+                    const string chapterLinksWithinSummaryXPath = "../following-sibling::*[1]//a[@href]";
 
                     foreach (var collapsedSummary in collapsedSummaries)
                     {
@@ -180,7 +182,7 @@ internal sealed class WuxiaWorldStrategy : ScraperStrategy
                             try
                             {
                                 return summary.GetAttribute("aria-expanded") == "true"
-                                    && summary.FindElements(By.XPath("./following-sibling::*//a")).Count > 0;
+                                    && summary.FindElements(By.XPath(chapterLinksWithinSummaryXPath)).Count > 0;
                             }
                             catch (StaleElementReferenceException)
                             {
@@ -188,7 +190,7 @@ internal sealed class WuxiaWorldStrategy : ScraperStrategy
                             }
                         });
 
-                        Console.Write($"Chapter links found:{summary.FindElements(By.XPath("./following-sibling::*//a")).Count}. ");
+                        Console.Write($"Chapter links found:{summary.FindElements(By.XPath(chapterLinksWithinSummaryXPath)).Count}. ");
                     }
 
                     wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.PresenceOfAllElementsLocatedBy(By.XPath(chapterLinksXPath)));

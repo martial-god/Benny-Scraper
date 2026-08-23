@@ -14,7 +14,7 @@ internal interface INovelService
 
     public Task<Novel?> GetByIdAsync(Guid id);
 
-    public Task<IEnumerable<Novel>> GetAllAsync();
+    public Task<IEnumerable<Novel>> GetAllAsync(string? includeProperties = null);
 
     public Task UpdateAsync(Novel novel);
 

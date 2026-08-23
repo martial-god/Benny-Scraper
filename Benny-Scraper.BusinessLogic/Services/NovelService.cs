@@ -44,10 +44,7 @@ internal sealed class NovelService(IUnitOfWork unitOfWork) : INovelService
         await unitOfWork.SaveAsync().ConfigureAwait(false);
     }
 
-    public async Task<IEnumerable<Novel>> GetAllAsync()
-    {
-        return await unitOfWork.Novel.GetAllAsync().ConfigureAwait(false);
-    }
+    public async Task<IEnumerable<Novel>> GetAllAsync(string? includeProperties = null) => await unitOfWork.Novel.GetAllAsync(includeProperties: includeProperties).ConfigureAwait(false);
 
     public async Task<Novel?> GetByUrlAsync(Uri uri)
     {
@@ -107,12 +104,7 @@ internal sealed class NovelService(IUnitOfWork unitOfWork) : INovelService
 
     public async Task RemoveByIdAsync(Guid id)
     {
-        var novel = await unitOfWork.Novel.GetByIdAsync(id).ConfigureAwait(false);
-        if (novel == null)
-        {
-            throw new InvalidOperationException("Novel not found.");
-        }
-
+        var novel = await unitOfWork.Novel.GetByIdAsync(id).ConfigureAwait(false) ?? throw new InvalidOperationException("Novel not found.");
         var chapters = await unitOfWork.Chapter.GetAllAsync(filter: c => c.NovelId == id).ConfigureAwait(false);
         unitOfWork.Chapter.RemoveRange(chapters);
         unitOfWork.Novel.Remove(novel);

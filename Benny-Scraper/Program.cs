@@ -72,7 +72,7 @@ internal static class Program
         // Ensure Selenium drivers (and other unmanaged resources) are disposed even on crash/exit.
         ShutdownHooks.Register(Container!.Resolve<IDriverFactory>());
 
-        await using var scope = Container!.BeginLifetimeScope();
+        var scope = Container!.BeginLifetimeScope();
         var dbInitializer = scope.Resolve<DbInitializer>();
         var databaseChangesMade = await dbInitializer.InitializeAsync().ConfigureAwait(false);
 
@@ -411,13 +411,26 @@ internal static class Program
         var novelProcessor = scope.Resolve<INovelProcessor>();
         var updatedNovels = new List<(int, string NovelName)>();
         var failedToUpdate = new List<(int, string NovelName)>();
-        var novels = await novelService.GetAllAsync();
-        var nonCompletedNovels = novels.Where(novel => !novel.LastChapter).ToList(); // issue with mangareader.to
+        var novels = (await novelService.GetAllAsync(includeProperties: "ChapterRanges")).ToList();
+        var premiumSiteUrlPatterns = NovelScraperSettings?.SiteConfigurations
+            .Where(siteConfiguration => siteConfiguration.HasPremiumChapters)
+            .Select(siteConfiguration => siteConfiguration.UrlPattern)
+            .ToList() ?? new List<string>();
+        var novelsAvailableForUpdate = novels
+            .Where(novel => !novel.LastChapter || premiumSiteUrlPatterns.Any(urlPattern =>
+                novel.Url.Contains(urlPattern, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        var novelsWithPartialDownloads = novelsAvailableForUpdate
+            .Where(novel => novel.IsPartialDownload)
+            .OrderBy(novel => novel.Title)
+            .ToList();
+        var novelsToUpdate = novelsAvailableForUpdate.Except(novelsWithPartialDownloads).ToList();
+
+        DisplayPartialNovelsExcludedFromUpdateAll(novelsWithPartialDownloads);
 
         // change default log level to error
         SetupLogger(LogLevel.Error);
-        var count = 0;
-        foreach (var novel in nonCompletedNovels)
+        foreach (var (novel, novelNumber) in novelsToUpdate.Select((novel, index) => (novel, index + 1)))
         {
             if (cancellation.IsCancellationRequested)
             {
@@ -426,18 +439,17 @@ internal static class Program
 
             try
             {
-                await novelProcessor.ProcessNovelAsync(new Uri(novel.Url));
-                ++count;
-                updatedNovels.Add((count, novel.Title));
+                await novelProcessor.ProcessNovelAsync(new Uri(novel.Url), confirmPremiumChapters: false);
+                updatedNovels.Add((novelNumber, novel.Title));
             }
             catch (Exception ex)
             {
                 _logger.Error($"Exception when trying to update novel. {ex.Message}");
-                failedToUpdate.Add((count, novel.Title));
+                failedToUpdate.Add((novelNumber, novel.Title));
             }
         }
 
-        Console.WriteLine("\nCompleted novels: " + updatedNovels.Count + $"/{nonCompletedNovels.Count}");
+        Console.WriteLine("\nProcessed without errors: " + updatedNovels.Count + $"/{novelsToUpdate.Count}");
         foreach (var updateNovel in updatedNovels)
         {
             Console.ForegroundColor = ConsoleColor.Green;
@@ -445,11 +457,11 @@ internal static class Program
         }
 
         Console.ResetColor();
-        Console.WriteLine($"Failed novels: {failedToUpdate.Count}");
+        Console.WriteLine($"Failed to process: {failedToUpdate.Count}");
         if (failedToUpdate.Count > 0)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Failed to update novels:");
+            Console.WriteLine("Novels that failed to process:");
             foreach (var failedNovel in failedToUpdate)
             {
                 Console.WriteLine($"{failedNovel.Item1}) {failedNovel.NovelName}");
@@ -457,6 +469,29 @@ internal static class Program
 
             Console.ResetColor();
         }
+    }
+
+    private static void DisplayPartialNovelsExcludedFromUpdateAll(List<Novel> partialNovels)
+    {
+        if (partialNovels.Count == 0)
+        {
+            return;
+        }
+
+        var novelText = partialNovels.Count == 1 ? "novel requires" : "novels require";
+        var messages = partialNovels.SelectMany(novel => new[]
+            {
+                string.Empty,
+                $"Novel: {novel.Title}",
+                $"Novel ID: {novel.Id}",
+                $"Selected chapter ranges: {string.Join(", ", novel.ChapterRanges.OrderBy(chapterRange => chapterRange.Begin).Select(chapterRange => $"{chapterRange.Begin}-{chapterRange.End}"))}"
+            })
+            .Prepend($"{partialNovels.Count} {novelText} an explicit chapter range")
+            .Prepend("PARTIAL DOWNLOADS EXCLUDED FROM UPDATE ALL")
+            .Append(string.Empty)
+            .Append("Run a partial novel directly with -B and -E to download another range.")
+            .ToArray();
+        CommonHelper.DrawBox(messages, ConsoleColor.Yellow);
     }
 
     private static Task HandleParseErrors(IEnumerable<Error> errors)

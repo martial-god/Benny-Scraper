@@ -61,7 +61,7 @@ internal class Repository<T> : IRepository<T>
             return await query.ToListAsync().ConfigureAwait(false);
         }
 
-        // Will not break if there are commas seperating properties, including ,,,
+        // Will not break if there are commas separating properties, including ,,,
         query = includeProperties.Split([','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Aggregate(query, (current, includeProp) => current.Include(includeProp)); // Sames as ForEach, but more efficient and less code. For each property in the includeProperties string, we include it in the query.
 

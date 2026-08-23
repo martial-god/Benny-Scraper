@@ -34,7 +34,7 @@ internal sealed class NovelProcessor(
     private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly NovelScraperSettings _novelScraperSettings = novelScraperSettings.Value;
 
-    public async Task ProcessNovelAsync(Uri novelTableOfContentsUri, int? beginChapter = null, int? endChapter = null, bool withLogin = false)
+    public async Task ProcessNovelAsync(Uri novelTableOfContentsUri, int? beginChapter = null, int? endChapter = null, bool withLogin = false, bool confirmPremiumChapters = true)
     {
         if (!IsThereConfigurationForSite(novelTableOfContentsUri))
         {
@@ -91,7 +91,7 @@ internal sealed class NovelProcessor(
             Console.WriteLine($"Date Created: {novel.DateCreated}");
             Console.WriteLine($"Date Last Updated: {novel.DateLastModified}\n");
             Console.ResetColor();
-            await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraperStrategy, configuration, beginChapter, endChapter).ConfigureAwait(false);
+            await UpdateExistingNovelAsync(novel, novelTableOfContentsUri, scraperStrategy, configuration, beginChapter, endChapter, confirmPremiumChapters).ConfigureAwait(false);
         }
     }
 
@@ -660,6 +660,11 @@ internal sealed class NovelProcessor(
     private async Task AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration, int? beginChapter = null, int? endChapter = null)
     {
         using var novelDataBuffer = await scraperStrategy.ScrapeAsync().ConfigureAwait(false);
+        if (novelDataBuffer.ChapterLinks.Count == 0)
+        {
+            _logger.Error("No chapters found for this novel");
+            throw new InvalidOperationException($"No chapters found for novel at {novelTableOfContentsUri}. Cannot add to database.");
+        }
 
         SelectedChapterRange? selectedRange = null;
         string? detectedVolumeName = null;
@@ -945,7 +950,7 @@ internal sealed class NovelProcessor(
         }
     }
 
-    private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration, int? beginChapter = null, int? endChapter = null)
+    private async Task UpdateExistingNovelAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration, int? beginChapter = null, int? endChapter = null, bool confirmPremiumChapters = true)
     {
         if (ShouldSkipPartialDownloadUpdate(novel, novelTableOfContentsUri, beginChapter, endChapter))
         {
@@ -988,7 +993,10 @@ internal sealed class NovelProcessor(
         {
             selectedRange = ChapterRangeSelector.GetRangeFromOptions(novelDataBuffer.ChapterLinks.Count, beginChapter, endChapter);
             ChapterRangeSelector.DisplayRangeInfo(selectedRange, novelDataBuffer.ChapterLinks.Select(c => c.Title).ToList()!);
-            ChapterRangeSelector.ConfirmPremiumChapters(selectedRange, novelDataBuffer.ChapterLinks, novelDataBuffer.UserPremiumCurrencies, novelDataBuffer.IsLoggedIn);
+            if (confirmPremiumChapters)
+            {
+                ChapterRangeSelector.ConfirmPremiumChapters(selectedRange, novelDataBuffer.ChapterLinks, novelDataBuffer.UserPremiumCurrencies, novelDataBuffer.IsLoggedIn);
+            }
 
             newChapterLinks = newChapterLinks.Where(link =>
             {
@@ -997,7 +1005,7 @@ internal sealed class NovelProcessor(
             }).ToList();
             selectedRangeCreatesGap = selectedRange.Begin > previouslyDownloadedChapterIndex + 1;
         }
-        else if (newChapterLinks.Count != 0)
+        else if (confirmPremiumChapters && newChapterLinks.Count != 0)
         {
             // When downloading all new chapters, still check for premium chapters
             var firstNewChapterIndex = novelDataBuffer.ChapterLinks.FindIndex(c => c.Url == newChapterLinks.First().Url) + 1;
