@@ -96,7 +96,7 @@ The Compose file exposes FlareSolverr only on `127.0.0.1:8191`. Do not expose it
 
 ## Installation
 
-1. Download the appropriate archive from the [Releases](https://github.com/martial-god/Benny-Scraper/releases) page.
+1. Download the appropriate archive from the [Releases](https://github.com/martial-god/Benny-Scraper/releases/latest) page.
 2. Extract the archive to a permanent location.
 3. Run `Benny-Scraper.exe` on Windows or `Benny-Scraper` on Linux and macOS.
 4. Optionally add that directory to your PATH so you can run `benny-scraper` from any terminal.
