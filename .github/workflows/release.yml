@@ -96,7 +96,6 @@ jobs:
         with:
           name: release-${{ matrix.runtime }}
           path: Benny-Scraper-${{ github.ref_name }}-${{ matrix.runtime }}.${{ matrix.archive-extension }}
-          archive: false
           if-no-files-found: error
           retention-days: 7
 
