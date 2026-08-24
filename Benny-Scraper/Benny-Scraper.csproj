@@ -71,36 +71,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
-    01:16:58 Info Starting scraper for CommonStrategy with base uri:
-    01:16:59 Info Cloudflare challenge detected for https://www.webnovel.com/book/the-adventures-of-an-overpowered-knight-in-another-world_31799923608237405. Switching to FlareSolverr.
-    Title: The Adventures of an Overpowered Knight in Another World
-    Author: Master_Rod
-    Description line count: 22
-    Total Genres: 10
-    Genres: # R18, # SMUT, # ROMANCE, # HAREM, # OVERPOWERED, # ADVENTURE, # REINCARNATION, # MAGIC, # ACTION, # DARK
-    ThumbnailUrl: https://book-pic.webnovel.com/bookcover/31799923608237405?imageMogr2/thumbnail/600x&amp;imageId=1770545145980
-    01:19:49 Info Loading https://www.webnovel.com/book/31799923608237405/catalog directly with FlareSolverr because it was required earlier in this scraping session.
-    01:19:51 Error Error scraping novel data from https://www.webnovel.com/book/the-adventures-of-an-overpowered-knight-in-another-world_31799923608237405 System.Net.CookieException: The 'Value'='{"i_l":0,"i_ll":1787552390524,"i_b":"UrzfFQRDbVy3I3RuL9aDTCxI1UaRQRqTEZr3BQ8ke7c","i_e":{"enable_itp_optimization":24},"i_et":1787552390524}' part of the cookie is invalid.
-    at System.Net.Cookie.VerifyAndSetDefaults(CookieVariant variant, Uri uri)
-    at System.Net.CookieContainer.Add(Uri uri, Cookie cookie)
-    at BennyScraper.BusinessLogic.Factory.HttpClientFactory.AddCookiesFromHeader(Uri uri, String cookieHeader) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Factory\HttpClientFactory.cs:line 125
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.ScraperStrategy.TrySolveCloudflareChallengeAsync(Uri uri, Boolean cloudflareChallengeDetected) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\ScraperStrategy.cs:line 804
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.ScraperStrategy.LoadHtmlAsync(Uri uri) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\ScraperStrategy.cs:line 647
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.CommonStrategy.BuildNovelDataAsync(HtmlDocument htmlDocument, Uri novelUri) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\CommonStrategy.cs:line 73
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.CommonStrategy.ScrapeAsync() in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\CommonStrategy.cs:line 20
-    01:19:51 Error Exception when trying to process novel with chapter range. System.Net.CookieException: The 'Value'='{"i_l":0,"i_ll":1787552390524,"i_b":"UrzfFQRDbVy3I3RuL9aDTCxI1UaRQRqTEZr3BQ8ke7c","i_e":{"enable_itp_optimization":24},"i_et":1787552390524}' part of the cookie is invalid.
-    at System.Net.Cookie.VerifyAndSetDefaults(CookieVariant variant, Uri uri)
-    at System.Net.CookieContainer.Add(Uri uri, Cookie cookie)
-    at BennyScraper.BusinessLogic.Factory.HttpClientFactory.AddCookiesFromHeader(Uri uri, String cookieHeader) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Factory\HttpClientFactory.cs:line 125
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.ScraperStrategy.TrySolveCloudflareChallengeAsync(Uri uri, Boolean cloudflareChallengeDetected) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\ScraperStrategy.cs:line 804
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.ScraperStrategy.LoadHtmlAsync(Uri uri) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\ScraperStrategy.cs:line 647
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.CommonStrategy.BuildNovelDataAsync(HtmlDocument htmlDocument, Uri novelUri) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\CommonStrategy.cs:line 73
-    at BennyScraper.BusinessLogic.Scrapers.Strategy.CommonStrategy.ScrapeAsync() in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\Scrapers\Strategy\CommonStrategy.cs:line 20
-    at BennyScraper.BusinessLogic.NovelProcessor.AddNewNovelAsync(Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration, Nullable`1 beginChapter, Nullable`1 endChapter) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\NovelProcessor.cs:line 662
-    at BennyScraper.BusinessLogic.NovelProcessor.ProcessNovelAsync(Uri novelTableOfContentsUri, Nullable`1 beginChapter, Nullable`1 endChapter, Boolean withLogin, Boolean confirmPremiumChapters) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper.BusinessLogic\NovelProcessor.cs:line 73
-    at BennyScraper.Program.HandleOptionsAsync(CommandLineOptions options) in C:\Users\Emiya\RiderProjects\Benny-Scraper\Benny-Scraper\Program.cs:line 357
-    Error processing novel: The 'Value'='{"i_l":0,"i_ll":1787552390524,"i_b":"UrzfFQRDbVy3I3RuL9aDTCxI1UaRQRqTEZr3BQ8ke7c","i_e":{"enable_itp_optimization":24},"i_et":1787552390524}' part of the cookie is invalid.
-
     <None Update="sites\webnovel.com.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
