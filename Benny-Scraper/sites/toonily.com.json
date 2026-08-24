@@ -18,23 +18,23 @@
   "chapterSortOrder": "descending",
   "selectors": {
     "tableOfContents": {
-      "chapterLinks": "//*[@id=\"tab-chapter-listing\"]/div/div/ul//a/@href",
+      "chapterLinks": "//*[@id='tab-chapter-listing']/div/div/ul//a/@href",
       "premiumChapterSelectors": {},
-      "latestChapterLink": "//*[@id=\"tab-chapter-listing\"]/div/div/ul/li[1]/a",
+      "latestChapterLink": "//*[@id='tab-chapter-listing']/div/div/ul/li[1]/a",
       "novelStatus": "/html/body/div[2]/div/div[2]/div/div[1]/div/div/div/div[2]/div[2]/div/div[2]/div[2]/div[2]",
       "novelAuthor": "/html/body/div[2]/div/div[2]/div/div[1]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[4]/div[2]/div/a/text()",
       "novelAlternativeNames": "/html/body/div[2]/div/div[2]/div/div[1]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[2]/div[2]",
       "novelGenres": "/html/body/div[2]/div/div[2]/div/div[1]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[5]/div[2]/div//a/text()",
-      "novelRating": "//*[@id=\"averagerate\"]/text()",
+      "novelRating": "//*[@id='averagerate']/text()",
       "novelTitle": "//h1/text()",
       "novelDescription": "/html/body/div[2]/div/div[2]/div/div[2]/div/div/div/div/div[1]/div/div[1]/div[2]//p/text()",
       "novelThumbnailUrl": "/html/body/div[2]/div/div[2]/div/div[1]/div/div/div/div[2]/div[1]/a/img",
       "thumbnailUrlAttribute": "src"
     },
     "userCurrencyBalances": {},
-    "chapterTitle": "//*[@id=\"chapter-heading\"]/text()",
+    "chapterTitle": "//*[@id='chapter-heading']/text()",
     "chapterContent": "/html/body/div[2]/div/div/div/div/div/div/div/div[2]/div/div[2]/div/div/div[2]//img",
     "chapterContentImageUrlAttribute": "src",
-    "nextChapterButton": "//*[@id=\"manga-reading-nav-head\"]/div/div[3]/div/div[2]/a"
+    "nextChapterButton": "//*[@id='manga-reading-nav-head']/div/div[3]/div/div[2]/a"
   }
 }

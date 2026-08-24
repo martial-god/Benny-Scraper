@@ -791,12 +791,6 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         await TestFieldAsync(RequireTocField("Title")).ConfigureAwait(false);
         await TestFieldAsync(RequireTocField("Author")).ConfigureAwait(false);
         await TestFieldAsync(RequireTocField("Description")).ConfigureAwait(false);
-        await TestFieldAsync(
-            "Current Chapter Link",
-            "//*[@id='en-chapters']/li[1]/a",
-            Attr.CurrentChapterUrl,
-            xpath => _config.Selectors.TableOfContents.LatestChapterLink = xpath,
-            false).ConfigureAwait(false);
         await TestFieldAsync(RequireTocField("Genres")).ConfigureAwait(false);
 
         TestCompletedStatusSetting();
@@ -805,13 +799,161 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         await TestFieldAsync(RequireTocField("Alternative Names")).ConfigureAwait(false);
 
         await TestNovelRatingFieldAsync().ConfigureAwait(false);
-
         await TestThumbnailFieldAsync().ConfigureAwait(false);
-        await TestChapterLinksFieldAsync().ConfigureAwait(false);
 
+        await TestFieldAsync(
+            "Current Chapter Link",
+            "//*[@id='en-chapters']/li[1]/a",
+            Attr.CurrentChapterUrl,
+            xpath => _config.Selectors.TableOfContents.LatestChapterLink = xpath,
+            false).ConfigureAwait(false);
+        await TestChapterLinksFieldAsync().ConfigureAwait(false);
         TestPaginationSettings();
         TestChapterSortOrderSetting();
         TestContentTypeSetting();
+    }
+
+    private async Task TestTocChapterFieldsInteractivelyAsync()
+    {
+        var testUri = _testUri; // need to ask user for this
+        Console.WriteLine($"\n{new string('=', 70)}");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"Interactive Site Testing Mode");
+        Console.ResetColor();
+        Console.WriteLine($"{new string('=', 70)}\n");
+
+        Console.WriteLine($"Testing URL: {testUri}\n");
+
+        var initialLoadUsedSelenium = false;
+        var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(testUri).ConfigureAwait(false);
+
+        if (htmlDocument == null)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Failed to load page over HTTP (Status: {statusCode})");
+            if (cloudflareDetected)
+            {
+                Console.WriteLine("✗ Cloudflare protection detected");
+            }
+
+            Console.ResetColor();
+
+            // The most common reason an HTTP fetch fails outright is exactly what this tool exists to onboard:
+            // a JavaScript/Cloudflare-gated site. Offer to fall back to a real browser instead of bailing.
+            Console.Write("\nTry loading the page with Selenium instead? (y/n): ");
+            var seleniumResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
+
+            if (seleniumResponse != "y" && seleniumResponse != "yes")
+            {
+                return;
+            }
+
+            htmlDocument = await LoadPageWithSeleniumAsync(testUri, headless: false).ConfigureAwait(false);
+            if (htmlDocument == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Selenium could not load the page either - aborting.");
+                Console.ResetColor();
+                return;
+            }
+
+            initialLoadUsedSelenium = true;
+            updatedUri = testUri;
+        }
+
+        _htmlDocument = htmlDocument;
+        _testUri = updatedUri;
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("✓ Page loaded successfully\n");
+        Console.ResetColor();
+
+        InitializeConfiguration();
+
+        _config.RequiresFlareSolverr = LastRequestUsedFlareSolverr;
+
+        if (cloudflareDetected)
+        {
+            _config.CloudflareProtection = CloudflareProtectionLevel.Detected;
+        }
+
+        // InitializeConfiguration rebuilds _config, so apply the Selenium requirement afterwards.
+        if (initialLoadUsedSelenium)
+        {
+            _config.TableOfContentsRequiresSelenium = true;
+        }
+
+        await LoadHtmlAndPromptUserAsync(_testUri).ConfigureAwait(false);
+    }
+
+    private async Task LoadHtmlAndPromptUserAsync(Uri testUri)
+    {
+        Console.WriteLine($"\n{new string('=', 70)}");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"Interactive Site Testing Mode");
+        Console.ResetColor();
+        Console.WriteLine($"{new string('=', 70)}\n");
+
+        Console.WriteLine($"Testing URL: {testUri}\n");
+
+        var initialLoadUsedSelenium = false;
+        var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await TestLoadHtmlAsync(testUri).ConfigureAwait(false);
+
+        if (htmlDocument == null)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Failed to load page over HTTP (Status: {statusCode})");
+            if (cloudflareDetected)
+            {
+                Console.WriteLine("✗ Cloudflare protection detected");
+            }
+
+            Console.ResetColor();
+
+            // The most common reason an HTTP fetch fails outright is exactly what this tool exists to onboard:
+            // a JavaScript/Cloudflare-gated site. Offer to fall back to a real browser instead of bailing.
+            Console.Write("\nTry loading the page with Selenium instead? (y/n): ");
+            var seleniumResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
+
+            if (seleniumResponse != "y" && seleniumResponse != "yes")
+            {
+                return;
+            }
+
+            htmlDocument = await LoadPageWithSeleniumAsync(testUri, headless: false).ConfigureAwait(false);
+            if (htmlDocument == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Selenium could not load the page either - aborting.");
+                Console.ResetColor();
+                return;
+            }
+
+            initialLoadUsedSelenium = true;
+            updatedUri = testUri;
+        }
+
+        _htmlDocument = htmlDocument;
+        _testUri = updatedUri;
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("✓ Page loaded successfully\n");
+        Console.ResetColor();
+
+        InitializeConfiguration();
+
+        _config.RequiresFlareSolverr = LastRequestUsedFlareSolverr;
+
+        if (cloudflareDetected)
+        {
+            _config.CloudflareProtection = CloudflareProtectionLevel.Detected;
+        }
+
+        // InitializeConfiguration rebuilds _config, so apply the Selenium requirement afterwards.
+        if (initialLoadUsedSelenium)
+        {
+            _config.TableOfContentsRequiresSelenium = true;
+        }
     }
 
     private async Task RetryFailedRequiredFieldsAsync()

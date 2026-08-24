@@ -14,6 +14,7 @@ internal sealed class HttpClientFactory : IHttpClientFactory, IDisposable
     private readonly SocketsHttpHandler _handler;
     private readonly System.Net.CookieContainer _cookieContainer;
     private readonly ResiliencePipeline<HttpResponseMessage> _responsePipeline;
+    private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
     private bool _disposed;
 
     public HttpClientFactory(
@@ -117,12 +118,19 @@ internal sealed class HttpClientFactory : IHttpClientFactory, IDisposable
             var name = trimmedPair[..separatorIndex].Trim();
             var value = trimmedPair[(separatorIndex + 1)..].Trim();
 
-            var cookie = new Cookie(name, value)
+            try
             {
-                Domain = uri.Host
-            };
+                var cookie = new Cookie(name, value)
+                {
+                    Domain = uri.Host
+                };
 
-            _cookieContainer.Add(uri, cookie);
+                _cookieContainer.Add(uri, cookie);
+            }
+            catch (CookieException ex)
+            {
+                _logger.Debug(ex, "Skipping unsupported cookie '{CookieName}' for {Host}", name, uri.Host);
+            }
         }
     }
 
