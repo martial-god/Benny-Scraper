@@ -27,6 +27,18 @@ internal sealed class TestableStrategy : ScraperStrategy
     public static Uri GetPaginatedUri(Uri tableOfContentsUri, string paginationType, int pageNumber)
         => GetPaginatedTableOfContentsUri(tableOfContentsUri, paginationType, pageNumber);
 
+    public void ConfigurePagination(SiteConfiguration siteConfiguration, Uri tableOfContentsUri)
+    {
+        ScraperData.SiteConfig = siteConfiguration;
+        ScraperData.SiteTableOfContents = tableOfContentsUri;
+        ScraperData.BaseUri = new Uri(tableOfContentsUri.GetLeftPart(UriPartial.Authority));
+    }
+
+    public Task<(List<ChapterLink> ChapterLinks, string LastTableOfContentsUrl)> GetPaginatedChapterLinksAsync(
+        Uri tableOfContentsUri,
+        int? pageToStopAt) =>
+        GetPaginatedChapterLinksAsync(tableOfContentsUri, true, pageToStopAt);
+
     public void ConfigureSort(ChapterSortOrder order)
         => ScraperData.SiteConfig = new SiteConfiguration { ChapterSortOrder = order };
 

@@ -783,7 +783,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 return (null, uri, 0);
             }
 
-            Logger.Info(cloudflareChallengeDetected
+            Logger.Debug(cloudflareChallengeDetected
                 ? $"Cloudflare challenge detected for {uri}. Switching to FlareSolverr."
                 : $"Loading {uri} directly with FlareSolverr because it was required earlier in this scraping session.");
 
@@ -896,25 +896,30 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         /// </summary>
         /// <param name="tableOfContentUri">The base table of contents URI used to build each paginated page URL.</param>
         /// <param name="getAllChapters">If true, all pages from <paramref name="pageToStartAt"/> to <paramref name="pageToStopAt"/> are fetched regardless of whether new content is found.</param>
-        /// <param name="pageToStopAt">The last table of contents page number to fetch.</param>
+        /// <param name="pageToStopAt">The last table of contents page number to fetch, or null to stop when a page has no new chapter links.</param>
         /// <param name="pageToStartAt">The first table of contents page number to fetch (defaults to 1).</param>
         /// <returns>Returns a ValueTuple that contains all the chapter urls and the url for the last page of the table of contents.</returns>
         protected virtual async Task<(List<ChapterLink> ChapterLinks, string LastTableOfContentsUrl)>
             GetPaginatedChapterLinksAsync(
                 Uri tableOfContentUri,
                 bool getAllChapters,
-                int pageToStopAt,
+                int? pageToStopAt,
                 int pageToStartAt = 1)
         {
             var chapterLinks = new List<ChapterLink>();
+            var chapterUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var tocSelector = ScraperData.SiteConfig.Selectors.TableOfContents;
             var paginationType = ScraperData.SiteConfig.PaginationType ?? string.Empty;
-            var lastTableOfContentsUrl = GetPaginatedTableOfContentsUri(
-                tableOfContentUri,
-                paginationType,
-                pageToStopAt).ToString();
+            var lastTableOfContentsUrl = tableOfContentUri.ToString();
+            if (pageToStopAt.HasValue)
+            {
+                lastTableOfContentsUrl = GetPaginatedTableOfContentsUri(
+                    tableOfContentUri,
+                    paginationType,
+                    pageToStopAt.Value).ToString();
+            }
 
-            for (var i = pageToStartAt; i <= pageToStopAt; i++)
+            for (var i = pageToStartAt; !pageToStopAt.HasValue || i <= pageToStopAt.Value; i++)
             {
                 var pageUri = GetPaginatedTableOfContentsUri(tableOfContentUri, paginationType, i);
                 var isPageNew = i > pageToStartAt;
@@ -926,9 +931,15 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                     var linkNodes = htmlDocument.DocumentNode.SelectNodes(tocSelector?.ChapterLinks ?? string.Empty);
                     if (linkNodes == null)
                     {
+                        if (!pageToStopAt.HasValue)
+                        {
+                            break;
+                        }
+
                         continue;
                     }
 
+                    var newChapterCount = 0;
                     foreach (var node in linkNodes)
                     {
                         var href = node.GetAttributeValue("href", string.Empty);
@@ -938,6 +949,10 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         }
 
                         var url = IsValidHttpUrl(href) ? href : new Uri(ScraperData.BaseUri, href).ToString();
+                        if (!chapterUrls.Add(url))
+                        {
+                            continue;
+                        }
 
                         var title = HtmlEntity.DeEntitize(node.InnerText).Trim();
                         if (string.IsNullOrWhiteSpace(title))
@@ -970,6 +985,17 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                                 CurrencyName = ScraperData.SiteConfig.PremiumInfo?.CurrencyName
                             }
                         });
+                        newChapterCount++;
+                    }
+
+                    if (!pageToStopAt.HasValue)
+                    {
+                        if (newChapterCount == 0)
+                        {
+                            break;
+                        }
+
+                        lastTableOfContentsUrl = pageUri.ToString();
                     }
 
                     if (!getAllChapters && !isPageNew)
@@ -980,6 +1006,10 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 catch (HttpRequestException e)
                 {
                     Logger.Error($"Error occurred while navigating to {pageUri}. Error: {e}");
+                    if (!pageToStopAt.HasValue)
+                    {
+                        break;
+                    }
                 }
             }
 

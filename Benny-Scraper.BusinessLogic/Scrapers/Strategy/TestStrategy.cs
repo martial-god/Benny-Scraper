@@ -1558,26 +1558,29 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
     {
         while (true)
         {
-            Console.WriteLine("\n[Last Table of Contents Page] (Required for pagination)");
+            Console.WriteLine("\n[Last Table of Contents Page] (Optional)");
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("Select the link for the final chapter-list page. Both //a and //a/@href are supported.");
             Console.WriteLine("Example: //a[@aria-label='Last']");
+            Console.WriteLine("Press Enter if the site does not expose the final page number.");
             Console.ResetColor();
             Console.Write("XPath: ");
 
             var lastTableOfContentsPageXPath = Console.ReadLine()?.Trim();
             if (string.IsNullOrWhiteSpace(lastTableOfContentsPageXPath))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("✗ Required when pagination is enabled");
+                _config.Selectors.TableOfContents.LastTableOfContentsPage = null;
+                _config.Selectors.TableOfContents.LastTableOfContentPageNumberAttribute = null;
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ Pages will be loaded until no new chapter links are found");
                 Console.ResetColor();
-                continue;
+                return;
             }
 
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("Use 'href' for a link such as '?page=25', or 'data-page' when the number is stored separately.");
+            Console.WriteLine("Use 'href' when it contains the final page URL. Otherwise enter the site's data attribute, such as 'data-page' or 'data-page-action'.");
             Console.ResetColor();
-            Console.Write("Attribute containing the last page number or URL (default: href): ");
+            Console.Write("Attribute containing the final page number, URL, or 'last' action (default: href): ");
             var lastTableOfContentsPageAttribute = Console.ReadLine()?.Trim();
             lastTableOfContentsPageAttribute = string.IsNullOrWhiteSpace(lastTableOfContentsPageAttribute)
                 ? "href"
@@ -1600,6 +1603,16 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
 
                     if (!string.IsNullOrWhiteSpace(lastTableOfContentsPageUrl))
                     {
+                        if (string.Equals(lastTableOfContentsPageUrl, "last", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _config.Selectors.TableOfContents.LastTableOfContentsPage = lastTableOfContentsPageXPath;
+                            _config.Selectors.TableOfContents.LastTableOfContentPageNumberAttribute = lastTableOfContentsPageAttribute;
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("✓ Last-page action found. Pages will be loaded until no new chapter links are found");
+                            Console.ResetColor();
+                            return;
+                        }
+
                         var lastTableOfContentsPageNumber = GetTableOfContentsPageNumber(lastTableOfContentsPageUrl, _testUri);
                         if (lastTableOfContentsPageNumber >= 0)
                         {

@@ -78,9 +78,17 @@ internal sealed class CommonStrategy : ScraperStrategy
             tableOfContentsDocument,
             ScraperData).ConfigureAwait(false);
 
-        if (ScraperData.SiteConfig.HasPagination && !string.IsNullOrEmpty(novelDataBuffer.LastTableOfContentsPageUrl))
+        if (ScraperData.SiteConfig.HasPagination)
         {
-            var pageToStopAt = GetTableOfContentsPageNumber(novelDataBuffer.LastTableOfContentsPageUrl, ScraperData.BaseUri);
+            int? pageToStopAt = null;
+            if (!string.IsNullOrEmpty(novelDataBuffer.LastTableOfContentsPageUrl))
+            {
+                var lastTableOfContentsPageNumber = GetTableOfContentsPageNumber(
+                    novelDataBuffer.LastTableOfContentsPageUrl,
+                    ScraperData.BaseUri);
+                pageToStopAt = lastTableOfContentsPageNumber >= 1 ? lastTableOfContentsPageNumber : null;
+            }
+
             var (chapterLinks, lastTableOfContentsUrl) = await GetPaginatedChapterLinksAsync(tableOfContentsUri, true, pageToStopAt).ConfigureAwait(false);
 
             novelDataBuffer.ChapterLinks.ReplaceWith(chapterLinks);
