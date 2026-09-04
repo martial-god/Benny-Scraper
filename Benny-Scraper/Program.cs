@@ -119,13 +119,6 @@ internal static class Program
         Console.WriteLine(new string('─', 78));
         Console.WriteLine();
 
-        // Test all sites on startup to give users immediate feedback
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("Testing connectivity to all supported sites...");
-        Console.ResetColor();
-        Console.WriteLine();
-        await TestAllSitesAsync();
-
         var novelProcessor = scope.Resolve<INovelProcessor>();
 
         var isApplicationRunning = true;
