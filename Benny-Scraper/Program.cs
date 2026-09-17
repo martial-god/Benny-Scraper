@@ -42,6 +42,8 @@ internal static class Program
 
     private static NovelScraperSettings? NovelScraperSettings { get; set; }
 
+    private static SeleniumBrowser DefaultSeleniumBrowser { get; set; } = SeleniumBrowser.Chrome;
+
     // Added Task to Main in order to avoid "Program does not contain a static 'Main method suitable for an entry point"
     private static async Task Main(string[] args)
     {
@@ -80,6 +82,10 @@ internal static class Program
         {
             _logger.Info("Database Initialized");
         }
+
+        var configurationRepository = scope.Resolve<IConfigurationRepository>();
+        var savedConfiguration = await configurationRepository.GetByIdAsync(_defaultConfigId).ConfigureAwait(false);
+        DefaultSeleniumBrowser = savedConfiguration.DefaultBrowser;
 
         if (parsedCommandLineOptions != null)
         {
@@ -261,6 +267,10 @@ internal static class Program
         else if (options.ConcurrentRequests > 0)
         {
             await SetConcurrentRequestsAsync(options.ConcurrentRequests);
+        }
+        else if (options.Browser.HasValue)
+        {
+            await SetDefaultSeleniumBrowserAsync(options.Browser.Value);
         }
         else if (!string.IsNullOrEmpty(options.SaveLocation))
         {
@@ -759,6 +769,17 @@ internal static class Program
         Console.WriteLine($"Concurrent request limit: {configuration.ConcurrencyLimit}");
     }
 
+    private static async Task SetDefaultSeleniumBrowserAsync(SeleniumBrowser browser)
+    {
+        await using var scope = Container!.BeginLifetimeScope();
+        var configurationRepository = scope.Resolve<IConfigurationRepository>();
+        var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
+        configuration.DefaultBrowser = browser;
+        configurationRepository.Update(configuration);
+        DefaultSeleniumBrowser = browser;
+        Console.WriteLine($"Default Selenium browser updated: {configuration.DefaultBrowser}");
+    }
+
     private static async Task SetConcurrentRequestsAsync(int concurrentRequests)
     {
         try
@@ -897,7 +918,9 @@ internal static class Program
             }
 
             using var httpClientFactory = new HttpClientFactory();
-            await using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(
+                httpClientFactory,
+                seleniumBrowser: DefaultSeleniumBrowser);
             await ConfigureFlareSolverrForTestingAsync(testStrategy);
 
             var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await testStrategy.TestLoadHtmlAsync(testUri);
@@ -933,7 +956,9 @@ internal static class Program
         try
         {
             using var httpClientFactory = new HttpClientFactory();
-            await using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(
+                httpClientFactory,
+                seleniumBrowser: DefaultSeleniumBrowser);
             await ConfigureFlareSolverrForTestingAsync(testStrategy);
 
             await testStrategy.RunInteractiveTestAsync(testUri);
@@ -975,7 +1000,7 @@ internal static class Program
 
             using var httpClientFactory = new HttpClientFactory();
             var driverFactory = new DriverFactory();
-            await using var testStrategy = new TestStrategy(httpClientFactory, driverFactory);
+            await using var testStrategy = new TestStrategy(httpClientFactory, driverFactory, DefaultSeleniumBrowser);
             await testStrategy.TestSingleFieldAsync(testUri, fieldName, xpath, useSelenium, headless);
         }
         catch (Exception ex)
@@ -1021,7 +1046,9 @@ internal static class Program
             }
 
             using var httpClientFactory = new HttpClientFactory();
-            await using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(
+                httpClientFactory,
+                seleniumBrowser: DefaultSeleniumBrowser);
             await testStrategy.ValidateConfigAsync(siteConfig, testUri);
         }
         catch (Exception ex)
@@ -1050,7 +1077,9 @@ internal static class Program
             Console.WriteLine("This will test each site. You'll need to provide a test URL for each.\n");
 
             using var httpClientFactory = new HttpClientFactory();
-            await using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(
+                httpClientFactory,
+                seleniumBrowser: DefaultSeleniumBrowser);
 
             foreach (var siteConfig in activeConfigs)
             {
@@ -1369,7 +1398,9 @@ internal static class Program
                 }
 
                 using var httpClientFactory = new HttpClientFactory();
-                await using var testStrategy = new TestStrategy(httpClientFactory);
+                await using var testStrategy = new TestStrategy(
+                    httpClientFactory,
+                    seleniumBrowser: DefaultSeleniumBrowser);
 
                 var (htmlDocument, _, statusCode, cloudflareDetected) = await testStrategy.TestLoadHtmlAsync(testUri);
 

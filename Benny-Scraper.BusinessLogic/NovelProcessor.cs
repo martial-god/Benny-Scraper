@@ -56,6 +56,7 @@ internal sealed class NovelProcessor(
 
         await using var scraperStrategyScope = scraperStrategy.ConfigureAwait(false);
 
+        scraperStrategy.SetSeleniumBrowser(configuration.DefaultBrowser);
         scraperStrategy.SetVariables(siteConfig, novelTableOfContentsUri, configuration);
 
         await ConfigureFlareSolverrAsync(scraperStrategy, siteConfig).ConfigureAwait(false);
@@ -166,6 +167,7 @@ internal sealed class NovelProcessor(
 
         await using var scraperStrategyScope = scraperStrategy.ConfigureAwait(false);
 
+        scraperStrategy.SetSeleniumBrowser(configuration.DefaultBrowser);
         scraperStrategy.SetVariables(siteConfig, novelUri, configuration);
 
         await ConfigureFlareSolverrAsync(scraperStrategy, siteConfig).ConfigureAwait(false);

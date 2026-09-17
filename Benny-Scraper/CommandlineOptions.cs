@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using BennyScraper.Models;
 using CommandLine;
 
 namespace BennyScraper;
@@ -84,6 +85,9 @@ internal sealed class CommandLineOptions
 
     [Option("show-browser", Required = false, HelpText = "Show browser window when using Selenium (runs in visible mode instead of headless). Useful for debugging.")]
     public bool ShowBrowser { get; set; }
+
+    [Option('b', "browser", Required = false, HelpText = "Set the default Selenium browser. Supported values: Chrome or Firefox.")]
+    public SeleniumBrowser? Browser { get; set; }
 
     [Option("validate-config", Required = false, HelpText = "Validate an existing site configuration by name [STRING]. Tests all selectors against a live URL.")]
     public string ValidateConfig { get; set; }

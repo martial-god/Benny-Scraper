@@ -24,8 +24,11 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 /// Simple test strategy for testing site connectivity without implementing a full scraper.
 /// Provides single-attempt testing without retry logic for faster testing.
 /// </summary>
-internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriverFactory? driverFactory = null)
-    : ScraperStrategy(httpClientFactory, driverFactory)
+internal sealed class TestStrategy(
+    IHttpClientFactory httpClientFactory,
+    IDriverFactory? driverFactory = null,
+    SeleniumBrowser seleniumBrowser = SeleniumBrowser.Chrome)
+    : ScraperStrategy(httpClientFactory, driverFactory, seleniumBrowser)
 {
     private static readonly char[] _progressCharacters = ['|', '/', '-', '\\'];
 
@@ -2507,7 +2510,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
         try
         {
             Logger.Info($"Creating Selenium driver (headless: {headless})...");
-            driver = await _driverFactory.CreateDriverAsync(testUri.ToString(), isHeadless: headless).ConfigureAwait(false);
+            driver = await _driverFactory.CreateDriverAsync(testUri.ToString(), SelectedBrowser, headless).ConfigureAwait(false);
 
             var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
 
@@ -2550,7 +2553,7 @@ internal sealed class TestStrategy(IHttpClientFactory httpClientFactory, IDriver
             Console.WriteLine($"🌐 Loading page with Selenium (headless: {headless})...");
             Console.ResetColor();
 
-            var driver = await _driverFactory.CreateDriverAsync(uri.ToString(), isHeadless: headless).ConfigureAwait(false);
+            var driver = await _driverFactory.CreateDriverAsync(uri.ToString(), SelectedBrowser, headless).ConfigureAwait(false);
             var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
 
             await TryClickNovelBinChapterTabAsync(driver, wait, uri).ConfigureAwait(false);

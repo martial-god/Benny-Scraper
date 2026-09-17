@@ -26,10 +26,10 @@ Benny-Scraper does not use a hosted scraping service. It runs on your computer a
 | Site | Content | Output | Additional requirement |
 | --- | --- | --- | --- |
 | [Inovelhub](https://inovelhub.com) | Web novel | EPUB | None |
-| [mangakakalot](https://mangakakalot.to) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
-| [mangakatana](https://mangakatana.com) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
-| [mangareader](https://mangareader.to) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
-| [NovelBin](https://novelbin.me) | Web novel | EPUB | Chrome/Selenium |
+| [mangakakalot](https://mangakakalot.to) | Manga/comic | PDF or comic book archive | Selenium |
+| [mangakatana](https://mangakatana.com) | Manga/comic | PDF or comic book archive | Selenium |
+| [mangareader](https://mangareader.to) | Manga/comic | PDF or comic book archive | Selenium |
+| [NovelBin](https://novelbin.me) | Web novel | EPUB | Selenium |
 | [NovelBuddy](https://novelbuddy.me) | Web novel | EPUB | None |
 | [noveldrama](https://noveldrama.com) | Web novel | EPUB | None |
 | [novelfire](https://novelfire.net) | Web novel | EPUB | None |
@@ -38,7 +38,7 @@ Benny-Scraper does not use a hosted scraping service. It runs on your computer a
 | [Toonily](https://toonily.com) | Manga/comic | PDF or comic book archive | FlareSolverr |
 | [wanderinginn](https://wanderinginn.com) | Web novel | EPUB | None |
 | [WebNovel](https://www.webnovel.com) | Web novel (text only) | EPUB | FlareSolverr |
-| [Wuxiaworld](https://wuxiaworld.com) | Web novel | EPUB | Chrome/Selenium |
+| [Wuxiaworld](https://wuxiaworld.com) | Web novel | EPUB | Selenium |
 
 Run `benny-scraper --sites` to see the active sites included with your installed version. Sites can change after a release, so this list does not guarantee that every external site is currently working.
 
@@ -51,7 +51,7 @@ WebNovel support is limited to text novels. Manga and comics hosted on WebNovel 
 ## Requirements
 
 - A Benny-Scraper release for your operating system, or the .NET 10 SDK when building from source.
-- Google Chrome for sites and tests that require Selenium.
+- Google Chrome or Firefox installed for sites and tests that require Selenium.
 - [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) is optional, but is required for some Cloudflare-protected sites. It runs as a separate application and is commonly installed using Docker.
 
 FlareSolverr can be enabled or disabled in `appsettings.json`:
@@ -64,9 +64,20 @@ FlareSolverr can be enabled or disabled in `appsettings.json`:
 }
 ```
 
+### Changing the Selenium Browser
+
+Chrome is used by default. Use `-b` or `--browser` to change the saved default:
+
+```powershell
+benny-scraper -b Firefox
+benny-scraper -b Chrome
+```
+
+The selection is saved for future downloads and tests. The selected browser must be installed on the computer.
+
 ### Running FlareSolverr with Docker
 
-Benny-Scraper continues to run normally from your terminal and uses your locally installed Chrome. Docker is only used to run FlareSolverr.
+Benny-Scraper continues to run normally from your terminal and uses your saved Selenium browser. Docker is only used to run FlareSolverr.
 
 1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows or macOS. On Linux, install Docker Engine and the Docker Compose plugin.
 2. Open a terminal in the extracted Benny-Scraper directory containing `compose.yaml`.
@@ -240,6 +251,8 @@ Database Management:
   --retry-all-failed           Retries missing or failed chapters for every saved novel. Can be combined with --with-login.
 
 Configuration:
+  -b, --browser [NAME]         Set the default Selenium browser. Supported values: Chrome or Firefox.
+
   -c, --concurrent-request     Set the number [INT] of concurrent requests to a website. Default is 2, value will be limited
                                to number of CPU cores on your computer. *Some websites may block your ip if too many requests
                                are made in a short time*

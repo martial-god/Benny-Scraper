@@ -58,6 +58,7 @@ internal sealed class DbInitializer
                     DatabaseFileName = "BennyTestDb.db",
                     SaveAsSingleFile = true,
                     DefaultMangaFileExtension = FileExtension.Pdf,
+                    DefaultBrowser = SeleniumBrowser.Chrome,
                     DefaultLogLevel = LogLevel.Info,
                     FontType = "Arial"
                 };

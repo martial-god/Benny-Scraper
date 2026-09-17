@@ -2,18 +2,12 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Sockets;
 using BennyScraper.BusinessLogic.Factory.Interfaces;
+using BennyScraper.Models;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Firefox;
 
 namespace BennyScraper.BusinessLogic.Factory;
-
-internal enum Browser
-{
-    Chrome = 1,
-    Firefox = 0,
-    Edge = 2,
-}
 
 internal sealed class DriverFactory : IDriverFactory
 {
@@ -25,15 +19,18 @@ internal sealed class DriverFactory : IDriverFactory
     /// dictionary keyed by an auto-incrementing id, and returns it.
     /// </summary>
     /// <param name="url">The URL the driver should navigate to immediately after creation.</param>
-    /// <param name="browser">The browser to launch, as the underlying integer value of the <see cref="Browser"/> enum.</param>
+    /// <param name="browser">The browser to launch.</param>
     /// <param name="isHeadless">true to run the browser without a visible window; otherwise, false.</param>
     /// <returns>The created <see cref="IWebDriver"/> instance.</returns>
     /// <exception cref="ArgumentException">The specified browser is not supported.</exception>
-    public IWebDriver CreateDriver(string url, int browser, bool isHeadless)
+    public IWebDriver CreateDriver(
+        string url,
+        SeleniumBrowser browser = SeleniumBrowser.Chrome,
+        bool isHeadless = false)
     {
         switch (browser)
         {
-            case (int)Browser.Chrome:
+            case SeleniumBrowser.Chrome:
                 ChromeDriverService? chromeDriverService = null;
                 ChromeDriver driver;
                 try
@@ -108,7 +105,7 @@ internal sealed class DriverFactory : IDriverFactory
 
                 return driver;
 
-            case (int)Browser.Firefox:
+            case SeleniumBrowser.Firefox:
                 FirefoxDriverService? firefoxDriverService = null;
                 FirefoxDriver firefoxDriver;
                 try
@@ -166,14 +163,17 @@ internal sealed class DriverFactory : IDriverFactory
     /// thread-safe <see cref="ConcurrentDictionary{TKey, TValue}"/> that contains all drivers.
     /// </summary>
     /// <param name="url">The URL the driver should navigate to immediately after creation.</param>
-    /// <param name="browser">The browser to launch, as the underlying integer value of the <see cref="Browser"/> enum.</param>
+    /// <param name="browser">The browser to launch.</param>
     /// <param name="isHeadless">true to run the browser without a visible window; otherwise, false.</param>
     /// <returns>A task that resolves to the created <see cref="IWebDriver"/> instance.</returns>
-    public async Task<IWebDriver> CreateDriverAsync(string url, int browser = 0, bool isHeadless = false)
+    public async Task<IWebDriver> CreateDriverAsync(
+        string url,
+        SeleniumBrowser browser = SeleniumBrowser.Chrome,
+        bool isHeadless = false)
     {
         switch (browser)
         {
-            case (int)Browser.Chrome:
+            case SeleniumBrowser.Chrome:
                 ChromeDriverService? chromeDriverService = null;
                 ChromeDriver driver;
                 try
@@ -250,7 +250,7 @@ internal sealed class DriverFactory : IDriverFactory
 
                 return driver;
 
-            case (int)Browser.Firefox:
+            case SeleniumBrowser.Firefox:
                 FirefoxDriverService? firefoxDriverService = null;
                 FirefoxDriver firefoxDriver;
                 try

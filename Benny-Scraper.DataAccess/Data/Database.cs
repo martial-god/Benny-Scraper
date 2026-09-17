@@ -110,6 +110,7 @@ public class Database(DbContextOptions<Database> options) : DbContext(options)
         modelBuilder.Entity<Configuration>().Property(x => x.DatabaseLocation).HasColumnName("database_locatoin");
         modelBuilder.Entity<Configuration>().Property(x => x.DatabaseFileName).HasColumnName("database_file_name");
         modelBuilder.Entity<Configuration>().Property(x => x.DefaultMangaFileExtension).HasColumnName("default_manga_file_extension");
+        modelBuilder.Entity<Configuration>().Property(x => x.DefaultBrowser).HasColumnName("default_browser");
         modelBuilder.Entity<Configuration>().Property(x => x.DefaultLogLevel).HasColumnName("default_log_level");
         modelBuilder.Entity<Configuration>().Property(x => x.SaveAsSingleFile).HasColumnName("save_as_single_file");
     }

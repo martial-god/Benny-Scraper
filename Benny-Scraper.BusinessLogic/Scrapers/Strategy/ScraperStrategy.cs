@@ -54,6 +54,8 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         private readonly IDriverFactory _driverFactory;
 
+        protected SeleniumBrowser SelectedBrowser { get; private set; }
+
         private volatile int _globalBackoffMs;
 
         // FlareSolverr integration for Cloudflare bypass
@@ -123,13 +125,19 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             Console.WriteLine(message);
         }
 
-        protected ScraperStrategy(IHttpClientFactory? httpClientFactory = null, IDriverFactory? driverFactory = null)
+        protected ScraperStrategy(
+            IHttpClientFactory? httpClientFactory = null,
+            IDriverFactory? driverFactory = null,
+            SeleniumBrowser seleniumBrowser = SeleniumBrowser.Chrome)
         {
             _httpClientFactory = httpClientFactory ?? new HttpClientFactory();
             _driverFactory = driverFactory ?? new DriverFactory();
+            SelectedBrowser = seleniumBrowser;
             ScraperData.HttpClientFactory = _httpClientFactory;
             _semaphoreSlim = new SemaphoreSlim(ConcurrentRequestsLimit);
         }
+
+        public void SetSeleniumBrowser(SeleniumBrowser seleniumBrowser) => SelectedBrowser = seleniumBrowser;
 
         protected enum SeleniumPageStepType
         {
@@ -481,7 +489,10 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                         }
                         else
                         {
-                            driver = await _driverFactory.CreateDriverAsync(chapterLinks.First().Url, isHeadless: false).ConfigureAwait(false);
+                            driver = await _driverFactory.CreateDriverAsync(
+                                chapterLinks.First().Url,
+                                SelectedBrowser,
+                                isHeadless: false).ConfigureAwait(false);
                         }
 
                         if (ScraperData.SiteConfig.HasImagesForChapterContent)
@@ -1057,7 +1068,7 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 }
                 else
                 {
-                    driver = await _driverFactory.CreateDriverAsync(url, isHeadless: isHeadless).ConfigureAwait(false);
+                    driver = await _driverFactory.CreateDriverAsync(url, SelectedBrowser, isHeadless).ConfigureAwait(false);
                     Logger.Debug("Created new Selenium driver");
                 }
 
@@ -1392,7 +1403,10 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
             else
             {
-                driver = await _driverFactory.CreateDriverAsync(chapterLinks[0].Url, isHeadless: false).ConfigureAwait(false);
+                driver = await _driverFactory.CreateDriverAsync(
+                    chapterLinks[0].Url,
+                    SelectedBrowser,
+                    isHeadless: false).ConfigureAwait(false);
             }
 
             if (ScraperData.SiteConfig.HasImagesForChapterContent)

@@ -1,4 +1,5 @@
 - [Creating EPUB](#creating-epub)
+  - [Creating a Release](#creating-a-release)
   - [Changed Dependency Injection to `Autofac`](#changed-dependency-injection-to-autofac)
     - [Problem](#problem)
     - [Solution](#solution)
@@ -13,6 +14,42 @@
 # Creating EPUB
 [Html to make an epub](https://www.thoughtco.com/create-epub-file-from-html-and-xml-3467282)
 1. HTML => XML Collection => EPUB
+
+## Creating a Release
+
+1. Update `Version` and `InformationalVersion` in `Benny-Scraper/Benny-Scraper.csproj`.
+2. Build and test the release:
+
+```powershell
+dotnet build Benny-Scraper.sln --configuration Release
+dotnet test Benny-Scraper.Tests/Benny-Scraper.Tests.csproj --configuration Release --no-build
+```
+
+3. Commit and push the version change. Add the project file directly so unrelated files are not included:
+
+```powershell
+git add -- Benny-Scraper/Benny-Scraper.csproj
+git commit -m "Release v2.2.0"
+git push origin master
+```
+
+4. Create and push the matching tag. Replace `v2.2.0` with the version being released:
+
+```powershell
+git tag -a v2.2.0 -m "Benny-Scraper v2.2.0"
+git push origin v2.2.0
+```
+
+Pushing a tag beginning with `v` starts the release workflow. Do not put the release description after the tag name. GitHub generates the release notes, and they can be edited after the release is created.
+
+If the workflow fails before the GitHub release is created, commit and push the workflow fix before recreating the tag on the corrected commit:
+
+```powershell
+git tag -d v2.2.0
+git push origin :refs/tags/v2.2.0
+git tag -a v2.2.0 -m "Benny-Scraper v2.2.0"
+git push origin v2.2.0
+```
 
 ## Changed Dependency Injection to `Autofac`
 ### Problem

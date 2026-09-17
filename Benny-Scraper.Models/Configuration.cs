@@ -21,6 +21,12 @@ public enum LogLevel
     Fatal
 }
 
+public enum SeleniumBrowser
+{
+    Chrome,
+    Firefox
+}
+
 public class Configuration
 {
     [Key]
@@ -51,6 +57,8 @@ public class Configuration
     public int FontSize { get; set; }
 
     public FileExtension DefaultMangaFileExtension { get; set; }
+
+    public SeleniumBrowser DefaultBrowser { get; set; } = SeleniumBrowser.Chrome;
 
     public LogLevel DefaultLogLevel { get; set; } // 0 = Debug, 1 = Info, 2 = Warning, 3 = Error, 4 = Fatal
 

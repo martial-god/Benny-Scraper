@@ -1,5 +1,7 @@
 using BennyScraper.DataAccess.Data;
 using BennyScraper.DataAccess.DbInitializer;
+using BennyScraper.DataAccess.Repository;
+using BennyScraper.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,7 +30,12 @@ public sealed class DatabaseInitializationTests
 
                 Assert.True(await databaseInitializer.InitializeAsync());
                 Assert.True(await database.Database.CanConnectAsync());
-                Assert.Equal("Default", (await database.Configurations.SingleAsync()).Name);
+                var configuration = await database.Configurations.SingleAsync();
+                Assert.Equal("Default", configuration.Name);
+                Assert.Equal(SeleniumBrowser.Chrome, configuration.DefaultBrowser);
+
+                configuration.DefaultBrowser = SeleniumBrowser.Firefox;
+                new ConfigurationRepository(database).Update(configuration);
             }
 
             database = new Database(databaseOptions);
@@ -37,7 +44,8 @@ public sealed class DatabaseInitializationTests
                 var databaseInitializer = new DbInitializer(database);
 
                 Assert.False(await databaseInitializer.InitializeAsync());
-                Assert.Single(await database.Configurations.ToListAsync());
+                var configuration = Assert.Single(await database.Configurations.ToListAsync());
+                Assert.Equal(SeleniumBrowser.Firefox, configuration.DefaultBrowser);
             }
         }
         finally
