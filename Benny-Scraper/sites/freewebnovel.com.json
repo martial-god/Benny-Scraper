@@ -1,7 +1,7 @@
 {
   "siteName": "Freewebnovel",
   "urlPattern": "freewebnovel.com",
-  "isActive": true,
+  "isActive": false,
   "strategyName": "common",
   "hasPagination": true,
   "paginationType": "?ajax=chapters&page={0}",
