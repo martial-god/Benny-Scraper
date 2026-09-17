@@ -30,13 +30,14 @@ Benny-Scraper does not use a hosted scraping service. It runs on your computer a
 | [mangakatana](https://mangakatana.com) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
 | [mangareader](https://mangareader.to) | Manga/comic | PDF or comic book archive | Chrome/Selenium |
 | [NovelBin](https://novelbin.me) | Web novel | EPUB | Chrome/Selenium |
+| [NovelBuddy](https://novelbuddy.me) | Web novel | EPUB | None |
 | [noveldrama](https://noveldrama.com) | Web novel | EPUB | None |
 | [novelfire](https://novelfire.net) | Web novel | EPUB | None |
 | [novelfull](https://novelfull.com) | Web novel | EPUB | FlareSolverr |
-| [NovLove](https://novlove.com) | Web novel | EPUB | Chrome/Selenium |
 | [Royalroad](https://royalroad.com) | Web novel | EPUB | None |
 | [Toonily](https://toonily.com) | Manga/comic | PDF or comic book archive | FlareSolverr |
 | [wanderinginn](https://wanderinginn.com) | Web novel | EPUB | None |
+| [WebNovel](https://www.webnovel.com) | Web novel (text only) | EPUB | FlareSolverr |
 | [Wuxiaworld](https://wuxiaworld.com) | Web novel | EPUB | Chrome/Selenium |
 
 Run `benny-scraper --sites` to see the active sites included with your installed version. Sites can change after a release, so this list does not guarantee that every external site is currently working.
@@ -44,6 +45,8 @@ Run `benny-scraper --sites` to see the active sites included with your installed
 ### Known Site Limitations
 
 MangaKatana currently gives me the most reliable manga results. Some other manga sites can return scrambled chapter images, so a completed download does not always mean the images are in the right order. External sites also change without notice. If a previously working site stops loading, please open a [broken site report](https://github.com/martial-god/Benny-Scraper/issues/new?template=broken-site.yml).
+
+WebNovel support is limited to text novels. Manga and comics hosted on WebNovel use a different reader and are not currently supported.
 
 ## Requirements
 
