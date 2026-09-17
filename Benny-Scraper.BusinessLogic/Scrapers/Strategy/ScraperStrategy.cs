@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -20,7 +21,7 @@ using Cookie = System.Net.Cookie;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
-    internal abstract class ScraperStrategy : IDisposable
+    internal abstract class ScraperStrategy : IDisposable, IAsyncDisposable
     {
         protected const int TotalPossiblePaginationTabs = 6;
 
@@ -164,8 +165,14 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             bool useForAllPageLoads = false)
         {
             _useFlareSolverrForPageLoads = false;
+            if (_flareSolverr != null)
+            {
+                await _flareSolverr.DisposeAsync().ConfigureAwait(false);
+            }
+
             _flareSolverr = new FlareSolverrService(flareSolverrUrl);
-            _flareSolverrEnabled = await _flareSolverr.CheckHealthAsync().ConfigureAwait(false);
+            _flareSolverrEnabled = await _flareSolverr.CheckHealthAsync().ConfigureAwait(false) &&
+                                  await _flareSolverr.CreateSessionAsync().ConfigureAwait(false);
 
             if (_flareSolverrEnabled)
             {
@@ -188,13 +195,14 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             return _flareSolverrEnabled;
         }
 
-        /// <summary>
-        /// Disable FlareSolverr and dispose the service.
-        /// </summary>
-        public void DisableFlareSolverr()
+        public async Task DisableFlareSolverrAsync()
         {
             _flareSolverrEnabled = false;
-            _flareSolverr?.Dispose();
+            if (_flareSolverr != null)
+            {
+                await _flareSolverr.DisposeAsync().ConfigureAwait(false);
+            }
+
             _flareSolverr = null;
             _flareSolverrUserAgent = null;
             _useFlareSolverrForPageLoads = false;
@@ -773,6 +781,16 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
             }
 
             return (htmlDocument, uri);
+        }
+
+        protected async Task<TResponse?> LoadJsonAsync<TResponse>(Uri uri)
+        {
+            using var client = _httpClientFactory.CreateClient();
+            using var response = await client.GetAsync(uri).ConfigureAwait(false);
+
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadFromJsonAsync<TResponse>().ConfigureAwait(false);
         }
 
         protected async Task<(HtmlDocument? Document, Uri UpdatedUri, int StatusCode)>
@@ -1390,14 +1408,12 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
                 {
                     currentChapter++;
                     ReportChapterProcessing(chapterLink);
-#pragma warning disable CA2007
                     chapterDataBuffers.Add(await GetChapterDataWithSeleniumSafelyAsync(
                         driver,
                         chapterLink,
                         tempImageDirectory,
                         currentChapter,
-                        totalChapters));
-#pragma warning restore CA2007
+                        totalChapters).ConfigureAwait(false));
                 }
 
                 Console.Write("\r" + new string(' ', 80) + "\r"); // Clear the progress line
@@ -1650,10 +1666,9 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            var uriLastSegment = new Uri(chapterLink.Url).Segments.Last();
+            var uriLastSegment = new Uri(chapterLink.Url).Segments[^1];
             var waitTarget = ScraperData.SiteConfig.HasImagesForChapterContent ? "Image content" : "Text content";
 
-#pragma warning disable CA2000 // Dispose objects before losing scope. I don't dispose the chapterDataBuffer yet
 #pragma warning disable CA2000 // Dispose objects before losing scope. I don't dispose the chapterDataBuffer yet
             var chapterDataBuffer = new ChapterDataBuffer
             {
@@ -1798,15 +1813,13 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
         {
             try
             {
-#pragma warning disable CA2007
                 return await GetChapterDataAsync(
                     driver,
                     chapterLink,
                     tempImageDirectory,
                     currentChapter,
                     totalChapters,
-                    skipNavigation);
-#pragma warning restore CA2007
+                    skipNavigation).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
@@ -2045,6 +2058,18 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_flareSolverr != null)
+            {
+                await _flareSolverr.DisposeAsync().ConfigureAwait(false);
+                _flareSolverr = null;
+            }
+
             Dispose(true);
             GC.SuppressFinalize(this);
         }

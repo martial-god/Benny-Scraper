@@ -732,8 +732,12 @@ internal static class Program
                 var chapters = CommonHelper.SortNovelChaptersByNumber(novel.Chapters).ToList();
                 var safeTitle = CommonHelper.SanitizeFileName(novel.Title, true);
                 var documentsFolder = CommonHelper.GetOutputDirectoryForTitle(safeTitle, configuration.DetermineSaveLocation());
-                Directory.CreateDirectory(documentsFolder);
-                var epubFile = Path.Combine(documentsFolder, $"{safeTitle}.epub");
+                var epubFile = !string.IsNullOrWhiteSpace(novel.SaveLocation) &&
+                               string.Equals(Path.GetExtension(novel.SaveLocation), ".epub", StringComparison.OrdinalIgnoreCase)
+                    ? novel.SaveLocation
+                    : Path.Combine(documentsFolder, $"{safeTitle}.epub");
+                var epubDirectory = Path.GetDirectoryName(epubFile);
+                Directory.CreateDirectory(string.IsNullOrWhiteSpace(epubDirectory) ? documentsFolder : epubDirectory);
                 epubGenerator.CreateEpub(novel, chapters, epubFile, null);
             }
             else
@@ -893,7 +897,7 @@ internal static class Program
             }
 
             using var httpClientFactory = new HttpClientFactory();
-            using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(httpClientFactory);
             await ConfigureFlareSolverrForTestingAsync(testStrategy);
 
             var (htmlDocument, updatedUri, statusCode, cloudflareDetected) = await testStrategy.TestLoadHtmlAsync(testUri);
@@ -929,7 +933,7 @@ internal static class Program
         try
         {
             using var httpClientFactory = new HttpClientFactory();
-            using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(httpClientFactory);
             await ConfigureFlareSolverrForTestingAsync(testStrategy);
 
             await testStrategy.RunInteractiveTestAsync(testUri);
@@ -971,7 +975,7 @@ internal static class Program
 
             using var httpClientFactory = new HttpClientFactory();
             var driverFactory = new DriverFactory();
-            using var testStrategy = new TestStrategy(httpClientFactory, driverFactory);
+            await using var testStrategy = new TestStrategy(httpClientFactory, driverFactory);
             await testStrategy.TestSingleFieldAsync(testUri, fieldName, xpath, useSelenium, headless);
         }
         catch (Exception ex)
@@ -1017,7 +1021,7 @@ internal static class Program
             }
 
             using var httpClientFactory = new HttpClientFactory();
-            using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(httpClientFactory);
             await testStrategy.ValidateConfigAsync(siteConfig, testUri);
         }
         catch (Exception ex)
@@ -1046,7 +1050,7 @@ internal static class Program
             Console.WriteLine("This will test each site. You'll need to provide a test URL for each.\n");
 
             using var httpClientFactory = new HttpClientFactory();
-            using var testStrategy = new TestStrategy(httpClientFactory);
+            await using var testStrategy = new TestStrategy(httpClientFactory);
 
             foreach (var siteConfig in activeConfigs)
             {
@@ -1090,8 +1094,7 @@ internal static class Program
 
     private static async Task ConfigureFlareSolverrForTestingAsync(TestStrategy testStrategy)
     {
-        var flareSolverrSettings = NovelScraperSettings?.FlareSolverrSettings;
-        if (flareSolverrSettings?.Enabled == true)
+        if (NovelScraperSettings?.FlareSolverrSettings is FlareSolverrSettings { Enabled: true } flareSolverrSettings)
         {
             await testStrategy.EnableFlareSolverrAsync(flareSolverrSettings.Url);
         }
@@ -1366,7 +1369,7 @@ internal static class Program
                 }
 
                 using var httpClientFactory = new HttpClientFactory();
-                using var testStrategy = new TestStrategy(httpClientFactory);
+                await using var testStrategy = new TestStrategy(httpClientFactory);
 
                 var (htmlDocument, _, statusCode, cloudflareDetected) = await testStrategy.TestLoadHtmlAsync(testUri);
 
@@ -1868,6 +1871,7 @@ internal static class Program
         builder.RegisterType<NovelBinStrategy>().Keyed<ScraperStrategy>("novelbin").InstancePerDependency();
         builder.RegisterType<NovelDramaStrategy>().Keyed<ScraperStrategy>("noveldrama").InstancePerDependency();
         builder.RegisterType<NovelFullStrategy>().Keyed<ScraperStrategy>("novelfull").InstancePerDependency();
+        builder.RegisterType<NovelBuddyStrategy>().Keyed<ScraperStrategy>("novelbuddy").InstancePerDependency();
         builder.RegisterType<RoyalRoadStrategy>().Keyed<ScraperStrategy>("royalroad").InstancePerDependency();
         builder.RegisterType<WanderingInnStrategy>().Keyed<ScraperStrategy>("wanderinginn").InstancePerDependency();
         builder.RegisterType<WuxiaWorldStrategy>().Keyed<ScraperStrategy>("wuxiaworld").InstancePerDependency();

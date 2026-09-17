@@ -1,7 +1,7 @@
 {
-  "siteName": "NovLove",
-  "urlPattern": "novlove.com",
-  "isActive": true,
+  "siteName": "NovelNice",
+  "urlPattern": "novelnice.com",
+  "isActive": false,
   "strategyName": "novelbin",
   "hasPagination": false,
   "paginationType": null,

@@ -8,10 +8,10 @@ internal sealed class FlareSolverrRequest
     public string Cmd { get; set; } = "request.get";
 
     [JsonPropertyName("url")]
-    public string Url { get; set; } = string.Empty;
+    public string? Url { get; set; }
 
     [JsonPropertyName("maxTimeout")]
-    public int MaxTimeout { get; set; } = 60000;
+    public int? MaxTimeout { get; set; }
 
     [JsonPropertyName("session")]
     public string? Session { get; set; }

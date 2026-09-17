@@ -13,27 +13,25 @@ namespace BennyScraper.BusinessLogic.Factory;
 /// Docker command to run FlareSolverr:
 /// docker run -d --name=flaresolverr -p 8191:8191 -e LOG_LEVEL=info ghcr.io/flaresolverr/flaresolverr:latest.
 /// </summary>
-internal sealed class FlareSolverrService : IDisposable
+internal sealed class FlareSolverrService(string baseUrl = "http://localhost:8191", int timeoutSeconds = 60)
+    : IDisposable, IAsyncDisposable
 {
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
-    private readonly HttpClient _httpClient;
-    private readonly JsonSerializerOptions _jsonSerializerOptions;
-    private readonly string _baseUrl;
-    private bool _disposed;
-
-    public FlareSolverrService(string baseUrl = "http://localhost:8191", int timeoutSeconds = 60)
+    private readonly HttpClient _httpClient = new()
     {
-        _baseUrl = baseUrl.TrimEnd('/');
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(timeoutSeconds)
-        };
-        _jsonSerializerOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-    }
+        Timeout = TimeSpan.FromSeconds(timeoutSeconds)
+    };
+
+    private readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private readonly string _baseUrl = baseUrl.TrimEnd('/');
+    private readonly SemaphoreSlim _sessionSemaphoreSlim = new(1, 1);
+    private bool _disposed;
+    private string? _sessionId;
 
     public string? LastUserAgent { get; private set; }
 
@@ -98,9 +96,11 @@ internal sealed class FlareSolverrService : IDisposable
     /// <returns>true if FlareSolverr responded successfully to a health check; otherwise, false.</returns>
     public async Task<bool> CheckHealthAsync()
     {
+        ThrowIfDisposed();
+
         try
         {
-            var response = await _httpClient.GetAsync($"{_baseUrl}/health").ConfigureAwait(false);
+            using var response = await _httpClient.GetAsync($"{_baseUrl}/health").ConfigureAwait(false);
             IsEnabled = response.IsSuccessStatusCode;
             if (IsEnabled)
             {
@@ -117,6 +117,21 @@ internal sealed class FlareSolverrService : IDisposable
         }
     }
 
+    public async Task<bool> CreateSessionAsync()
+    {
+        ThrowIfDisposed();
+
+        await _sessionSemaphoreSlim.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            return await CreateSessionCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _sessionSemaphoreSlim.Release();
+        }
+    }
+
     /// <summary>
     /// Solve a Cloudflare challenge for the given URL.
     /// Returns the solved HTML content and cookies.
@@ -128,37 +143,30 @@ internal sealed class FlareSolverrService : IDisposable
     {
         ThrowIfDisposed();
 
-        var request = new FlareSolverrRequest
-        {
-            Cmd = "request.get",
-            Url = url,
-            MaxTimeout = maxTimeout
-        };
-
-        var json = JsonSerializer.Serialize(request, _jsonSerializerOptions);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        _logger.Debug($"Sending URL to FlareSolverr: {url}");
-
+        await _sessionSemaphoreSlim.WaitAsync().ConfigureAwait(false);
         try
         {
-            var response = await _httpClient.PostAsync($"{_baseUrl}/v1", content).ConfigureAwait(false);
-            var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
+            if (_sessionId == null && !await CreateSessionCoreAsync().ConfigureAwait(false))
             {
-                _logger.Error($"FlareSolverr request failed with status {response.StatusCode}: {responseBody}");
                 return null;
             }
 
-            var result = JsonSerializer.Deserialize<FlareSolverrResponse>(responseBody, _jsonSerializerOptions);
+            var request = new FlareSolverrRequest
+            {
+                Cmd = "request.get",
+                Url = url,
+                MaxTimeout = maxTimeout,
+                Session = _sessionId
+            };
+
+            _logger.Debug($"Sending URL to FlareSolverr using session {_sessionId}: {url}");
+
+            var result = await SendRequestAsync(request).ConfigureAwait(false);
 
             if (result?.Status == "ok")
             {
                 _logger.Debug($"FlareSolverr successfully solved challenge for {url}");
                 _logger.Debug($"Cookies received: {result.Solution?.Cookies?.Count ?? 0}");
-
-                // Store the user-agent for subsequent requests
                 LastUserAgent = result.Solution?.UserAgent;
 
                 return result;
@@ -177,6 +185,65 @@ internal sealed class FlareSolverrService : IDisposable
             _logger.Error($"FlareSolverr request failed: {ex.Message}");
             return null;
         }
+        finally
+        {
+            _sessionSemaphoreSlim.Release();
+        }
+    }
+
+    public async Task DestroySessionAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        await _sessionSemaphoreSlim.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_sessionId == null)
+            {
+                return;
+            }
+
+            var sessionId = _sessionId;
+            _sessionId = null;
+
+            var result = await SendRequestAsync(new FlareSolverrRequest
+            {
+                Cmd = "sessions.destroy",
+                Session = sessionId
+            }).ConfigureAwait(false);
+
+            if (result?.Status == "ok")
+            {
+                _logger.Debug($"Destroyed FlareSolverr session {sessionId}");
+            }
+            else
+            {
+                _logger.Warn($"FlareSolverr could not destroy session {sessionId}: {result?.Message ?? "Unknown error"}");
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"FlareSolverr could not destroy session: {exception.Message}");
+        }
+        finally
+        {
+            _sessionSemaphoreSlim.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            GC.SuppressFinalize(this);
+            return;
+        }
+
+        await DestroySessionAsync().ConfigureAwait(false);
+        Dispose();
     }
 
     public void Dispose()
@@ -188,6 +255,7 @@ internal sealed class FlareSolverrService : IDisposable
         }
 
         _disposed = true;
+        _sessionSemaphoreSlim.Dispose();
         _httpClient.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -209,6 +277,56 @@ internal sealed class FlareSolverrService : IDisposable
                 Secure = cookie.Secure
             };
         }
+    }
+
+    private async Task<bool> CreateSessionCoreAsync()
+    {
+        if (_sessionId != null)
+        {
+            return true;
+        }
+
+        var sessionId = $"benny-scraper-{Guid.NewGuid():N}";
+
+        try
+        {
+            var result = await SendRequestAsync(new FlareSolverrRequest
+            {
+                Cmd = "sessions.create",
+                Session = sessionId
+            }).ConfigureAwait(false);
+
+            if (result?.Status != "ok")
+            {
+                _logger.Error($"FlareSolverr could not create session: {result?.Message ?? "Unknown error"}");
+                return false;
+            }
+
+            _sessionId = sessionId;
+            _logger.Debug($"Created FlareSolverr session {_sessionId}");
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _logger.Error($"FlareSolverr could not create session: {exception.Message}");
+            return false;
+        }
+    }
+
+    private async Task<FlareSolverrResponse?> SendRequestAsync(FlareSolverrRequest request)
+    {
+        var json = JsonSerializer.Serialize(request, _jsonSerializerOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var response = await _httpClient.PostAsync($"{_baseUrl}/v1", content).ConfigureAwait(false);
+        var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.Error($"FlareSolverr request failed with status {response.StatusCode}: {responseBody}");
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<FlareSolverrResponse>(responseBody, _jsonSerializerOptions);
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, nameof(FlareSolverrService));
