@@ -700,10 +700,10 @@ internal static class Program
 
     private static async Task SetDefaultMangaExtensionAsync(int extension)
     {
-        var totalExtensions = Enum.GetNames<FileExtension>().Length;
-        if (extension > totalExtensions)
+        if (extension != (int)FileExtension.Pdf && extension != (int)FileExtension.Cbz)
         {
-            Console.WriteLine("Invalid extension. Please enter a value between 1 and " + totalExtensions);
+            Console.WriteLine("Supported manga formats: 0 = PDF, 1 = CBZ. Other archive formats are not supported for creation.");
+            return;
         }
 
         await using var scope = Container!.BeginLifetimeScope();

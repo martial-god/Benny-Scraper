@@ -81,117 +81,62 @@ internal sealed class ComicBookArchiveGenerator : IComicBookArchiveGenerator
         return comicBookArchiveSaveLocation;
     }
 
-    /// <summary>
-    /// Updates an existing comic book archive with new pages from the novel without needing to re-create the entire archive, if the archive doesn't exist, it will create a new one.
-    /// </summary>
-    /// <param name="novel">The novel whose existing archive is being updated.</param>
-    /// <param name="chapterDataBuffers">The new chapter data, including page image paths, to add to the archive.</param>
-    /// <param name="outputDirectory">The directory used to create a new archive if one does not already exist.</param>
-    /// <param name="configuration">The configuration used to determine the archive file extension when a new archive must be created.</param>
-    /// <returns>Location where the archive was saved.</returns>
-    public string UpdateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration)
+    public string UpdateComicBookArchive(
+        Novel novel,
+        IEnumerable<ChapterDataBuffer> chapterDataBuffers,
+        string outputDirectory,
+        Configuration configuration)
     {
-        var comicBookArchivePath = novel.SaveLocation;
-
-        if (string.IsNullOrEmpty(comicBookArchivePath) || !File.Exists(comicBookArchivePath))
+        string? existingArchivePath = novel.SaveLocation;
+        if (string.IsNullOrWhiteSpace(existingArchivePath) || !File.Exists(existingArchivePath))
         {
-            return CreateComicBookArchive(novel, chapterDataBuffers, outputDirectory, configuration); // If the path is null or the file doesn't exist, simply create a new one
+            throw new FileNotFoundException(
+                "The existing comic archive is missing. Restore it or recreate the complete book before updating.",
+                existingArchivePath);
         }
 
-        using (FileStream zipFileStream = new FileStream(comicBookArchivePath, FileMode.Open)) // this will directly modify the existing archive without needing to create a temp
+        var replacementChapters = chapterDataBuffers.ToArray();
+        if (!replacementChapters.Any(chapter => chapter.Pages is { Count: > 0 }))
         {
-            using (ZipArchive archive = new ZipArchive(zipFileStream, ZipArchiveMode.Update))
-            {
-                foreach (var chapter in chapterDataBuffers)
-                {
-                    if (chapter.Pages == null)
-                    {
-                        continue;
-                    }
-
-                    var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
-                    var chapterEntryPrefix = $"Chapter_{chapter.Number}_Page";
-                    var existingChapterEntries = archive.Entries
-                        .Where(entry => entry.FullName.StartsWith(chapterEntryPrefix, StringComparison.Ordinal))
-                        .ToArray();
-                    foreach (var existingChapterEntry in existingChapterEntries)
-                    {
-                        existingChapterEntry.Delete();
-                    }
-
-                    for (int i = 0; i < imagePaths.Count; i++)
-                    {
-                        var imageName = $"Chapter_{chapter.Number}_Page{(i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(chapter.Pages.Count.ToString(CultureInfo.InvariantCulture).Length, '0')}.{Path.GetExtension(imagePaths[i]).TrimStart('.')}";
-
-                        // Add new image
-                        var entry = archive.CreateEntry(imageName);
-                        using (var entryStream = entry.Open())
-                        using (var fileStream = File.OpenRead(imagePaths[i]))
-                        {
-                            fileStream.CopyTo(entryStream);
-                        }
-
-                        File.Delete(imagePaths[i]);
-                    }
-                }
-            }
+            return existingArchivePath;
         }
 
-        return comicBookArchivePath;
+        try
+        {
+            using var existingArchive = ZipFile.OpenRead(existingArchivePath);
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new NotSupportedException(
+                "Only ZIP-based comic archives can be updated. Convert genuine RAR, 7z, TAR or ACE archives to CBZ first.",
+                exception);
+        }
+
+        string outputArchivePath = string.Equals(Path.GetExtension(existingArchivePath), ".cbz", StringComparison.OrdinalIgnoreCase)
+            ? existingArchivePath
+            : Path.ChangeExtension(existingArchivePath, ".cbz");
+        ComicArchiveWriter.WriteArchive(outputArchivePath, replacementChapters, existingArchivePath);
+        novel.FileType = NovelFileType.Cbz;
+        return outputArchivePath;
     }
 
     private static string CreateSingleComicBookArchive(
         Novel novel,
-        IEnumerable<ChapterDataBuffer> chapterDataBuffer,
+        IEnumerable<ChapterDataBuffer> chapterDataBuffers,
         string outputDirectory,
         FileExtension fileExtension,
         string filenameSuffix = "")
     {
-        Directory.CreateDirectory(outputDirectory);
-        var tempDirectory = CommonHelper.CreateTempDirectory();
-        string baseFilename = novel.Title;
-        string filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{baseFilename} - {filenameSuffix}";
-        var sanitzedTitle = CommonHelper.SanitizeFileName(filename);
-
-        var chapterDataBuffers = chapterDataBuffer.ToList();
-        var maxPages = chapterDataBuffers.Max(chapter => chapter.Pages?.Count ?? 0);
-        var padLength = maxPages.ToString(CultureInfo.InvariantCulture).Length;
-
-        foreach (var chapter in chapterDataBuffers)
+        if (fileExtension != FileExtension.Cbz)
         {
-            var chapterDirectory = Directory.CreateDirectory(Path.Combine(tempDirectory, $"Chapter_{chapter.Number}"));
-            if (chapter.Pages == null)
-            {
-                continue;
-            }
-
-            var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList();
-            for (int i = 0; i < imagePaths.Count; i++)
-            {
-                var imageName = $"Chapter_{chapter.Number}_Page{(i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(padLength, '0')}.{Path.GetExtension(imagePaths[i]).TrimStart('.')}";
-                using (var fileStream = File.OpenRead(imagePaths[i]))
-                using (var destinationStream = File.Create(Path.Combine(chapterDirectory.FullName, imageName)))
-                {
-                    fileStream.CopyTo(destinationStream);
-                }
-
-                File.Delete(imagePaths[i]);
-            }
+            throw new NotSupportedException(
+                "Comic archive creation supports CBZ only. Select CBZ instead of writing ZIP data with another format's extension.");
         }
 
-        var outputFilePath = Path.Combine(outputDirectory, $"{sanitzedTitle}.{Enum.GetName(fileExtension)?.ToLowerInvariant()}");
-        try
-        {
-            File.Delete(Path.Combine(outputDirectory, outputFilePath));
-            ZipFile.CreateFromDirectory(tempDirectory, outputFilePath); // does not allow for duplicates files or an IO exception will be thrown
-            CommonHelper.DeleteTempFolder(chapterDataBuffers.First().TempDirectory);
-            CommonHelper.DeleteTempFolder(tempDirectory);
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Error creating comic book archive for {NovelTitle}", novel.Title);
-        }
-
-        return outputFilePath;
+        string filename = string.IsNullOrEmpty(filenameSuffix) ? novel.Title : $"{novel.Title} - {filenameSuffix}";
+        string sanitizedTitle = CommonHelper.SanitizeFileName(filename);
+        string outputArchivePath = Path.Combine(outputDirectory, $"{sanitizedTitle}.cbz");
+        ComicArchiveWriter.WriteArchive(outputArchivePath, chapterDataBuffers);
+        return outputArchivePath;
     }
 }

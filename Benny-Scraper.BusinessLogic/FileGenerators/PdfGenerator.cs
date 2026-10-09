@@ -2,13 +2,11 @@ using System.Diagnostics;
 using System.Globalization;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.Models;
+using ImageMagick;
 using NLog;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Processing;
 
 namespace BennyScraper.BusinessLogic.FileGenerators;
 
@@ -46,20 +44,17 @@ internal static class PdfGenerator
         }
 
         var pdfFilePath = novel.SaveLocation;
-        if (Path.GetExtension(pdfFilePath) != PdfFileExtension)
+        if (!string.Equals(Path.GetExtension(pdfFilePath), PdfFileExtension, StringComparison.OrdinalIgnoreCase))
         {
-            CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
             throw new ArgumentException("The path to the pdf file is not a pdf file. " + pdfFilePath);
         }
 
         if (!File.Exists(pdfFilePath))
         {
-            CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
             throw new ArgumentException("The path to the pdf file does not exist. " + pdfFilePath + "\n Please try to update the save location of the novel by running the command 'benny-scraper -L " + novel.Id + "'");
         }
 
-        var tempPdfFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + PdfFileExtension);
-        var imagePathsToDelete = new List<string>();
+        var tempPdfFilePath = $"{pdfFilePath}.{Guid.NewGuid():N}.tmp";
 
         _logger.Info("Updating Pdf file: " + pdfFilePath);
         try
@@ -85,6 +80,11 @@ internal static class PdfGenerator
 
                 foreach (var chapter in chapterDataBuffers)
                 {
+                    if (chapter.IsPartial)
+                    {
+                        throw new InvalidOperationException($"Cannot update the PDF with incomplete chapter {chapter.Title}.");
+                    }
+
                     var imagePaths = chapter.Pages!.Select(page => page.ImagePath).ToList();
                     Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
                     var chapterNumber = (float)chapter.SequenceNumber;
@@ -102,7 +102,10 @@ internal static class PdfGenerator
                         if (TryAddImageToPdf(document, imagePath, insertionIndex))
                         {
                             pagesAdded++;
-                            imagePathsToDelete.Add(imagePath);
+                        }
+                        else
+                        {
+                            throw new InvalidDataException($"Cannot update the PDF because an image could not be processed: {imagePath}");
                         }
                     }
 
@@ -130,23 +133,14 @@ internal static class PdfGenerator
 
             // The source stream must be closed before overwriting the original PDF.
             _logger.Info($"Saving Pdf to {pdfFilePath}");
-            File.Copy(tempPdfFilePath, pdfFilePath, true);
+            File.Replace(tempPdfFilePath, pdfFilePath, null);
 
-            foreach (var imagePath in imagePathsToDelete)
-            {
-                File.Delete(imagePath);
-            }
-
-            CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
             _logger.Info("Pdf file updated");
             Console.WriteLine($"Pdf file updated at {pdfFilePath}");
         }
         finally
         {
-            if (File.Exists(tempPdfFilePath))
-            {
-                File.Delete(tempPdfFilePath);
-            }
+            CommonHelper.DeleteTemporaryFile(tempPdfFilePath);
         }
     }
 
@@ -159,6 +153,11 @@ internal static class PdfGenerator
             if (chapter.Pages == null)
             {
                 continue;
+            }
+
+            if (chapter.IsPartial)
+            {
+                throw new InvalidOperationException($"Cannot create a PDF with incomplete chapter {chapter.Title}.");
             }
 
             var totalPages = chapter.Pages.Count;
@@ -174,7 +173,10 @@ internal static class PdfGenerator
 
             foreach (var pageData in chapter.Pages)
             {
-                TryAddImageToPdf(document, pageData.ImagePath);
+                if (!TryAddImageToPdf(document, pageData.ImagePath))
+                {
+                    throw new InvalidDataException($"Cannot create the PDF because an image could not be processed: {pageData.ImagePath}");
+                }
             }
 
             var baseFilename = $"{novel.Title} - {chapter.Title}";
@@ -183,11 +185,11 @@ internal static class PdfGenerator
             var pdfFilePath = Path.Combine(pdfDirectoryPath, sanitizedTitle + PdfFileExtension);
             if (document.PageCount > 0)
             {
-                document.Save(pdfFilePath);
+                SavePdfSafely(document, pdfFilePath);
             }
             else
             {
-                _logger.Warn($"PDF was not created for chapter {chapter.Title} because none of its images could be processed.");
+                throw new InvalidOperationException($"PDF was not created for chapter {chapter.Title} because it has no readable pages.");
             }
         }
 
@@ -291,19 +293,22 @@ internal static class PdfGenerator
                 continue;
             }
 
+            if (chapter.IsPartial)
+            {
+                throw new InvalidOperationException($"Cannot create a PDF with incomplete chapter {chapter.Title}.");
+            }
+
             var imagePaths = chapter.Pages.Select(page => page.ImagePath).ToList(); // only Page from PageData has ImagePath as a member variable
             Console.WriteLine($"Total images in chapter {chapter.Title}: {imagePaths.Count}");
 
             foreach (var imagePath in imagePaths)
             {
-                if (TryAddImageToPdf(document, imagePath))
+                if (!TryAddImageToPdf(document, imagePath))
                 {
-                    File.Delete(imagePath);
+                    throw new InvalidDataException($"Cannot create the PDF because an image could not be processed: {imagePath}");
                 }
             }
         }
-
-        CommonHelper.DeleteTempFolder(chapterDataBuffers[0].TempDirectory);
 
         var baseFilename = novel.Title;
         var filename = string.IsNullOrEmpty(filenameSuffix) ? baseFilename : $"{baseFilename} - {filenameSuffix}";
@@ -314,9 +319,30 @@ internal static class PdfGenerator
             throw new InvalidOperationException($"PDF was not created for {novel.Title} because none of its images could be processed.");
         }
 
-        document.Save(pdfFilePath);
+        SavePdfSafely(document, pdfFilePath);
         _logger.Debug($"PDF saved to {pdfFilePath}");
         return pdfFilePath;
+    }
+
+    private static void SavePdfSafely(PdfDocument document, string outputFilePath)
+    {
+        string temporaryOutputPath = $"{outputFilePath}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            document.Save(temporaryOutputPath);
+            if (File.Exists(outputFilePath))
+            {
+                File.Replace(temporaryOutputPath, outputFilePath, null);
+            }
+            else
+            {
+                File.Move(temporaryOutputPath, outputFilePath);
+            }
+        }
+        finally
+        {
+            CommonHelper.DeleteTemporaryFile(temporaryOutputPath);
+        }
     }
 
     private static bool TryAddImageToPdf(PdfDocument document, string imagePath, int? insertionIndex = null)
@@ -324,7 +350,9 @@ internal static class PdfGenerator
         PdfPage? pdfPage = null;
         try
         {
-            using var image = Image.Load(imagePath);
+            using var sourceImageStream = File.OpenRead(imagePath);
+            var imageReadSettings = RasterImageReader.CreateReadSettings(sourceImageStream);
+            using var image = new MagickImage(sourceImageStream, imageReadSettings);
             ResizeImageForJpeg(image, imagePath);
             using var imageStream = ConvertImageToStream(image);
             using var pdfImage = XImage.FromStream(imageStream);
@@ -350,7 +378,7 @@ internal static class PdfGenerator
         }
     }
 
-    private static void ResizeImageForJpeg(Image image, string imagePath)
+    private static void ResizeImageForJpeg(MagickImage image, string imagePath)
     {
         if (image is { Width: <= _maximumJpegDimension, Height: <= _maximumJpegDimension })
         {
@@ -361,7 +389,7 @@ internal static class PdfGenerator
         var resizedWidth = Math.Max(1, (int)Math.Floor(image.Width * scale));
         var resizedHeight = Math.Max(1, (int)Math.Floor(image.Height * scale));
         _logger.Debug($"Resizing oversized image {imagePath} from {image.Width}x{image.Height} to {resizedWidth}x{resizedHeight} for PDF creation.");
-        image.Mutate(context => context.Resize(resizedWidth, resizedHeight));
+        image.Resize(new MagickGeometry((uint)resizedWidth, (uint)resizedHeight) { IgnoreAspectRatio = true });
     }
 
     private static void SetPdfPageSize(PdfPage pdfPage, XImage image)
@@ -371,12 +399,15 @@ internal static class PdfGenerator
         pdfPage.Height = XUnit.FromPoint(image.PixelHeight * scale);
     }
 
-    private static MemoryStream ConvertImageToStream(Image image)
+    private static MemoryStream ConvertImageToStream(MagickImage image)
     {
         var memoryStream = new MemoryStream();
         try
         {
-            image.Save(memoryStream, new JpegEncoder());
+            image.BackgroundColor = MagickColors.White;
+            image.Alpha(AlphaOption.Remove);
+            image.Quality = 75;
+            image.Write(memoryStream, MagickFormat.Jpeg);
             memoryStream.Position = 0;
             return memoryStream;
         }

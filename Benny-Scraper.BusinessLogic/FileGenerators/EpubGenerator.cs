@@ -37,6 +37,7 @@ internal sealed class EpubGenerator : IEpubGenerator
         _logger.Info(CultureInfo.InvariantCulture, "Temp directory: {0}", tempDirectory);
         Directory.CreateDirectory(tempDirectory);
         _logger.Info("Temp directory created");
+        string temporaryOutputFilePath = $"{outputFilePath}.{Guid.NewGuid():N}.tmp";
 
         try
         {
@@ -182,7 +183,7 @@ internal sealed class EpubGenerator : IEpubGenerator
             _logger.Info("Compressing everything into an epub file");
 
             // Compress everything into an epub file
-            using (var fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
+            using (var fs = new FileStream(temporaryOutputFilePath, FileMode.CreateNew, FileAccess.Write))
             {
                 using (ZipOutputStream zipStream = new ZipOutputStream(fs))
                 {
@@ -200,81 +201,89 @@ internal sealed class EpubGenerator : IEpubGenerator
                 }
             }
 
+            if (File.Exists(outputFilePath))
+            {
+                File.Replace(temporaryOutputFilePath, outputFilePath, null);
+            }
+            else
+            {
+                File.Move(temporaryOutputFilePath, outputFilePath);
+            }
+
             _logger.Info(CultureInfo.InvariantCulture, "Epub file created at: {0}", outputFilePath);
         }
         catch (Exception ex)
         {
             _logger.Fatal($"Error when generating Epub for Novel: {novel.Title} Novel Id: {novel.Id}. {ex}");
+            throw;
         }
         finally
         {
-            _logger.Info($"Deleting temporary directory: {tempDirectory}");
+            CommonHelper.DeleteTemporaryFile(temporaryOutputFilePath);
+            CommonHelper.DeleteTempFolder(tempDirectory);
+        }
 
-            Directory.Delete(tempDirectory, true);
-            _logger.Info($"Deleted temporary directory: {tempDirectory}\n");
+        // Display completion summary in a formatted box
+        Console.WriteLine();
+        var epubMessages = new[] { "EPUB GENERATION COMPLETE!" };
+        CommonHelper.DrawBox(epubMessages, ConsoleColor.Green);
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"  Novel:          {novel.Title}");
+        Console.WriteLine($"  Novel ID:       {novel.Id}");
+        if (novel.ChapterRanges.Count != 0)
+        {
+            var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
+            var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
+            Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
+        }
 
-            // Display completion summary in a formatted box
+        Console.WriteLine($"  Total Chapters: {chapters.Count}");
+        Console.WriteLine($"  Saved to:       {outputFilePath}");
+        Console.ResetColor();
+
+        // Count and report failed chapters (matching manga pattern)
+        var totalMissingChapters = chapters.Count(chapter =>
+            string.IsNullOrEmpty(chapter.Content) || chapter.Content == "No content found");
+        var missingChapterUrls = chapters.Where(chapter =>
+            string.IsNullOrEmpty(chapter.Content) || chapter.Content == "No content found")
+            .Select(chapter => chapter.Url);
+
+        if (totalMissingChapters > 0)
+        {
             Console.WriteLine();
-            var epubMessages = new[] { "EPUB GENERATION COMPLETE!" };
-            CommonHelper.DrawBox(epubMessages, ConsoleColor.Green);
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"  Novel:          {novel.Title}");
-            Console.WriteLine($"  Novel ID:       {novel.Id}");
-            if (novel.ChapterRanges.Count != 0)
-            {
-                var ranges = novel.ChapterRanges.OrderBy(r => r.Begin).Select(r => $"{r.Begin}-{r.End}").ToList();
-                var totalInRanges = novel.ChapterRanges.Sum(r => r.End - r.Begin + 1);
-                Console.WriteLine($"  Chapter Ranges: {string.Join(", ", ranges)} ({totalInRanges} chapters)");
-            }
-
-            Console.WriteLine($"  Total Chapters: {chapters.Count}");
-            Console.WriteLine($"  Saved to:       {outputFilePath}");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"  ⚠ Warning: {totalMissingChapters} chapters had no content");
+            Console.WriteLine($"  Missing URLs: {string.Join(", ", missingChapterUrls)}");
             Console.ResetColor();
+        }
 
-            // Count and report failed chapters (matching manga pattern)
-            var totalMissingChapters = chapters.Count(chapter =>
-                string.IsNullOrEmpty(chapter.Content) || chapter.Content == "No content found");
-            var missingChapterUrls = chapters.Where(chapter =>
-                string.IsNullOrEmpty(chapter.Content) || chapter.Content == "No content found")
-                .Select(chapter => chapter.Url);
+        Console.WriteLine();
+        Console.WriteLine(new string('─', 78));
+        Console.WriteLine();
 
-            if (totalMissingChapters > 0)
+        // Try to add to Calibre
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("Adding to Calibre database...");
+        Console.ResetColor();
+        try
+        {
+            var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
+            _logger.Debug($"Calibre command executed with code: {result}");
+
+            if (result == "0")
             {
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  ⚠ Warning: {totalMissingChapters} chapters had no content");
-                Console.WriteLine($"  Missing URLs: {string.Join(", ", missingChapterUrls)}");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ Successfully added to Calibre");
                 Console.ResetColor();
             }
-
-            Console.WriteLine();
-            Console.WriteLine(new string('─', 78));
-            Console.WriteLine();
-
-            // Try to add to Calibre
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine("Adding to Calibre database...");
-            Console.ResetColor();
-            try
-            {
-                var result = CommandExecutor.ExecuteCommand($"calibredb add \"{outputFilePath}\" --automerge \"overwrite\" --series \"{novel.Title}\"");
-                _logger.Debug($"Calibre command executed with code: {result}");
-
-                if (result == "0")
-                {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("✓ Successfully added to Calibre");
-                    Console.ResetColor();
-                }
-            }
-            catch
-            {
-            }
-
-            Console.WriteLine();
-            _logger.Debug($"EPUB generation complete - Novel: {novel.Title}, Chapters: {chapters.Count}, Location: {outputFilePath}");
         }
+        catch
+        {
+        }
+
+        Console.WriteLine();
+        _logger.Debug($"EPUB generation complete - Novel: {novel.Title}, Chapters: {chapters.Count}, Location: {outputFilePath}");
     }
 
     private static void AddDirectoryToZip(ZipOutputStream zipStream, string sourceDirectory, string targetDirectory, string baseDirectory)

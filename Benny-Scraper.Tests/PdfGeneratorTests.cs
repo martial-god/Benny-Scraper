@@ -1,15 +1,64 @@
 using BennyScraper.BusinessLogic.FileGenerators;
+using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.Models;
+using ImageMagick;
 using PdfSharp.Pdf.IO;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using Configuration = BennyScraper.Models.Configuration;
 
 namespace BennyScraper.Tests;
 
 public sealed class PdfGeneratorTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InvalidImageCannotReplaceAnExistingPdf(bool singlePdf)
+    {
+        string temporaryDirectory = CommonHelper.CreateTempDirectory();
+        string outputDirectory = CommonHelper.CreateTempDirectory();
+        try
+        {
+            string imagePath = Path.Combine(temporaryDirectory, "valid.png");
+            using (var sourceImage = new MagickImage(MagickColors.White, 8, 8))
+            {
+                sourceImage.Write(imagePath, MagickFormat.Png);
+            }
+
+            var novel = new Novel { Title = "Book" };
+            string pdfPath = Path.Combine(outputDirectory, singlePdf ? "Book.pdf" : "Book - Chapter 1.pdf");
+            File.WriteAllText(pdfPath, "original book");
+            using var chapter = new ChapterDataBuffer { Title = "Chapter 1", TempDirectory = temporaryDirectory };
+            chapter.SetPages([
+                new PageData { ImagePath = imagePath },
+                new PageData { ImagePath = Path.Combine(temporaryDirectory, "missing.png") }
+            ]);
+
+            Assert.Throws<InvalidDataException>(() =>
+            {
+                using var downloadScope = new ChapterDownloadScope([chapter]);
+                if (singlePdf)
+                {
+                    PdfGenerator.CreatePdf(novel, [chapter], outputDirectory, new Configuration { SaveAsSingleFile = true });
+                }
+                else
+                {
+                    PdfGenerator.CreatePdfByChapter(novel, [chapter], outputDirectory);
+                }
+            });
+
+            Assert.Equal("original book", File.ReadAllText(pdfPath));
+            Assert.False(Directory.Exists(temporaryDirectory));
+            Assert.Empty(Directory.GetFiles(outputDirectory, "*.tmp"));
+        }
+        finally
+        {
+            CommonHelper.DeleteTempFolder(temporaryDirectory);
+            CommonHelper.DeleteTempFolder(outputDirectory);
+        }
+    }
+
     [Fact]
-    public void CreatePdfByChapterResizesOversizedImagesAndSkipsInvalidImages()
+    public void CreatePdfByChapterResizesOversizedImages()
     {
         var testDirectory = Path.Combine(Path.GetTempPath(), $"benny-scraper-pdf-test-{Guid.NewGuid()}");
         var imageDirectory = Path.Combine(testDirectory, "images");
@@ -18,19 +67,16 @@ public sealed class PdfGeneratorTests
 
         try
         {
-            var invalidImagePath = Path.Combine(imageDirectory, "invalid.jpg");
-            File.WriteAllText(invalidImagePath, "not an image");
             var oversizedImagePath = Path.Combine(imageDirectory, "oversized.png");
-            using (var image = new Image<Rgba32>(2, 65_536))
+            using (var image = new MagickImage(MagickColors.White, 2, 65_536))
             {
-                image.SaveAsPng(oversizedImagePath);
+                image.Write(oversizedImagePath, MagickFormat.Png);
             }
 
             var novel = new Novel { Title = "PDF Test Novel" };
             using var chapter = new ChapterDataBuffer { Title = "Chapter 1", TempDirectory = imageDirectory };
             chapter.SetPages(
             [
-                new PageData { ImagePath = invalidImagePath },
                 new PageData { ImagePath = oversizedImagePath }
             ]);
 

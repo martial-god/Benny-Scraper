@@ -1,6 +1,7 @@
 using System.Globalization;
 using BennyScraper.BusinessLogic.Extensions;
 using BennyScraper.Models;
+using ImageMagick;
 
 namespace BennyScraper.BusinessLogic.Helper;
 
@@ -21,32 +22,120 @@ internal static class CommonHelper
 
     public static void DeleteTempFolder(string tempFile)
     {
-        string? directory;
-
         if (string.IsNullOrEmpty(tempFile))
-        {
-            return;
-        }
-
-        FileAttributes attr = File.GetAttributes(tempFile);
-
-        directory = !attr.HasFlag(FileAttributes.Directory) ? Path.GetDirectoryName(tempFile) : tempFile;
-
-        if (!Directory.Exists(directory))
         {
             return;
         }
 
         try
         {
+            string? directory = Directory.Exists(tempFile)
+                ? tempFile
+                : File.Exists(tempFile) ? Path.GetDirectoryName(tempFile) : null;
+            if (directory == null)
+            {
+                return;
+            }
+
             Directory.Delete(directory, true);
             Console.WriteLine($"Deleted temp folder {directory}");
         }
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"Failed to delete temp folder {directory}. Reason: {ex.Message}");
+            Console.WriteLine($"Failed to delete temp folder {tempFile}. Reason: {ex.Message}");
             Console.ResetColor();
+        }
+    }
+
+    public static void DeleteTemporaryFile(string temporaryFilePath)
+    {
+        try
+        {
+            File.Delete(temporaryFilePath);
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine($"Failed to delete temporary file {temporaryFilePath}. Reason: {exception.Message}");
+        }
+    }
+
+    public static async Task ConvertImageToWebpAsync(
+        string sourcePath,
+        string outputPath,
+        bool lossless = true,
+        CancellationToken cancellationToken = default)
+    {
+        const int MaximumImageDimension = 16383;
+        const long MaximumImagePixelCount = 40_000_000;
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string sourceImagePath = Path.GetFullPath(sourcePath);
+        string outputImagePath = Path.GetFullPath(outputPath);
+
+        if (!string.Equals(Path.GetExtension(outputImagePath), ".webp", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("The output image must use the .webp extension.", nameof(outputPath));
+        }
+
+        if (File.Exists(outputImagePath))
+        {
+            throw new IOException($"The output image already exists: {outputImagePath}");
+        }
+
+        using var sourceImageStream = File.OpenRead(sourceImagePath);
+        var imageReadSettings = RasterImageReader.CreateReadSettings(sourceImageStream, 2);
+        if (imageReadSettings.Format == MagickFormat.Png)
+        {
+            RasterImageReader.RejectAnimatedPng(sourceImageStream);
+        }
+
+        using var sourceImageInformation = new MagickImageCollection();
+        await sourceImageInformation.PingAsync(sourceImageStream, imageReadSettings, cancellationToken).ConfigureAwait(false);
+
+        if (sourceImageInformation.Count != 1)
+        {
+            throw new NotSupportedException("Only single-frame images can be converted.");
+        }
+
+        if (sourceImageInformation[0].Width > MaximumImageDimension || sourceImageInformation[0].Height > MaximumImageDimension)
+        {
+            throw new NotSupportedException($"WebP images cannot exceed {MaximumImageDimension} pixels in either dimension.");
+        }
+
+        if ((long)sourceImageInformation[0].Width * sourceImageInformation[0].Height > MaximumImagePixelCount)
+        {
+            throw new NotSupportedException($"Image conversion is limited to {MaximumImagePixelCount} pixels.");
+        }
+
+        sourceImageStream.Position = 0;
+        using var sourceImages = new MagickImageCollection();
+        await sourceImages.ReadAsync(sourceImageStream, imageReadSettings, cancellationToken).ConfigureAwait(false);
+        if (sourceImages.Count != 1)
+        {
+            throw new NotSupportedException("Only single-frame images can be converted.");
+        }
+
+        var sourceImage = sourceImages[0];
+        sourceImage.AutoOrient();
+        sourceImage.Quality = lossless ? 100U : 88U;
+        sourceImage.Settings.SetDefine(MagickFormat.WebP, "lossless", lossless);
+        sourceImage.Settings.SetDefine(MagickFormat.WebP, "exact", true);
+
+        string temporaryOutputImagePath = $"{outputImagePath}.{Guid.NewGuid():N}.tmp";
+
+        try
+        {
+            await sourceImage.WriteAsync(temporaryOutputImagePath, MagickFormat.WebP, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryOutputImagePath, outputImagePath, overwrite: false);
+        }
+        finally
+        {
+            DeleteTemporaryFile(temporaryOutputImagePath);
         }
     }
 

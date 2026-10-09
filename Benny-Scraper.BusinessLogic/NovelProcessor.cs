@@ -194,6 +194,7 @@ internal sealed class NovelProcessor(
 
         // Re-scrape
         var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chapterLinks).ConfigureAwait(false);
+        using var chapterDownloadScope = new ChapterDownloadScope(chapterDataBuffers);
 
         var originalPageCountsByChapterNumber = novel.Chapters
             .ToDictionary(chapter => chapter.Number, chapter => chapter.Pages?.Count ?? 0);
@@ -238,9 +239,6 @@ internal sealed class NovelProcessor(
         }
 
         NovelChapterStateUpdater.UpdateDownloadedChapterBoundaries(novel);
-
-        // Persist changes
-        await novelService.UpdateAsync(novel).ConfigureAwait(false);
 
         // Report per-chapter results
         Console.WriteLine();
@@ -326,9 +324,9 @@ internal sealed class NovelProcessor(
                     outputDirectory,
                     configuration);
             }
-
-            await novelService.UpdateAsync(novel).ConfigureAwait(false);
         }
+
+        await novelService.UpdateAsync(novel).ConfigureAwait(false);
 
         // Dispose buffers
         foreach (var buffer in chapterDataBuffers)
@@ -738,18 +736,23 @@ internal sealed class NovelProcessor(
 
         scraperStrategy.SetSessionAuthenticated(novelDataBuffer.IsLoggedIn);
         var chapterDataBuffers = await scraperStrategy.GetChaptersDataAsync(chaptersToDownload).ConfigureAwait(false);
+        using var chapterDownloadScope = new ChapterDownloadScope(chapterDataBuffers);
         newNovel.Chapters.ReplaceWith(CreateChapters(chapterDataBuffers, newNovel.Id));
         NovelChapterStateUpdater.UpdateDownloadedChapterBoundaries(newNovel);
 
         var userOutputDirectory = configuration.DetermineSaveLocation(siteConfiguration.HasImagesForChapterContent);
         string outputDirectory = CommonHelper.GetOutputDirectoryForTitle(newNovel.Title, userOutputDirectory);
 
-        _ = await novelService.CreateAsync(newNovel).ConfigureAwait(false);
-        _logger.Info("Finished adding novel {0} to database", newNovel.Title);
+        bool hasImageChapters = newNovel.Chapters.Any(chapter => chapter?.Pages?.Count > 0);
+        if (!hasImageChapters)
+        {
+            _ = await novelService.CreateAsync(newNovel).ConfigureAwait(false);
+            _logger.Info("Finished adding novel {0} to database", newNovel.Title);
+        }
 
         var filenameSuffix = GenerateFilenameSuffix(selectedRange, detectedVolumeName, siteConfiguration.SiteName);
 
-        if (newNovel.Chapters.Any(chapter => chapter?.Pages?.Count > 0))
+        if (hasImageChapters)
         {
             if (configuration.DefaultMangaFileExtension == FileExtension.Pdf)
             {
@@ -776,7 +779,15 @@ internal sealed class NovelProcessor(
             newNovel.FileType = NovelFileType.Epub;
         }
 
-        await novelService.UpdateAsync(newNovel).ConfigureAwait(false);
+        if (hasImageChapters)
+        {
+            _ = await novelService.CreateAsync(newNovel).ConfigureAwait(false);
+            _logger.Info("Finished adding novel {0} to database", newNovel.Title);
+        }
+        else
+        {
+            await novelService.UpdateAsync(newNovel).ConfigureAwait(false);
+        }
     }
 
     private async Task ExpandPartialDownloadAsync(Novel novel, Uri novelTableOfContentsUri, ScraperStrategy scraperStrategy, Configuration configuration, int? beginChapter = null, int? endChapter = null)
@@ -905,6 +916,7 @@ internal sealed class NovelProcessor(
         var chapterDataBuffers = await scraperStrategy
             .GetChaptersDataAsync(chapterLinksToDownload)
             .ConfigureAwait(false);
+        using var chapterDownloadScope = new ChapterDownloadScope(chapterDataBuffers);
         var newChapterDataBuffers = new List<ChapterDataBuffer>();
         var recoveredChapterDataBuffers = new List<ChapterDataBuffer>();
 
@@ -1082,6 +1094,7 @@ internal sealed class NovelProcessor(
         var chapterDataBuffers = await scraperStrategy
             .GetChaptersDataAsync(chapterLinksToDownload)
             .ConfigureAwait(false);
+        using var chapterDownloadScope = new ChapterDownloadScope(chapterDataBuffers);
         var newChapterDataBuffers = new List<ChapterDataBuffer>();
         var recoveredChapterDataBuffers = new List<ChapterDataBuffer>();
 
@@ -1233,14 +1246,15 @@ internal sealed class NovelProcessor(
             return;
         }
 
-        // If the save location is null, assume the novel is a PDF added before CBZ support.
-        if (string.IsNullOrEmpty(novel.SaveLocation))
-        {
-            novel.SaveLocation = Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
-        }
-
         if (novel.FileType == NovelFileType.Pdf)
         {
+            if (string.IsNullOrEmpty(novel.SaveLocation))
+            {
+                novel.SaveLocation = novel.SavedFileIsSplit
+                    ? outputDirectory
+                    : Path.Combine(outputDirectory, CommonHelper.SanitizeFileName(novel.Title) + PdfGenerator.PdfFileExtension);
+            }
+
             if (novel.SavedFileIsSplit)
             {
                 PdfGenerator.CreatePdfByChapter(novel, successfulImageChapterDataBuffers, novel.SaveLocation);

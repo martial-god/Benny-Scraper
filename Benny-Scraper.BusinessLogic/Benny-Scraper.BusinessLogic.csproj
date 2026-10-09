@@ -17,6 +17,7 @@
   <ItemGroup>
     <PackageReference Include="Autofac.Extensions.DependencyInjection" />
     <PackageReference Include="HtmlAgilityPack" />
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" />
     <PackageReference Include="NLog" />
     <PackageReference Include="Polly" />
     <PackageReference Include="RecursiveDataAnnotationsValidation" />
@@ -25,7 +26,6 @@
     <PackageReference Include="SharpZipLib" />
     <PackageReference Include="TextCopy" />
     <PackageReference Include="PdfSharp" />
-    <PackageReference Include="SixLabors.ImageSharp" />
   </ItemGroup>
 
   <ItemGroup>
