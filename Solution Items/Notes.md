@@ -17,7 +17,7 @@
 
 ## Creating a Release
 
-1. Update `Version` and `InformationalVersion` in `Benny-Scraper/Benny-Scraper.csproj`.
+1. Update `Version` and `InformationalVersion` in `Benny-Scraper/Benny-Scraper.csproj` and the release description in `RELEASE_NOTES.md`. Project versions omit `v`; release tags require it.
 2. Build and test the release:
 
 ```powershell
@@ -25,31 +25,28 @@ dotnet build Benny-Scraper.sln --configuration Release
 dotnet test Benny-Scraper.Tests/Benny-Scraper.Tests.csproj --configuration Release --no-build
 ```
 
-3. Commit and push the version change. Add the project file directly so unrelated files are not included:
+3. Commit the release files explicitly so unrelated files are not included. Include any README or other documentation changes intended for this release:
 
 ```powershell
-git add -- Benny-Scraper/Benny-Scraper.csproj
-git commit -m "Release v2.2.0"
-git push origin master
+git add -- Benny-Scraper/Benny-Scraper.csproj RELEASE_NOTES.md README.md "Solution Items/Notes.md"
+git commit -m "Release v3.0.0"
 ```
 
-4. Create and push the matching tag. Replace `v2.2.0` with the version being released:
+4. Create and inspect the matching annotated tag locally. Replace `v3.0.0` with the next unused version:
 
 ```powershell
-git tag -a v2.2.0 -m "Benny-Scraper v2.2.0"
-git push origin v2.2.0
+git tag -a v3.0.0 -m "Benny-Scraper v3.0.0"
+git show --stat v3.0.0
 ```
 
-Pushing a tag beginning with `v` starts the release workflow. Do not put the release description after the tag name. GitHub generates the release notes, and they can be edited after the release is created.
-
-If the workflow fails before the GitHub release is created, commit and push the workflow fix before recreating the tag on the corrected commit:
+5. After testing, push the commit and tag when ready to publish:
 
 ```powershell
-git tag -d v2.2.0
-git push origin :refs/tags/v2.2.0
-git tag -a v2.2.0 -m "Benny-Scraper v2.2.0"
-git push origin v2.2.0
+git push origin HEAD
+git push origin v3.0.0
 ```
+
+Creating a local tag does not publish a release. Pushing a tag beginning with `v` starts the release workflow. The workflow combines `RELEASE_NOTES.md` with GitHub's generated notes. Use `-m` for the tag annotation, not extra words after the tag name. Do not move or reuse a published tag; commit any fixes and use a new version.
 
 ## Changed Dependency Injection to `Autofac`
 ### Problem
@@ -149,7 +146,7 @@ The only question now, is whether to use `abstract` or `virtual` methods.
 ## Future Idea: Browser Extension Bridge
 
 Create a browser extension that could pass rendered pages from the user's existing browser session to the local Benny-Scraper application. This could use the user's existing login and already completed browser challenges without operating a centralized service.
-Benny-Scraper would remain responsible for the local database, chapter updates, retries, and EPUB, PDF, or comic book archive generation. Communication should remain local through an authenticated localhost connection or native messaging.
+Benny-Scraper would remain responsible for the local database, chapter updates, retries, and EPUB, PDF, or CBZ generation. Communication should remain local through an authenticated localhost connection or native messaging.
 
 
 

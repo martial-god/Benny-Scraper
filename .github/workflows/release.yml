@@ -131,6 +131,7 @@ jobs:
             gh release create "$GITHUB_REF_NAME" release-assets/* \
               --verify-tag \
               --generate-notes \
+              --notes-file RELEASE_NOTES.md \
               --prerelease \
               --latest=false \
               --title "Benny-Scraper $GITHUB_REF_NAME"
@@ -138,5 +139,6 @@ jobs:
             gh release create "$GITHUB_REF_NAME" release-assets/* \
               --verify-tag \
               --generate-notes \
+              --notes-file RELEASE_NOTES.md \
               --title "Benny-Scraper $GITHUB_REF_NAME"
           fi

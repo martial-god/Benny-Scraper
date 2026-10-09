@@ -1764,16 +1764,16 @@ internal static class Program
             if (novel != null)
             {
                 Console.WriteLine($"Current file type for novel: {novel.FileType}");
-                var extensions = Enum.GetValues<NovelFileType>().ToList();
+                NovelFileType[] supportedFileTypes = [NovelFileType.Epub, NovelFileType.Pdf, NovelFileType.Cbz];
 
                 Console.ForegroundColor = ConsoleColor.Magenta;
-                Console.WriteLine($"Available extensions: {string.Join(", ", extensions.Select((ext, index) => $"({index}) {ext}"))}");
+                Console.WriteLine($"Available extensions: {string.Join(", ", supportedFileTypes.Select(fileType => $"({(int)fileType}) {fileType}"))}");
                 Console.ResetColor();
 
                 Console.WriteLine("Please enter the file type as a number you want to change the novel to.");
                 var fileType = Console.ReadLine();
 
-                if (int.TryParse(fileType, out var fileTypeInt) && Enum.IsDefined(typeof(NovelFileType), fileTypeInt))
+                if (int.TryParse(fileType, out var fileTypeInt) && supportedFileTypes.Contains((NovelFileType)fileTypeInt))
                 {
                     novel.FileType = (NovelFileType)fileTypeInt;
                     await novelService.UpdateAsync(novel);

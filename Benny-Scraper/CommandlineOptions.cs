@@ -44,7 +44,7 @@ internal sealed class CommandLineOptions
     public Guid NovelExtensionById { get; set; }
 
     [Option('e', "manga-extension", Required = false, Default = -1, HelpText = "Default manga format: 0 = PDF, 1 = CBZ.")]
-    [Range(0, 6, ErrorMessage = "Value for {0} must be between {1} and {2}.")] // set to -1 to have a default value that would be false when checking to avoid invalid options using this
+    [Range(0, 1, ErrorMessage = "Value for {0} must be between {1} and {2}.")] // set to -1 to have a default value that would be false when checking to avoid invalid options using this
     public int MangaExtension { get; set; }
 
     [Option("get-extension", Required = false, HelpText = "Gets the saved default extensions for mangas.")]

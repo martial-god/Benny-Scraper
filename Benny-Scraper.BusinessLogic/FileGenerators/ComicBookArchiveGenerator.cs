@@ -11,12 +11,12 @@ internal sealed class ComicBookArchiveGenerator : IComicBookArchiveGenerator
     private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
     /// <summary>
-    /// Creates a single comic book archive, file extension is determined by the configuration.DefaultMangaFileExtension value.
+    /// Creates a single ZIP-based comic book archive with the CBZ extension.
     /// </summary>
     /// <param name="novel">The novel whose chapters are being archived.</param>
     /// <param name="chapterDataBuffers">The chapter data, including page image paths, to include in the archive.</param>
     /// <param name="outputDirectory">The directory where the generated archive will be saved.</param>
-    /// <param name="configuration">The configuration used to determine the archive file extension.</param>
+    /// <param name="configuration">The configuration, which must select CBZ for comic archive creation.</param>
     /// <param name="filenameSuffix">An optional suffix appended to the generated archive's filename.</param>
     /// <returns>Location where the archive was saved.</returns>
     public string CreateComicBookArchive(Novel novel, IEnumerable<ChapterDataBuffer> chapterDataBuffers, string outputDirectory, Configuration configuration, string filenameSuffix = "")

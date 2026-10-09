@@ -1,6 +1,6 @@
 # Benny-Scraper: Web Novel and Manga Downloader
 
-Benny-Scraper is an open-source command-line web novel and manga downloader. It saves web novels as EPUB files and manga as PDF or comic book archives such as CBZ. It runs on Windows, Linux, and macOS.
+Benny-Scraper is an open-source command-line web novel and manga downloader. It saves web novels as EPUB files and manga as PDF or CBZ (ZIP-based comic book archives). It runs on Windows, Linux, and macOS.
 
 I originally made this because I wanted an easier way to listen to web novels. It grew into a way to keep novels and manga offline and update them without downloading every old chapter again. The database, downloaded chapters, and generated files stay on your computer.
 
@@ -15,7 +15,7 @@ Site configurations are stored as individual JSON files in the [`sites`](Benny-S
 
 - Saved novels can be updated without downloading every old chapter again.
 - Successfully downloaded chapters remain saved when another chapter fails and can be retried later.
-- Text novels can be saved as EPUB, while manga can be saved as PDF, CBZ, CBR, CB7, CBT, or CBA.
+- Text novels can be saved as EPUB, while manga can be saved as PDF or CBZ.
 - The interactive testing commands help create and validate configurations for new sites.
 - Selenium and FlareSolverr are available for sites that cannot be loaded with a normal HTTP request.
 
@@ -26,16 +26,16 @@ Benny-Scraper does not use a hosted scraping service. It runs on your computer a
 | Site | Content | Output | Additional requirement |
 | --- | --- | --- | --- |
 | [Inovelhub](https://inovelhub.com) | Web novel | EPUB | None |
-| [mangakakalot](https://mangakakalot.to) | Manga/comic | PDF or comic book archive | Selenium |
-| [mangakatana](https://mangakatana.com) | Manga/comic | PDF or comic book archive | Selenium |
-| [mangareader](https://mangareader.to) | Manga/comic | PDF or comic book archive | Selenium |
+| [mangakakalot](https://mangakakalot.to) | Manga/comic | PDF or CBZ | Selenium |
+| [mangakatana](https://mangakatana.com) | Manga/comic | PDF or CBZ | Selenium for chapter pages |
+| [mangareader](https://mangareader.to) | Manga/comic | PDF or CBZ | Selenium |
 | [NovelBin](https://novelbin.me) | Web novel | EPUB | Selenium |
 | [NovelBuddy](https://novelbuddy.me) | Web novel | EPUB | None |
 | [noveldrama](https://noveldrama.com) | Web novel | EPUB | None |
 | [novelfire](https://novelfire.net) | Web novel | EPUB | None |
 | [novelfull](https://novelfull.com) | Web novel | EPUB | FlareSolverr |
 | [Royalroad](https://royalroad.com) | Web novel | EPUB | None |
-| [Toonily](https://toonily.com) | Manga/comic | PDF or comic book archive | FlareSolverr |
+| [Toonily](https://toonily.com) | Manga/comic | PDF or CBZ | FlareSolverr |
 | [wanderinginn](https://wanderinginn.com) | Web novel | EPUB | None |
 | [WebNovel](https://www.webnovel.com) | Web novel (text only) | EPUB | FlareSolverr |
 | [Wuxiaworld](https://wuxiaworld.com) | Web novel | EPUB | Selenium |
@@ -47,6 +47,22 @@ Run `benny-scraper --sites` to see the active sites included with your installed
 MangaKatana currently gives me the most reliable manga results. Some other manga sites can return scrambled chapter images, so a completed download does not always mean the images are in the right order. External sites also change without notice. If a previously working site stops loading, please open a [broken site report](https://github.com/martial-god/Benny-Scraper/issues/new?template=broken-site.yml).
 
 WebNovel support is limited to text novels. Manga and comics hosted on WebNovel use a different reader and are not currently supported.
+
+### Manga Formats and Existing Archives
+
+CBZ is the only supported comic archive output. Choose `benny-scraper -e 1` for CBZ or `benny-scraper -e 0` for PDF. A CBZ contains images organized into chapter folders; manga images are not converted into selectable text or OCR output.
+
+I never actually tested CBR, CB7, CBT, or CBA support, assuming those formats would work like CBZ. The old implementation always wrote ZIP data, even when another extension was selected. Those comic archives were really CBZ-compatible ZIP files with the wrong extensions, not genuine RAR, 7z, TAR, or ACE archives. PDF and EPUB output were separate and are not affected by this correction.
+
+Starting with v3.0.0:
+
+- New comic archives always use `.cbz`. The old creation options have been removed; update scripts and saved manga defaults to PDF or CBZ.
+- Existing ZIP-based archives created with the old extensions can still be updated. An update that writes chapter images produces a sibling `.cbz` and keeps the old file. If that destination already exists, the update fails rather than overwriting it.
+- Existing CBZ updates keep unaffected chapters and replace the chapters being updated. Keep the saved archive available: temporary download folders are cleaned up and cannot serve as a backup.
+- Genuine RAR, 7z, TAR, and ACE archives are not supported. Convert them with a suitable archive tool before using the update path; changing their extension alone does not convert them.
+- Existing database format values are retained for compatibility. Back up your database and books before updating; do not clear your database just to change formats.
+
+See [release notes](RELEASE_NOTES.md) for the migration details and image-library replacement.
 
 ## Requirements
 
@@ -151,14 +167,21 @@ Back up the database before installing a major update or clearing the database.
 
 Pushing a version tag runs the GitHub release workflow. It builds and tests the application, publishes self-contained archives for Windows x64, Linux x64, macOS Intel, and macOS Apple Silicon, and then creates the GitHub release with generated release notes and SHA-256 checksums.
 
-Update the version in `Benny-Scraper.csproj`, commit the release changes, and then create and push the matching tag:
+Update both `Version` and `InformationalVersion` in `Benny-Scraper/Benny-Scraper.csproj` (without the `v`), update `RELEASE_NOTES.md`, and commit the release changes. Create an annotated local tag with the matching version **including the `v` prefix**:
 
 ```bash
-git tag v2.0.1
-git push origin v2.0.1
+git tag -a v3.0.0 -m "Benny-Scraper v3.0.0"
+git show --stat v3.0.0
 ```
 
-A tag containing a suffix, such as `v2.1.0-prerelease`, creates a prerelease. The workflow passes the tag version into the published application, so the tag and `benny-scraper --version` stay consistent. Do not reuse an existing tag; increase the version before creating another release.
+Creating the local tag does not publish anything. After testing, push the release commit and then explicitly push the tag to start the automatic release:
+
+```bash
+git push origin HEAD
+git push origin v3.0.0
+```
+
+Replace `3.0.0` in these examples with the next unused release version. A tag containing a suffix, such as `v3.0.0-prerelease`, creates a prerelease. The workflow passes the tag version into the published application, so the tag and `benny-scraper --version` stay consistent. Release notes include `RELEASE_NOTES.md` followed by GitHub's generated notes. Do not reuse an existing published tag; increase the version before creating another release.
 
 ### Publishing Standalone Builds Manually
 
@@ -266,7 +289,7 @@ Configuration:
   -n, --novel-save-location    Set novel-specific save location [PATH]. Overrides 'save-location'.
 
   -e, --manga-extension        (Default: -1) Default extension for mangas (any image based novel) [INT] *count starts a 0*.
-                               0=PDF, 1=CBZ, 2=CBR, 3=CB7, 4=CBT, 5=CBA. Default is PDF.
+                               0=PDF, 1=CBZ. Default is PDF.
 
   -f, --single-file            Choose how to save Mangas: as a single file containing all chapters (Y), or as individual
                                files for each chapter (N).
@@ -274,8 +297,8 @@ Configuration:
   -L, --update-novel-saved-location-by-id    Updates the saved location of a novel by its [ID]. Useful when a file has been
                                              moved, or never added due to previous bug.
 
-  -x, --novel-extension-by-id [GUID]         Change the file type of a saved novel.
-                                             0=EPUB, 1=PDF, 2=CBZ, 3=CBR, 4=CB7, 5=CBT, 6=CBA.
+  -x, --novel-extension-by-id [GUID]         Change the recorded file type of a saved novel.
+                                             0=EPUB, 1=PDF, 2=CBZ. This does not convert the existing file.
 
   --get-extension              Gets the saved default extensions for mangas.
 
@@ -393,7 +416,7 @@ Benny-Scraper -s "C:\Users\YourName\Documents\Novels"
 Benny-Scraper -n "C:\Users\YourName\Documents\WebNovels"
 Benny-Scraper -m "C:\Users\YourName\Documents\Manga"
 
-# Set default manga extension (0=PDF, 1=CBZ, 2=CBR, etc.)
+# Set default manga extension (0=PDF, 1=CBZ)
 Benny-Scraper -e 1
 
 # Display the current manga extension
