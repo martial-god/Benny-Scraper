@@ -35,6 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Benny-Scraper\Benny-Scraper.csproj" />
     <ProjectReference Include="..\Benny-Scraper.BusinessLogic\Benny-Scraper.BusinessLogic.csproj" />
     <ProjectReference Include="..\Benny-Scraper.DataAccess\Benny-Scraper.DataAccess.csproj" />
     <ProjectReference Include="..\Benny-Scraper.Models\Benny-Scraper.Models.csproj" />

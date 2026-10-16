@@ -1,3 +1,4 @@
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
@@ -11,7 +12,9 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 /// Scraping strategy for novelbin.me and novlove.com
 /// Handles Cloudflare protection and dynamic chapter list loading via Selenium.
 /// </summary>
-internal sealed class NovelBinStrategy : ScraperStrategy
+internal sealed class NovelBinStrategy(
+    IHttpClientFactory httpClientFactory,
+    IDriverFactory driverFactory) : ScraperStrategy(httpClientFactory, driverFactory)
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {

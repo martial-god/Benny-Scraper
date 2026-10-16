@@ -1,4 +1,5 @@
 using BennyScraper.BusinessLogic.Config;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
@@ -6,7 +7,9 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-internal sealed class CommonStrategy : ScraperStrategy
+internal sealed class CommonStrategy(
+    IHttpClientFactory httpClientFactory,
+    IDriverFactory driverFactory) : ScraperStrategy(httpClientFactory, driverFactory)
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {

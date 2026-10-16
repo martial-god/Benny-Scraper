@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.Globalization;
 using System.Web;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
@@ -8,7 +9,9 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy
 {
-    internal sealed class LightNovelWorldStrategy : ScraperStrategy
+    internal sealed class LightNovelWorldStrategy(
+        IHttpClientFactory httpClientFactory,
+        IDriverFactory driverFactory) : ScraperStrategy(httpClientFactory, driverFactory)
     {
         private const string _latestChapterXpath = "//*[@id='chapter-list-page']/header/p[2]/a";
         private Uri? _chaptersUri; // the url of the chapters pages are different from the table of contents page

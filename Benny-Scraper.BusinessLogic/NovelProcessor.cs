@@ -21,7 +21,7 @@ namespace BennyScraper.BusinessLogic;
 
 internal sealed class NovelProcessor(
     INovelService novelService,
-    INovelScraperFactory novelScraper,
+    IScraperStrategyFactory scraperStrategyFactory,
     IOptions<NovelScraperSettings> novelScraperSettings,
     IEpubGenerator epubGenerator,
     IComicBookArchiveGenerator comicBookArchiveGenerator,
@@ -44,9 +44,8 @@ internal sealed class NovelProcessor(
         var novel = await novelService.GetByUrlAsync(novelTableOfContentsUri).ConfigureAwait(false);
 
         var siteConfig = GetSiteConfiguration(novelTableOfContentsUri); // nullability check is done in IsThereConfigurationForSite.
-        var scraper = novelScraper.CreateScraper(novelTableOfContentsUri, siteConfig);
         var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId).ConfigureAwait(false);
-        var scraperStrategy = scraper.GetScraperStrategy(novelTableOfContentsUri, siteConfig);
+        var scraperStrategy = scraperStrategyFactory.Create(novelTableOfContentsUri, siteConfig);
 
         if (scraperStrategy == null)
         {
@@ -152,9 +151,8 @@ internal sealed class NovelProcessor(
             throw new InvalidOperationException($"There is no {nameof(SiteConfiguration)} found for {novelUri.Host}. Check the sites directory and verify one is present.");
         }
 
-        var scraper = novelScraper.CreateScraper(novelUri, siteConfig);
         var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId).ConfigureAwait(false);
-        var scraperStrategy = scraper.GetScraperStrategy(novelUri, siteConfig);
+        var scraperStrategy = scraperStrategyFactory.Create(novelUri, siteConfig);
 
         if (scraperStrategy == null)
         {

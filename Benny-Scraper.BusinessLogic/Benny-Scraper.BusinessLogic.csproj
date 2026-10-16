@@ -15,8 +15,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Autofac.Extensions.DependencyInjection" />
     <PackageReference Include="HtmlAgilityPack" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Magick.NET-Q16-AnyCPU" />
     <PackageReference Include="NLog" />
     <PackageReference Include="Polly" />

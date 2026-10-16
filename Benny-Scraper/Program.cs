@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using Autofac;
 using BennyScraper.BusinessLogic;
 using BennyScraper.BusinessLogic.Config;
 using BennyScraper.BusinessLogic.Extensions;
@@ -25,6 +24,7 @@ using CommandLine;
 using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NLog.Targets;
 using LogLevel = NLog.LogLevel;
@@ -36,7 +36,7 @@ internal static class Program
     private const int _defaultConfigId = 1;
     private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
-    private static IContainer? Container { get; set; }
+    private static ServiceProvider? Services { get; set; }
 
     private static IConfiguration? Configuration { get; set; }
 
@@ -67,25 +67,32 @@ internal static class Program
         Configuration = configuration;
         NovelScraperSettings = BuildNovelScraperSettings(configuration);
 
-        var builder = new ContainerBuilder();
-        ConfigureServices(builder, configuration, NovelScraperSettings);
-        Container = builder.Build();
+        var services = new ServiceCollection();
+        services.AddBennyScraper(configuration, NovelScraperSettings, GetConnectionString());
+        await using var serviceProvider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+        Services = serviceProvider;
 
         // Ensure Selenium drivers (and other unmanaged resources) are disposed even on crash/exit.
-        ShutdownHooks.Register(Container!.Resolve<IDriverFactory>());
+        ShutdownHooks.Register(Services!.GetRequiredService<IDriverFactory>());
 
-        var scope = Container!.BeginLifetimeScope();
-        var dbInitializer = scope.Resolve<DbInitializer>();
-        var databaseChangesMade = await dbInitializer.InitializeAsync().ConfigureAwait(false);
-
-        if (databaseChangesMade)
+        await using (var scope = serviceProvider.CreateAsyncScope())
         {
-            _logger.Info("Database Initialized");
-        }
+            var dbInitializer = scope.ServiceProvider.GetRequiredService<DbInitializer>();
+            var databaseChangesMade = await dbInitializer.InitializeAsync().ConfigureAwait(false);
 
-        var configurationRepository = scope.Resolve<IConfigurationRepository>();
-        var savedConfiguration = await configurationRepository.GetByIdAsync(_defaultConfigId).ConfigureAwait(false);
-        DefaultSeleniumBrowser = savedConfiguration.DefaultBrowser;
+            if (databaseChangesMade)
+            {
+                _logger.Info("Database Initialized");
+            }
+
+            var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
+            var savedConfiguration = await configurationRepository.GetByIdAsync(_defaultConfigId).ConfigureAwait(false);
+            DefaultSeleniumBrowser = savedConfiguration.DefaultBrowser;
+        }
 
         if (parsedCommandLineOptions != null)
         {
@@ -94,13 +101,13 @@ internal static class Program
         else
         {
             _logger.Info("Application Started");
-            await RunAsync(Container);
+            await RunAsync(serviceProvider);
         }
     }
 
-    private static async Task RunAsync(IContainer container)
+    private static async Task RunAsync(IServiceProvider services)
     {
-        await using var scope = container.BeginLifetimeScope();
+        await using var scope = services.CreateAsyncScope();
         var logger = NLog.LogManager.GetCurrentClassLogger();
 
         // Display supported sites with ASCII art
@@ -125,7 +132,7 @@ internal static class Program
         Console.WriteLine(new string('─', 78));
         Console.WriteLine();
 
-        var novelProcessor = scope.Resolve<INovelProcessor>();
+        var novelProcessor = scope.ServiceProvider.GetRequiredService<INovelProcessor>();
 
         var isApplicationRunning = true;
         while (isApplicationRunning)
@@ -353,8 +360,8 @@ internal static class Program
             // Handle URL with optional chapter range
             if (Uri.TryCreate(options.Url, UriKind.Absolute, out var novelUri))
             {
-                await using var scope = Container!.BeginLifetimeScope();
-                var novelProcessor = scope.Resolve<INovelProcessor>();
+                await using var scope = Services!.CreateAsyncScope();
+                var novelProcessor = scope.ServiceProvider.GetRequiredService<INovelProcessor>();
                 try
                 {
                     await novelProcessor.ProcessNovelAsync(novelUri, options.BeginChapter, options.EndChapter, options.WithLogin);
@@ -409,9 +416,9 @@ internal static class Program
             return;
         }
 
-        var scope = Container!.BeginLifetimeScope();
-        var novelService = scope.Resolve<INovelService>();
-        var novelProcessor = scope.Resolve<INovelProcessor>();
+        await using var scope = Services!.CreateAsyncScope();
+        var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
+        var novelProcessor = scope.ServiceProvider.GetRequiredService<INovelProcessor>();
         var updatedNovels = new List<(int, string NovelName)>();
         var failedToUpdate = new List<(int, string NovelName)>();
         var novels = (await novelService.GetAllAsync(includeProperties: "ChapterRanges")).ToList();
@@ -526,8 +533,8 @@ internal static class Program
             return;
         }
 
-        await using var scope = Container!.BeginLifetimeScope();
-        var novelService = scope.Resolve<INovelService>();
+        await using var scope = Services!.CreateAsyncScope();
+        var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
 
         var novels = await novelService.GetAllAsync();
         novels = novels.ToList();
@@ -672,9 +679,9 @@ internal static class Program
 
     private static async Task ClearDatabaseAsync()
     {
-        await using var scope = Container!.BeginLifetimeScope();
+        await using var scope = Services!.CreateAsyncScope();
         var logger = NLog.LogManager.GetCurrentClassLogger();
-        var novelService = scope.Resolve<INovelService>();
+        var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
 
         logger.Info("Clearing all novels and chapters from database");
         await novelService.RemoveAllAsync();
@@ -683,8 +690,8 @@ internal static class Program
 
     private static async Task DeleteNovelByIdAsync(Guid id)
     {
-        await using var scope = Container!.BeginLifetimeScope();
-        var novelService = scope.Resolve<INovelService>();
+        await using var scope = Services!.CreateAsyncScope();
+        var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
         var novel = await novelService.GetByIdAsync(id);
         if (novel == null)
         {
@@ -706,8 +713,8 @@ internal static class Program
             return;
         }
 
-        await using var scope = Container!.BeginLifetimeScope();
-        var configurationRepository = scope.Resolve<IConfigurationRepository>();
+        await using var scope = Services!.CreateAsyncScope();
+        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
         configuration.DefaultMangaFileExtension = (FileExtension)extension;
         configurationRepository.Update(configuration);
@@ -716,8 +723,8 @@ internal static class Program
 
     private static async Task GetDefaultMangaExtensionAsync()
     {
-        await using var scope = Container!.BeginLifetimeScope();
-        var configurationRepository = scope.Resolve<IConfigurationRepository>();
+        await using var scope = Services!.CreateAsyncScope();
+        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
         var extensions = Enum.GetValues<FileExtension>().ToList();
         Console.WriteLine($"Default manga extension: {configuration.DefaultMangaFileExtension}");
@@ -730,11 +737,11 @@ internal static class Program
     {
         try
         {
-            await using var scope = Container!.BeginLifetimeScope();
-            var configurationRepository = scope.Resolve<IConfigurationRepository>();
-            var novelService = scope.Resolve<INovelService>();
+            await using var scope = Services!.CreateAsyncScope();
+            var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
+            var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
             var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
-            var epubGenerator = scope.Resolve<IEpubGenerator>();
+            var epubGenerator = scope.ServiceProvider.GetRequiredService<IEpubGenerator>();
             var novel = await novelService.GetByIdAsync(id);
             if (novel != null)
             {
@@ -763,16 +770,16 @@ internal static class Program
 
     private static async Task GetConcurrentRequestsAsync()
     {
-        await using var scope = Container!.BeginLifetimeScope();
-        var configurationRepository = scope.Resolve<IConfigurationRepository>();
+        await using var scope = Services!.CreateAsyncScope();
+        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
         Console.WriteLine($"Concurrent request limit: {configuration.ConcurrencyLimit}");
     }
 
     private static async Task SetDefaultSeleniumBrowserAsync(SeleniumBrowser browser)
     {
-        await using var scope = Container!.BeginLifetimeScope();
-        var configurationRepository = scope.Resolve<IConfigurationRepository>();
+        await using var scope = Services!.CreateAsyncScope();
+        var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
         var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
         configuration.DefaultBrowser = browser;
         configurationRepository.Update(configuration);
@@ -784,8 +791,8 @@ internal static class Program
     {
         try
         {
-            await using var scope = Container!.BeginLifetimeScope();
-            var configurationRepository = scope.Resolve<IConfigurationRepository>();
+            await using var scope = Services!.CreateAsyncScope();
+            var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
             var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
             configuration.ConcurrencyLimit = concurrentRequests;
             configurationRepository.Update(configuration);
@@ -803,8 +810,8 @@ internal static class Program
         {
             if (Directory.Exists(saveLocation))
             {
-                await using var scope = Container!.BeginLifetimeScope();
-                var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                await using var scope = Services!.CreateAsyncScope();
+                var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
                 var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
                 configuration.SaveLocation = saveLocation;
                 configurationRepository.Update(configuration);
@@ -827,8 +834,8 @@ internal static class Program
         {
             if (Directory.Exists(saveLocation))
             {
-                await using var scope = Container!.BeginLifetimeScope();
-                var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                await using var scope = Services!.CreateAsyncScope();
+                var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
                 var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
                 configuration.MangaSaveLocation = saveLocation;
                 configurationRepository.Update(configuration);
@@ -851,8 +858,8 @@ internal static class Program
         {
             if (Directory.Exists(saveLocation))
             {
-                await using var scope = Container!.BeginLifetimeScope();
-                var configurationRepository = scope.Resolve<IConfigurationRepository>();
+                await using var scope = Services!.CreateAsyncScope();
+                var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
                 var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
                 configuration.NovelSaveLocation = saveLocation;
                 configurationRepository.Update(configuration);
@@ -873,8 +880,8 @@ internal static class Program
     {
         try
         {
-            await using var scope = Container!.BeginLifetimeScope();
-            var configurationRepository = scope.Resolve<IConfigurationRepository>();
+            await using var scope = Services!.CreateAsyncScope();
+            var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
             var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
             configuration.SaveAsSingleFile = singleFile;
             configurationRepository.Update(configuration);
@@ -999,7 +1006,7 @@ internal static class Program
             }
 
             using var httpClientFactory = new HttpClientFactory();
-            var driverFactory = new DriverFactory();
+            using var driverFactory = new DriverFactory();
             await using var testStrategy = new TestStrategy(httpClientFactory, driverFactory, DefaultSeleniumBrowser);
             await testStrategy.TestSingleFieldAsync(testUri, fieldName, xpath, useSelenium, headless);
         }
@@ -1345,10 +1352,13 @@ internal static class Program
         Console.WriteLine();
     }
 
-    private static IReadOnlyList<string> GetSupportedSites()
+    private static List<string> GetSupportedSites()
     {
-        using var lifetimeScope = Container!.BeginLifetimeScope();
-        return lifetimeScope.Resolve<INovelScraper>().GetSupportedSites();
+        return NovelScraperSettings!.SiteConfigurations
+            .Where(site => site.IsActive)
+            .OrderBy(site => site.SiteName, StringComparer.OrdinalIgnoreCase)
+            .Select(site => $"https://{site.UrlPattern}")
+            .ToList();
     }
 
     private static async Task TestAllSitesAsync()
@@ -1573,8 +1583,8 @@ internal static class Program
     {
         try
         {
-            await using var scope = Container!.BeginLifetimeScope();
-            var novelProcessor = scope.Resolve<INovelProcessor>();
+            await using var scope = Services!.CreateAsyncScope();
+            var novelProcessor = scope.ServiceProvider.GetRequiredService<INovelProcessor>();
             await novelProcessor.RetryFailedChaptersAsync(novelId, withLogin);
         }
         catch (Exception ex)
@@ -1590,9 +1600,9 @@ internal static class Program
     {
         try
         {
-            await using var scope = Container!.BeginLifetimeScope();
-            var novelService = scope.Resolve<INovelService>();
-            var novelProcessor = scope.Resolve<INovelProcessor>();
+            await using var scope = Services!.CreateAsyncScope();
+            var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
+            var novelProcessor = scope.ServiceProvider.GetRequiredService<INovelProcessor>();
             var novels = await novelService.GetAllAsync();
             var novelList = novels.ToList();
 
@@ -1654,8 +1664,8 @@ internal static class Program
     {
         try
         {
-            await using var scope = Container!.BeginLifetimeScope();
-            var novelService = scope.Resolve<INovelService>();
+            await using var scope = Services!.CreateAsyncScope();
+            var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
             var novel = await novelService.GetByIdAsync(id);
             if (novel != null)
             {
@@ -1698,8 +1708,8 @@ internal static class Program
             File.Move(oldDbPath, newDbPath);
 
             // Update the configuration table
-            await using var scope = Container!.BeginLifetimeScope();
-            var configurationRepository = scope.Resolve<IConfigurationRepository>();
+            await using var scope = Services!.CreateAsyncScope();
+            var configurationRepository = scope.ServiceProvider.GetRequiredService<IConfigurationRepository>();
             var configuration = await configurationRepository.GetByIdAsync(_defaultConfigId);
             configuration.DatabaseFileName = newDbName;
             configurationRepository.Update(configuration);
@@ -1714,8 +1724,8 @@ internal static class Program
 
     private static async Task DisplayNovelInformationAsync(Guid novelId)
     {
-        await using var scope = Container!.BeginLifetimeScope();
-        var novelService = scope.Resolve<INovelService>();
+        await using var scope = Services!.CreateAsyncScope();
+        var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
 
         var novel = await novelService.GetByIdAsync(novelId);
         if (novel == null)
@@ -1757,8 +1767,8 @@ internal static class Program
     {
         try
         {
-            await using var scope = Container!.BeginLifetimeScope();
-            var novelService = scope.Resolve<INovelService>();
+            await using var scope = Services!.CreateAsyncScope();
+            var novelService = scope.ServiceProvider.GetRequiredService<INovelService>();
             var novel = await novelService.GetByIdAsync(id);
 
             if (novel != null)
@@ -1865,70 +1875,6 @@ internal static class Program
         }
 
         return novelScraperSettings;
-    }
-
-    /// <summary>
-    /// Registers services, repositories, application settings, site configurations, and EPUB templates.
-    /// </summary>
-    /// <param name="builder">The container builder.</param>
-    /// <param name="configuration">The application configuration.</param>
-    /// <param name="novelScraperSettings">The scraper settings, including the configurations loaded from the sites directory.</param>
-    private static void ConfigureServices(
-        ContainerBuilder builder,
-        IConfigurationRoot configuration,
-        NovelScraperSettings novelScraperSettings)
-    {
-        // Register IConfiguration
-        builder.RegisterInstance(configuration).As<IConfiguration>();
-
-        builder.Register(c => new Database(new DbContextOptionsBuilder<Database>()
-            .UseSqlite(GetConnectionString(), options => options.MigrationsAssembly("Benny-Scraper.DataAccess")).Options)).InstancePerLifetimeScope();
-
-        builder.RegisterType<DbInitializer>().As<DbInitializer>();
-        builder.RegisterType<UnitOfWork>().As<IUnitOfWork>();
-        builder.RegisterType<NovelProcessor>().As<INovelProcessor>();
-        builder.RegisterType<ChapterRepository>().As<IChapterRepository>();
-        builder.RegisterType<NovelService>().As<INovelService>().InstancePerLifetimeScope();
-        builder.RegisterType<ChapterService>().As<IChapterService>().InstancePerLifetimeScope();
-        builder.RegisterType<NovelRepository>().As<INovelRepository>();
-        builder.RegisterType<ConfigurationRepository>().As<IConfigurationRepository>();
-        builder.RegisterType<EpubGenerator>().As<IEpubGenerator>().InstancePerDependency();
-        builder.RegisterType<ComicBookArchiveGenerator>().As<IComicBookArchiveGenerator>().InstancePerDependency();
-        builder.RegisterType<CommonStrategy>().Keyed<ScraperStrategy>("common").InstancePerDependency();
-        builder.RegisterType<LightNovelWorldStrategy>().Keyed<ScraperStrategy>("lightnovelworld").InstancePerDependency();
-        builder.RegisterType<MangaKakalotStrategy>().Keyed<ScraperStrategy>("mangakakalot").InstancePerDependency();
-        builder.RegisterType<MangaKatanaStrategy>().Keyed<ScraperStrategy>("mangakatana").InstancePerDependency();
-        builder.RegisterType<MangaReaderStrategy>().Keyed<ScraperStrategy>("mangareader").InstancePerDependency();
-        builder.RegisterType<NovelBinStrategy>().Keyed<ScraperStrategy>("novelbin").InstancePerDependency();
-        builder.RegisterType<NovelDramaStrategy>().Keyed<ScraperStrategy>("noveldrama").InstancePerDependency();
-        builder.RegisterType<NovelFullStrategy>().Keyed<ScraperStrategy>("novelfull").InstancePerDependency();
-        builder.RegisterType<NovelBuddyStrategy>().Keyed<ScraperStrategy>("novelbuddy").InstancePerDependency();
-        builder.RegisterType<RoyalRoadStrategy>().Keyed<ScraperStrategy>("royalroad").InstancePerDependency();
-        builder.RegisterType<WanderingInnStrategy>().Keyed<ScraperStrategy>("wanderinginn").InstancePerDependency();
-        builder.RegisterType<WuxiaWorldStrategy>().Keyed<ScraperStrategy>("wuxiaworld").InstancePerDependency();
-
-        builder.AddHttpResilience();
-
-        // Centralized Selenium driver factory (so all drivers can be disposed on shutdown)
-        builder.RegisterType<DriverFactory>().As<IDriverFactory>().SingleInstance();
-
-        builder.RegisterInstance(novelScraperSettings).SingleInstance();
-
-        // needed to register NovelScraperSettings implicitly, Autofac does not resolve 'IOptions<T>' by defualt. Optoins.Create avoids ArgumentException
-        builder.Register(c => Options.Create(c.Resolve<NovelScraperSettings>())).As<IOptions<NovelScraperSettings>>().SingleInstance();
-
-        // Register EpubTemplates.cs as a singleton from appsettings.json.
-        builder.Register(c =>
-        {
-            var config = c.Resolve<IConfiguration>();
-            var settings = new EpubTemplates();
-            config.GetSection("EpubTemplates").Bind(settings);
-            return settings;
-        }).SingleInstance();
-        builder.Register(c => Options.Create(c.Resolve<EpubTemplates>())).As<IOptions<EpubTemplates>>().SingleInstance();
-
-        builder.RegisterType<NovelScraperFactory>().As<INovelScraperFactory>().InstancePerDependency();
-        builder.RegisterType<NovelScraper>().As<INovelScraper>().InstancePerDependency();
     }
 
     /// <summary>

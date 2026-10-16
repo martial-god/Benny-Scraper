@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using BennyScraper.BusinessLogic.Extensions;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
@@ -9,7 +10,9 @@ using OpenQA.Selenium;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-internal sealed class WuxiaWorldStrategy : ScraperStrategy
+internal sealed class WuxiaWorldStrategy(
+    IHttpClientFactory httpClientFactory,
+    IDriverFactory driverFactory) : ScraperStrategy(httpClientFactory, driverFactory)
 {
     /// <summary>
     /// This particular scraper requires Selenium for the Chapter Urls and Nowel Imge Thumbnail.

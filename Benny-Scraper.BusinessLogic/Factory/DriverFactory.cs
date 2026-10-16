@@ -9,7 +9,7 @@ using OpenQA.Selenium.Firefox;
 
 namespace BennyScraper.BusinessLogic.Factory;
 
-internal sealed class DriverFactory : IDriverFactory
+internal sealed class DriverFactory : IDriverFactory, IDisposable
 {
     private readonly ConcurrentDictionary<int, IWebDriver> _drivers = new(); // thread-safe version of the dictionary, no need to worry about multiple threads making changes
     private int _counter;
@@ -371,6 +371,8 @@ internal sealed class DriverFactory : IDriverFactory
             }
         }
     }
+
+    public void Dispose() => DisposeAllDrivers();
 
     private static int? GetChromeProcessId(ChromeDriver driver)
     {

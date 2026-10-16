@@ -9,7 +9,6 @@ namespace BennyScraper.DataAccess.Data;
 /// such as running migrations or generating code from the database schema.
 /// It provides a way to configure the DbContext with the correct settings (e.g., connection string)
 /// without relying on the application's runtime configuration.
-/// Resolve issue with not having an IHost due to using Autofac.
 /// </summary>
 public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Database>
 {

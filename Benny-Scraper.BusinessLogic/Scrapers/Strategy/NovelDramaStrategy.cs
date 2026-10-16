@@ -1,4 +1,5 @@
 using System.Globalization;
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using BennyScraper.BusinessLogic.Helper;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
@@ -6,7 +7,9 @@ using HtmlAgilityPack;
 
 namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 
-internal sealed class NovelDramaStrategy : ScraperStrategy
+internal sealed class NovelDramaStrategy(
+    IHttpClientFactory httpClientFactory,
+    IDriverFactory driverFactory) : ScraperStrategy(httpClientFactory, driverFactory)
 {
     private readonly string _lastTableOfContentsPageNumberXpath = "//*[@id='chapters']/div[2]/div[2]/div/div/input"; // This site does not have a last page button, so we have to get the last page number from the input box
     private readonly string _chapterMaxAttribute = "data-max";

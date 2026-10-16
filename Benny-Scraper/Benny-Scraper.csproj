@@ -14,10 +14,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Autofac.Configuration" />
-    <PackageReference Include="Autofac.Extensions.DependencyInjection" />
     <PackageReference Include="CommandLineParser" />
     <PackageReference Include="HtmlAgilityPack" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.AspNetCore.Hosting" />
     <PackageReference Include="Microsoft.Data.Sqlite.Core" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
@@ -81,6 +80,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Benny-Scraper.Tests" />
   </ItemGroup>
 
 </Project>

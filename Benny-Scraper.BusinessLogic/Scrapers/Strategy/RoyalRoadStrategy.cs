@@ -1,3 +1,4 @@
+using BennyScraper.BusinessLogic.Factory.Interfaces;
 using BennyScraper.BusinessLogic.Scrapers.Strategy.Impl;
 using BennyScraper.Models;
 using HtmlAgilityPack;
@@ -8,7 +9,9 @@ namespace BennyScraper.BusinessLogic.Scrapers.Strategy;
 /// Scraping strategy for royalroad.com.
 /// HTTP-based scraper, no Selenium required.
 /// </summary>
-internal sealed class RoyalRoadStrategy : ScraperStrategy
+internal sealed class RoyalRoadStrategy(
+    IHttpClientFactory httpClientFactory,
+    IDriverFactory driverFactory) : ScraperStrategy(httpClientFactory, driverFactory)
 {
     public override async Task<NovelDataBuffer> ScrapeAsync()
     {

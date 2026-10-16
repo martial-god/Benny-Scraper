@@ -1,27 +1,23 @@
-using Autofac;
 using BennyScraper.BusinessLogic.Config;
 using BennyScraper.BusinessLogic.Factory;
 using BennyScraper.BusinessLogic.Factory.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Polly;
 
 namespace BennyScraper.BusinessLogic.Extensions;
 
 internal static class DependencyInjectionExtensions
 {
-    public static ContainerBuilder AddHttpResilience(this ContainerBuilder builder)
+    public static IServiceCollection AddHttpResilience(this IServiceCollection services)
     {
-        builder.Register(c =>
+        services.AddSingleton<ResiliencePipeline<HttpResponseMessage>>(provider =>
             {
-                var settings = c.Resolve<NovelScraperSettings>();
+                var settings = provider.GetRequiredService<NovelScraperSettings>();
                 return HttpClientResilience.CreatePipeline(settings.HttpResilience);
-            })
-            .As<ResiliencePipeline<HttpResponseMessage>>()
-            .SingleInstance();
+            });
 
-        builder.RegisterType<HttpClientFactory>()
-            .As<IHttpClientFactory>()
-            .SingleInstance();
+        services.AddSingleton<IHttpClientFactory, HttpClientFactory>();
 
-        return builder;
+        return services;
     }
 }
