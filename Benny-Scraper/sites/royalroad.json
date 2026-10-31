@@ -43,7 +43,7 @@
     },
     "userCurrencyBalances": {},
     "chapterTitle": "//h1/text()",
-    "chapterContent": "//div[contains(@class, 'author-note')]//p | //div[@class='chapter-inner chapter-content']//p | //div[@class='chapter-inner chapter-content']//div[contains(@style, 'margin')]",
+    "chapterContent": "//div[contains(@class, 'author-note')]//p | //div[@class='chapter-inner chapter-content']//*[self::p or self::div][not(descendant::p or descendant::div)]",
     "alternativeChapterContent": null,
     "chapterContentImageUrlAttribute": null,
     "nextChapterButton": "//a[contains(@class, 'btn-primary') and contains(@href, '/chapter/')]"
