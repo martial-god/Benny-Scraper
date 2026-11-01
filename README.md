@@ -70,7 +70,9 @@ See [release notes](RELEASE_NOTES.md) for the migration details and image-librar
 - Google Chrome or Firefox installed for sites and tests that require Selenium.
 - [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) is optional, but is required for some Cloudflare-protected sites. It runs as a separate application and is commonly installed using Docker.
 
-FlareSolverr can be enabled or disabled in `appsettings.json`:
+Each sites `requiresFlareSolverr` setting controls its use during downloads. The interactive site testing option will try FlareSolverr to discover whether a site needs it.
+
+Sites that require FlareSolverr also need it enabled in `appsettings.json`:
 
 ```json
 "FlareSolverrSettings": {
