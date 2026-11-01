@@ -56,7 +56,7 @@ internal sealed class RoyalRoadStrategy(
             throw new InvalidDataException("RoyalRoad returned an empty or invalid chapter list.");
         }
 
-        return chapters.OrderBy(chapter => chapter.Order).Select(chapter => new ChapterLink
+        return chapters.Select(chapter => new ChapterLink
         {
             Url = new Uri(novelUri, chapter.Url).AbsoluteUri,
             Title = chapter.Title.Trim()
@@ -81,7 +81,8 @@ internal sealed class RoyalRoadStrategy(
             };
 
             await RoyalRoadInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch).ConfigureAwait(false);
-            foreach (var chapter in ReadChapterLinks(htmlDocument, ScraperData.SiteTableOfContents))
+            var chapters = ReadChapterLinks(htmlDocument, ScraperData.SiteTableOfContents);
+            foreach (var chapter in chapters)
             {
                 novelDataBuffer.ChapterLinks.Add(chapter);
                 novelDataBuffer.ChapterTitles.Add(chapter.Title!);
@@ -114,6 +115,9 @@ internal sealed class RoyalRoadStrategy(
 
         [JsonPropertyName("title")]
         public required string Title { get; init; }
+
+        [JsonPropertyName("isUnlocked")]
+        public required bool IsUnlocked { get; init; }
 
         [JsonPropertyName("order")]
         public required int Order { get; init; }
