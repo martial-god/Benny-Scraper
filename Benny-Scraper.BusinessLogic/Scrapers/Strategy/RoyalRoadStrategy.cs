@@ -81,8 +81,7 @@ internal sealed class RoyalRoadStrategy(
             };
 
             await RoyalRoadInitializer.FetchNovelContentAsync(novelDataBuffer, htmlDocument, ScraperData, attributesToFetch).ConfigureAwait(false);
-            var chapters = ReadChapterLinks(htmlDocument, ScraperData.SiteTableOfContents);
-            foreach (var chapter in chapters)
+            foreach (var chapter in ReadChapterLinks(htmlDocument, ScraperData.SiteTableOfContents))
             {
                 novelDataBuffer.ChapterLinks.Add(chapter);
                 novelDataBuffer.ChapterTitles.Add(chapter.Title!);
