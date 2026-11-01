@@ -34,7 +34,7 @@ public sealed class RoyalRoadChapterListTests
     }
 
     [Fact]
-    public void UsesOrderAndDecodesJsonEscapesWhileIgnoringOtherFields()
+    public void PreservesArrayOrderAndDecodesJsonEscapesWhileIgnoringOtherFields()
     {
         var document = new HtmlDocument();
         document.LoadHtml("""
@@ -48,9 +48,10 @@ public sealed class RoyalRoadChapterListTests
 
         var chapters = RoyalRoadStrategy.ReadChapterLinks(document, _novelUri);
 
-        Assert.Equal("First — \"Hello\"", chapters[0].Title);
-        Assert.Equal("https://example.com/chapter/one", chapters[0].Url);
-        Assert.Equal("Second: ]; in a title", chapters[1].Title);
+        Assert.Equal("First — \"Hello\"", chapters[1].Title);
+        Assert.Equal("https://example.com/chapter/one", chapters[1].Url);
+        Assert.Equal("Second: ]; in a title", chapters[0].Title);
+        Assert.Equal("https://example.com/chapter/two", chapters[0].Url);
     }
 
     [Theory]

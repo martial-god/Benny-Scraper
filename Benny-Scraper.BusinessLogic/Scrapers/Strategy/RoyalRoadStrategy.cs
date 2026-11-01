@@ -56,7 +56,7 @@ internal sealed class RoyalRoadStrategy(
             throw new InvalidDataException("RoyalRoad returned an empty or invalid chapter list.");
         }
 
-        return chapters.OrderBy(chapter => chapter.Order).Select(chapter => new ChapterLink
+        return chapters.Select(chapter => new ChapterLink
         {
             Url = new Uri(novelUri, chapter.Url).AbsoluteUri,
             Title = chapter.Title.Trim()

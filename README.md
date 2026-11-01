@@ -34,7 +34,7 @@ Benny-Scraper does not use a hosted scraping service. It runs on your computer a
 | [noveldrama](https://noveldrama.com) | Web novel | EPUB | None |
 | [novelfire](https://novelfire.net) | Web novel | EPUB | None |
 | [novelfull](https://novelfull.com) | Web novel | EPUB | FlareSolverr |
-| [Royalroad](https://royalroad.com) | Web novel | EPUB | None |
+| [Royalroad](https://royalroad.com) | Web novel | EPUB | FlareSolverr |
 | [Toonily](https://toonily.com) | Manga/comic | PDF or CBZ | FlareSolverr |
 | [wanderinginn](https://wanderinginn.com) | Web novel | EPUB | None |
 | [WebNovel](https://www.webnovel.com) | Web novel (text only) | EPUB | FlareSolverr |
