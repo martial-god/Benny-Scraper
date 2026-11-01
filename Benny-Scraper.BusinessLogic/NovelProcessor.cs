@@ -1293,24 +1293,24 @@ internal sealed class NovelProcessor(
 
     private async Task ConfigureFlareSolverrAsync(ScraperStrategy scraperStrategy, SiteConfiguration siteConfiguration)
     {
+        if (!siteConfiguration.RequiresFlareSolverr)
+        {
+            return;
+        }
+
         var flareSolverrSettings = _novelScraperSettings.FlareSolverrSettings;
         if (flareSolverrSettings?.Enabled != true)
         {
-            if (siteConfiguration.RequiresFlareSolverr)
-            {
-                throw new InvalidOperationException(
-                    $"{siteConfiguration.SiteName} requires FlareSolverr. Enable it in appsettings.json and run 'docker compose up -d flaresolverr'.");
-            }
-
-            return;
+            throw new InvalidOperationException(
+                $"{siteConfiguration.SiteName} requires FlareSolverr. Enable it in appsettings.json and run 'docker compose up -d flaresolverr'.");
         }
 
         var flareSolverrUrl = flareSolverrSettings.Url ?? "http://localhost:8191";
         var flareSolverrIsAvailable = await scraperStrategy.EnableFlareSolverrAsync(
             flareSolverrUrl,
-            siteConfiguration.RequiresFlareSolverr).ConfigureAwait(false);
+            useForAllPageLoads: true).ConfigureAwait(false);
 
-        if (siteConfiguration.RequiresFlareSolverr && !flareSolverrIsAvailable)
+        if (!flareSolverrIsAvailable)
         {
             throw new InvalidOperationException(
                 $"{siteConfiguration.SiteName} requires FlareSolverr, but it is not available at {flareSolverrUrl}. Run 'docker compose up -d flaresolverr' and try again.");
