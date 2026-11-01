@@ -116,9 +116,6 @@ internal sealed class RoyalRoadStrategy(
         [JsonPropertyName("title")]
         public required string Title { get; init; }
 
-        [JsonPropertyName("isUnlocked")]
-        public required bool IsUnlocked { get; init; }
-
         [JsonPropertyName("order")]
         public required int Order { get; init; }
     }
